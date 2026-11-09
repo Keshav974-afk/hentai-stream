@@ -145,7 +145,16 @@ function updateNavHighlight(route) {
     }
   });
 
-  // Mobile Bottom Tab Bar Highlight
+  // Mobile Bottom Tab Bar Highlight & Visibility (hidden during video playback like FlowFlix)
+  const bottomNav = document.getElementById('mobile-bottom-nav');
+  if (bottomNav) {
+    if (route === 'player') {
+      bottomNav.classList.add('hidden');
+    } else {
+      bottomNav.classList.remove('hidden');
+    }
+  }
+
   ['home', 'trending', 'browse', 'watchlist', 'history'].forEach(r => {
     const mobEl = document.getElementById(`mobile-nav-${r}`);
     if (mobEl) {
@@ -288,11 +297,11 @@ function renderFlowCard(item, options = {}) {
   const chapterName = options.chapterName || item.chapter_name;
   const isEpisode = !!chapterId;
 
-  const cardWidth = options.width || 'w-36 sm:w-44 lg:w-48';
+  const cardWidth = options.width || 'w-28 sm:w-36 md:w-44 lg:w-48';
   const clickAction = isEpisode ? `navigateTo('#/watch/${id}/${chapterId}')` : `navigateTo('#/series/${id}')`;
 
   return `
-    <div class="group relative flex-shrink-0 ${cardWidth} rounded-md overflow-hidden bg-carbon-800 border border-white/[0.08] hover:border-white/30 transition-all duration-300 hover:scale-105 hover:z-20 cursor-pointer shadow-lg"
+    <div class="group relative flex-shrink-0 ${cardWidth} rounded-md overflow-hidden bg-carbon-800 border border-white/[0.08] hover:border-white/30 transition-all duration-300 hover:scale-105 active:scale-95 hover:z-20 cursor-pointer shadow-lg"
          onclick="${clickAction}"
          onmouseenter="handleCardMouseEnter(this, '${escapeHtml(previewUrl)}')"
          onmouseleave="handleCardMouseLeave(this)">
@@ -378,7 +387,33 @@ function handleCardMouseLeave(card) {
   if (img) img.style.opacity = '1';
 }
 
-// ==================== VOIDFLIX HERO BANNER ====================
+// ==================== FLOWFLIX MOBILE CATEGORY CHIPS ====================
+function renderMobileCategoryChips() {
+  const chips = [
+    { label: 'All Titles', onclick: "showHome()" },
+    { label: 'Trending', onclick: "navigateTo('#/browse/trending')" },
+    { label: 'New Episodes', onclick: "document.getElementById('row-episodes')?.scrollIntoView({ behavior: 'smooth' })" },
+    { label: 'Uncensored', onclick: "navigateTo('#/browse/uncensored')" },
+    { label: 'Yuri', onclick: "navigateTo('#/browse/yuri')" },
+    { label: 'Ecchi', onclick: "navigateTo('#/browse/ecchi')" },
+    { label: 'Tentacle', onclick: "navigateTo('#/browse/tentacle')" },
+    { label: 'A-Z Catalogue', onclick: "navigateTo('#/browse/all')" },
+    { label: 'My List', onclick: "navigateTo('#/watchlist')" }
+  ];
+
+  return `
+    <div class="lg:hidden flex gap-2 overflow-x-auto no-scrollbar py-1 px-1 -mx-1 mb-4">
+      ${chips.map((c, i) => `
+        <button onclick="${c.onclick}" 
+                class="shrink-0 rounded-full border border-white/20 bg-carbon-800/80 px-3.5 py-1 text-xs font-semibold text-gray-200 active:scale-95 transition hover:border-white/40 ${i === 0 ? 'bg-white text-black font-bold' : ''}">
+          ${escapeHtml(c.label)}
+        </button>
+      `).join('')}
+    </div>
+  `;
+}
+
+// ==================== VOIDFLIX HERO BANNER (MOBILE & DESKTOP DUAL LAYOUT) ====================
 function renderVoidflixHero(items) {
   if (!items || items.length === 0) return '';
   const item = items[state.heroIndex % items.length];
@@ -389,20 +424,58 @@ function renderVoidflixHero(items) {
   const inList = isWatchlisted(id);
 
   return `
-    <div class="relative w-full aspect-[16/9] sm:aspect-[21/9] max-h-[580px] rounded-xl sm:rounded-2xl overflow-hidden bg-carbon-850 shadow-2xl border border-white/[0.08] group select-none">
-      
-      <!-- Hero Background Image -->
+    <!-- Mobile FlowFlix Hero (< 1024px) -->
+    <section class="lg:hidden px-1 pt-1 pb-3">
+      <div class="relative mx-auto aspect-[2/3] w-full max-w-[290px] sm:max-w-xs overflow-hidden rounded-2xl bg-carbon-850 shadow-2xl border border-white/10 select-none">
+        <img src="${escapeHtml(thumb)}" alt="${escapeHtml(title)}" class="absolute inset-0 w-full h-full object-cover">
+        <div class="absolute inset-0 bg-gradient-to-t from-carbon-950 via-carbon-950/40 to-transparent"></div>
+        
+        <div class="absolute inset-x-0 bottom-0 p-4 space-y-3">
+          <h2 class="font-display text-2xl sm:text-3xl text-white text-center tracking-wide leading-tight drop-shadow-md line-clamp-2">${escapeHtml(title)}</h2>
+          
+          <div class="flex items-center justify-center gap-2 text-[11px] font-semibold text-gray-300">
+            <span class="text-brand-red font-bold">18+ Mature</span>
+            <span class="text-white/40">•</span>
+            <span class="text-emerald-400 font-bold">98% Match</span>
+            <span class="text-white/40">•</span>
+            <span class="text-gray-300">1080p FHD</span>
+          </div>
+
+          <div class="flex gap-2 pt-1">
+            <button onclick="navigateTo('#/series/${id}')" 
+                    class="flex-1 py-2.5 px-3 rounded-md bg-white hover:bg-gray-200 text-black font-bold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition shadow-xl">
+              <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg> Play
+            </button>
+            <button onclick="toggleWatchlist({ id: ${id}, title: '${escapeHtml(title).replace(/'/g, "\\'")}', thumbnail: '${escapeHtml(thumb)}' }, event)" 
+                    data-watchlist-id="${id}" 
+                    class="flex-1 py-2.5 px-3 rounded-md bg-white/20 hover:bg-white/30 backdrop-blur text-white font-bold text-xs flex items-center justify-center gap-1.5 border border-white/15 active:scale-95 transition">
+              ${inList 
+                ? `<svg class="w-4 h-4 text-brand-red fill-current" viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg> In List` 
+                : `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg> My List`}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mobile Pagination Dots -->
+      <div class="mt-3 flex items-center justify-center gap-1.5">
+        ${items.slice(0, 5).map((_, idx) => `
+          <button onclick="setHeroSlide(${idx})" class="p-1">
+            <span class="block h-1 rounded-full transition-all duration-300 ${idx === (state.heroIndex % items.length) ? 'w-6 bg-brand-red' : 'w-2.5 bg-white/30'}"></span>
+          </button>
+        `).join('')}
+      </div>
+    </section>
+
+    <!-- Desktop FlowFlix Hero (>= 1024px) -->
+    <section class="hidden lg:block relative w-full aspect-[21/9] max-h-[580px] rounded-2xl overflow-hidden bg-carbon-850 shadow-2xl border border-white/[0.08] group select-none">
       <img src="${escapeHtml(thumb)}" alt="${escapeHtml(title)}"
            class="absolute inset-0 w-full h-full object-cover filter brightness-[0.72] group-hover:scale-105 transition-transform duration-700 ease-out">
 
-      <!-- Cinema Matte Vignette -->
       <div class="absolute inset-0 bg-gradient-to-t from-carbon-900 via-carbon-900/50 to-transparent"></div>
       <div class="absolute inset-0 bg-gradient-to-r from-carbon-900/95 via-carbon-900/40 to-transparent"></div>
 
-      <!-- Hero Text Content -->
-      <div class="relative z-10 p-6 sm:p-12 max-w-2xl lg:max-w-3xl space-y-4">
-        
-        <!-- Metadata Chips -->
+      <div class="relative z-10 p-12 max-w-3xl space-y-4">
         <div class="flex items-center gap-2.5 text-xs">
           <span class="px-2 py-0.5 rounded bg-brand-red text-white font-bold tracking-wider uppercase text-[10px]">
             18+ Mature
@@ -413,57 +486,46 @@ function renderVoidflixHero(items) {
           ${views ? `<span class="text-gray-400 text-xs">${formatViews(views)} Views</span>` : ''}
         </div>
 
-        <!-- Big Bold Display Title -->
-        <h1 class="font-display text-4xl sm:text-6xl lg:text-7xl text-white tracking-wide uppercase leading-none drop-shadow-md line-clamp-2">
+        <h1 class="font-display text-6xl xl:text-7xl text-white tracking-wide uppercase leading-none drop-shadow-md line-clamp-2">
           ${escapeHtml(title)}
         </h1>
 
-        <p class="text-gray-300 text-xs sm:text-sm leading-relaxed line-clamp-3 max-w-xl drop-shadow">
+        <p class="text-gray-300 text-sm leading-relaxed line-clamp-3 max-w-xl drop-shadow">
           Stream the complete episodes in 1080p Full HD with VoidFlix. Featuring responsive cinema playback, chapter navigation, and adaptive quality.
         </p>
 
-        <!-- Actions: Watch Series Page + Frosted My List -->
-        <div class="flex flex-wrap items-center gap-3 pt-2">
-          
+        <div class="flex items-center gap-3 pt-2">
           <button onclick="navigateTo('#/series/${id}')" 
-                  class="px-6 sm:px-8 py-2.5 sm:py-3 rounded-md bg-white hover:bg-gray-200 text-black font-bold text-sm sm:text-base flex items-center gap-2 transition active:scale-95 shadow-xl">
+                  class="px-8 py-3 rounded-md bg-white hover:bg-gray-200 text-black font-bold text-base flex items-center gap-2 transition active:scale-95 shadow-xl">
             <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
             Watch Now
           </button>
 
           <button onclick="toggleWatchlist({ id: ${id}, title: '${escapeHtml(title).replace(/'/g, "\\'")}', thumbnail: '${escapeHtml(thumb)}' }, event)"
                   data-watchlist-id="${id}"
-                  class="glass-btn px-5 py-2.5 sm:py-3 rounded-md text-white font-semibold text-sm flex items-center gap-2 transition active:scale-95">
+                  class="glass-btn px-6 py-3 rounded-md text-white font-semibold text-sm flex items-center gap-2 transition active:scale-95">
             ${inList
               ? `<svg class="w-4 h-4 text-brand-red fill-current" viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg> <span>Added to My List</span>`
               : `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg> <span>Add to My List</span>`}
           </button>
-
-          <button onclick="navigateTo('#/series/${id}')" title="Episodes & Info"
-                  class="glass-btn p-2.5 sm:p-3 rounded-md text-white transition">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-          </button>
-
         </div>
-
       </div>
 
-      <!-- Slide Indicator Bars & Next/Prev Controls -->
-      <div class="absolute bottom-6 right-6 sm:bottom-10 sm:right-10 z-20 flex items-center gap-2">
+      <!-- Desktop Slide Indicators -->
+      <div class="absolute bottom-10 right-10 z-20 flex items-center gap-2">
         <button onclick="prevHeroSlide()" class="p-2 rounded-md bg-black/60 hover:bg-black/80 backdrop-blur border border-white/10 text-white transition">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
         </button>
         <div class="flex items-center gap-1.5 px-1">
           ${items.slice(0, 5).map((_, idx) => `
-            <button onclick="setHeroSlide(${idx})" class="h-1 rounded-sm transition-all duration-300 ${idx === state.heroIndex ? 'w-8 bg-brand-red' : 'w-3 bg-white/30 hover:bg-white/60'}"></button>
+            <button onclick="setHeroSlide(${idx})" class="h-1 rounded-sm transition-all duration-300 ${idx === (state.heroIndex % items.length) ? 'w-8 bg-brand-red' : 'w-3 bg-white/30 hover:bg-white/60'}"></button>
           `).join('')}
         </div>
         <button onclick="nextHeroSlide()" class="p-2 rounded-md bg-black/60 hover:bg-black/80 backdrop-blur border border-white/10 text-white transition">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
         </button>
       </div>
-
-    </div>
+    </section>
   `;
 }
 
@@ -588,12 +650,12 @@ function renderTop10Row(items) {
             const rank = idx + 1;
 
             return `
-              <div class="flex-shrink-0 flex items-center cursor-pointer group/rank" onclick="navigateTo('#/series/${id}')">
-                <span class="rank-number -mr-4 sm:-mr-6 z-10 font-bold group-hover/rank:scale-110 transition-transform duration-300">${rank}</span>
-                <div class="w-28 sm:w-36 aspect-[2/3] rounded-md overflow-hidden bg-carbon-800 border border-white/10 group-hover/rank:border-white/40 transition shadow-xl relative">
+              <div class="flex-shrink-0 flex items-center cursor-pointer group/rank active:scale-95 transition" onclick="navigateTo('#/series/${id}')">
+                <span class="rank-number -mr-3 sm:-mr-5 z-10 font-bold group-hover/rank:scale-110 transition-transform duration-300 text-5xl sm:text-7xl">${rank}</span>
+                <div class="w-24 sm:w-32 md:w-36 aspect-[2/3] rounded-md overflow-hidden bg-carbon-800 border border-white/10 group-hover/rank:border-white/40 transition shadow-xl relative">
                   <img src="${escapeHtml(thumb)}" alt="${escapeHtml(title)}" class="w-full h-full object-cover">
                   <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-2">
-                    <p class="font-heading font-semibold text-[11px] text-white truncate">${escapeHtml(title)}</p>
+                    <p class="font-heading font-semibold text-[10px] sm:text-[11px] text-white truncate">${escapeHtml(title)}</p>
                   </div>
                 </div>
               </div>
@@ -679,14 +741,16 @@ function renderHomeLayout(data) {
   const ecchi = Array.isArray(data?.ecchi) ? data.ecchi : [];
 
   app.innerHTML = `
-    <div class="fade-enter space-y-6">
+    <div class="fade-enter space-y-4 sm:space-y-6">
+      ${renderMobileCategoryChips()}
+
       <div id="hero-wrapper">
         ${renderVoidflixHero(trending.slice(0, 5))}
       </div>
 
       ${renderVoidflixContinueWatching()}
       ${renderTop10Row(trending)}
-      ${renderMediaShelf('row-episodes', 'Latest Episode Releases (Hover to Preview)', latestEpisodes)}
+      ${renderMediaShelf('row-episodes', 'Latest Episode Releases', latestEpisodes)}
       ${renderMediaShelf('row-trending', 'Trending Now', trending, { viewAllCategory: 'trending' })}
       ${renderMediaShelf('row-recent', 'Recently Added Series', recent, { viewAllCategory: 'recent' })}
       ${renderMediaShelf('row-uncensored', 'Uncensored Vault', uncensored, { viewAllCategory: 'uncensored' })}
@@ -747,10 +811,65 @@ async function showSeriesPage(id) {
     const playBtnText = saved ? `Resume (${formatTime(saved.currentTime)})` : 'Play Episode 1';
 
     app.innerHTML = `
-      <div class="space-y-8 fade-enter max-w-[1400px] mx-auto pb-12">
+      <div class="space-y-6 sm:space-y-8 fade-enter max-w-[1400px] mx-auto pb-12">
         
-        <!-- Hero Series Header Banner -->
-        <div class="relative w-full aspect-[21/9] min-h-[360px] max-h-[500px] rounded-2xl overflow-hidden bg-carbon-850 shadow-2xl border border-white/10 group">
+        <!-- Mobile Series View (< 640px) -->
+        <div class="block sm:hidden space-y-3 px-1">
+          <div class="relative w-full aspect-[16/10] rounded-xl overflow-hidden bg-carbon-850 shadow-xl border border-white/10">
+            <img src="${escapeHtml(thumb)}" class="w-full h-full object-cover">
+            <div class="absolute inset-0 bg-gradient-to-t from-carbon-900 via-carbon-900/30 to-transparent"></div>
+            <button onclick="window.history.length > 1 ? window.history.back() : navigateTo('#/')" 
+                    class="absolute top-3 left-3 px-3 py-1.5 rounded-md bg-black/75 backdrop-blur border border-white/15 text-white text-xs font-semibold flex items-center gap-1.5 active:scale-95 shadow-lg">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+              Back
+            </button>
+          </div>
+
+          <div class="space-y-2.5 pt-1">
+            <h1 class="font-display text-2xl text-white uppercase tracking-wide leading-tight">${escapeHtml(title)}</h1>
+            ${alt ? `<p class="text-xs text-gray-400 italic">${escapeHtml(alt)}</p>` : ''}
+
+            <div class="flex flex-wrap items-center gap-1.5 text-[10px]">
+              <span class="px-1.5 py-0.5 rounded bg-brand-red text-white font-bold uppercase">18+ Mature</span>
+              <span class="text-emerald-400 font-bold">98% Match</span>
+              <span class="text-amber-400 font-medium">★ ${rating}</span>
+              <span class="text-gray-400">• ${episodes.length} Episodes</span>
+            </div>
+
+            ${episodes.length > 0 ? `
+              <button onclick="navigateTo('#/watch/${id}/${playTargetId}')"
+                      class="w-full py-3 rounded-lg bg-white hover:bg-gray-200 text-black font-bold text-sm flex items-center justify-center gap-2 shadow-xl active:scale-95 transition">
+                <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                ${playBtnText}
+              </button>
+            ` : ''}
+
+            <div class="grid grid-cols-3 gap-2 pt-1">
+              <button onclick="toggleWatchlist({ id: ${id}, title: '${escapeHtml(title).replace(/'/g, "\\'")}', thumbnail: '${escapeHtml(thumb)}' }, event)"
+                      data-watchlist-id="${id}"
+                      class="glass-btn py-2 px-2 rounded-lg text-white font-semibold text-xs flex flex-col items-center justify-center gap-1 active:scale-95 transition">
+                ${inList
+                  ? `<svg class="w-4 h-4 text-brand-red fill-current" viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg><span class="text-[10px]">Saved</span>`
+                  : `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg><span class="text-[10px]">My List</span>`}
+              </button>
+              ${firstEpId ? `
+                <button onclick="openDownloadModal('${escapeHtml(title).replace(/'/g, "\\'")}', 'Episode 1', '${escapeHtml(episodes[0].chapter_content || '')}', '${escapeHtml(episodes[0].chapter_thumbnail || thumb)}')"
+                        class="glass-btn py-2 px-2 rounded-lg text-white font-semibold text-xs flex flex-col items-center justify-center gap-1 active:scale-95 transition">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                  <span class="text-[10px]">Download</span>
+                </button>
+              ` : ''}
+              <button onclick="copyToClipboard(window.location.href, 'Series link copied to clipboard!')"
+                      class="glass-btn py-2 px-2 rounded-lg text-white font-semibold text-xs flex flex-col items-center justify-center gap-1 active:scale-95 transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
+                <span class="text-[10px]">Share</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Desktop Series Banner (>= 640px) -->
+        <div class="hidden sm:block relative w-full aspect-[21/9] min-h-[360px] max-h-[500px] rounded-2xl overflow-hidden bg-carbon-850 shadow-2xl border border-white/10 group">
           <img src="${escapeHtml(thumb)}" class="w-full h-full object-cover filter brightness-[0.7] transform group-hover:scale-105 transition-transform duration-700">
           <div class="absolute inset-0 bg-gradient-to-t from-carbon-900 via-carbon-900/60 to-transparent"></div>
           <div class="absolute inset-0 bg-gradient-to-r from-carbon-900/90 via-carbon-900/40 to-transparent"></div>
@@ -766,8 +885,6 @@ async function showSeriesPage(id) {
 
           <!-- Banner Bottom Content -->
           <div class="absolute bottom-6 left-6 right-6 sm:bottom-10 sm:left-10 sm:right-10 z-20 space-y-3 sm:space-y-4 max-w-3xl">
-            
-            <!-- Badges -->
             <div class="flex flex-wrap items-center gap-2 text-xs">
               <span class="px-2 py-0.5 rounded bg-brand-red text-white text-[10px] font-bold uppercase tracking-wider">18+ Mature</span>
               <span class="text-emerald-400 font-bold">98% Match</span>
@@ -777,14 +894,12 @@ async function showSeriesPage(id) {
               <span class="text-gray-400">${episodes.length} Episodes</span>
             </div>
 
-            <!-- Series Title -->
             <h1 class="font-display text-3xl sm:text-5xl lg:text-6xl text-white uppercase tracking-wide leading-tight drop-shadow-md">
               ${escapeHtml(title)}
             </h1>
 
             ${alt ? `<p class="text-xs sm:text-sm text-gray-300 italic max-w-2xl drop-shadow">${escapeHtml(alt)}</p>` : ''}
 
-            <!-- Action Buttons -->
             <div class="flex flex-wrap items-center gap-3 pt-2">
               ${episodes.length > 0 ? `
                 <button onclick="navigateTo('#/watch/${id}/${playTargetId}')"
@@ -813,9 +928,7 @@ async function showSeriesPage(id) {
                       class="glass-btn p-2.5 sm:p-3 rounded-md text-white transition hover:text-gray-200" title="Share Series Link">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
               </button>
-
             </div>
-
           </div>
         </div>
 
@@ -877,31 +990,24 @@ async function showSeriesPage(id) {
               const epDate = ep.chapter_date ? ep.chapter_date.split(' ')[0] : 'HD';
 
               return `
-                <div class="group/ep bg-carbon-800 rounded-lg overflow-hidden border border-white/10 hover:border-white/30 transition shadow-lg flex flex-col cursor-pointer"
+                <div class="group/ep bg-carbon-800 rounded-lg overflow-hidden border border-white/10 hover:border-white/30 transition shadow-lg flex flex-row sm:flex-col cursor-pointer active:scale-[0.98]"
                      onclick="navigateTo('#/watch/${id}/${ep.chapter_id}')">
                   
-                  <div class="relative aspect-video bg-carbon-850 overflow-hidden">
+                  <div class="relative w-28 sm:w-full aspect-video bg-carbon-850 overflow-hidden flex-shrink-0">
                     <img src="${escapeHtml(epThumb)}" class="w-full h-full object-cover group-hover/ep:scale-105 transition-transform duration-300" loading="lazy">
                     <div class="absolute inset-0 bg-black/30 group-hover/ep:bg-black/10 transition"></div>
-                    <span class="absolute bottom-2 left-2 text-[10px] bg-black/80 px-1.5 py-0.5 rounded font-bold text-white uppercase tracking-wider">EP ${epNum}</span>
-                    <span class="absolute bottom-2 right-2 text-[10px] bg-black/80 px-1.5 py-0.5 rounded font-mono text-gray-300">${escapeHtml(epDate)}</span>
-                    
-                    <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover/ep:opacity-100 transition">
-                      <div class="w-10 h-10 rounded-full bg-white text-black flex items-center justify-center shadow-2xl">
-                        <svg class="w-5 h-5 fill-current ml-0.5" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                      </div>
-                    </div>
+                    <span class="absolute bottom-1 left-1 sm:bottom-2 sm:left-2 text-[9px] sm:text-[10px] bg-black/80 px-1.5 py-0.5 rounded font-bold text-white uppercase tracking-wider">EP ${epNum}</span>
                   </div>
 
-                  <div class="p-3 flex items-center justify-between gap-2 flex-1 bg-carbon-750">
+                  <div class="p-2 sm:p-3 flex items-center justify-between gap-2 flex-1 bg-carbon-750 min-w-0">
                     <div class="min-w-0 flex-1">
                       <h4 class="font-heading font-semibold text-xs sm:text-sm text-white truncate group-hover/ep:text-brand-red transition">${escapeHtml(epName)}</h4>
-                      <p class="text-[11px] text-gray-400 mt-0.5">Watch in 1080p HD</p>
+                      <p class="text-[10px] sm:text-[11px] text-gray-400 mt-0.5 truncate">${escapeHtml(epDate)} • 1080p HD</p>
                     </div>
                     
                     <button onclick="event.stopPropagation(); openDownloadModal('${escapeHtml(title).replace(/'/g, "\\'")}', '${escapeHtml(epName).replace(/'/g, "\\'")}', '${escapeHtml(ep.chapter_content || '')}', '${escapeHtml(epThumb)}');"
                             title="Download Episode"
-                            class="p-2 rounded hover:bg-carbon-600 text-gray-400 hover:text-white transition">
+                            class="p-1.5 sm:p-2 rounded hover:bg-carbon-600 text-gray-400 hover:text-white transition flex-shrink-0">
                       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
                     </button>
                   </div>
@@ -935,6 +1041,9 @@ async function showWatchPage(seriesId, chapterId) {
   state.route = 'player';
   updateNavHighlight('series');
   window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  // Hide mobile bottom navigation on video player view (like FlowFlix)
+  document.getElementById('mobile-bottom-nav')?.classList.add('hidden');
 
   if (state.hls) {
     state.hls.destroy();
@@ -1140,23 +1249,23 @@ async function showWatchPage(seriesId, chapterId) {
                 <div class="flex items-center justify-between text-white">
                   
                   <!-- Left Controls -->
-                  <div class="flex items-center gap-2 sm:gap-4">
+                  <div class="flex items-center gap-1.5 sm:gap-4">
                     
                     <button id="btn-play-pause" onclick="togglePlayPause()" class="p-1 hover:text-gray-300 transition">
                       <svg id="ctrl-play-icon" class="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                     </button>
 
                     ${hasPrev ? `
-                      <button onclick="navigateTo('#/watch/${seriesId}/${episodes[epIndex - 1].chapter_id}')" title="Previous Episode (P)" class="p-1 text-gray-300 hover:text-white transition">
+                      <button onclick="navigateTo('#/watch/${seriesId}/${episodes[epIndex - 1].chapter_id}')" title="Previous Episode (P)" class="p-1 text-gray-300 hover:text-white transition hidden sm:inline-flex">
                         <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
                       </button>
                     ` : ''}
 
-                    <button onclick="seekRelative(-10)" title="Rewind 10s (← / J)" class="p-1 text-gray-300 hover:text-white transition">
+                    <button onclick="seekRelative(-10)" title="Rewind 10s (← / J)" class="p-1 text-gray-300 hover:text-white transition hidden sm:inline-flex">
                       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0019 16V8a1 1 0 00-1.6-.8l-5.334 4zM4.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0011 16V8a1 1 0 00-1.6-.8l-5.334 4z"/></svg>
                     </button>
 
-                    <button onclick="seekRelative(10)" title="Fast Forward 10s (→ / L)" class="p-1 text-gray-300 hover:text-white transition">
+                    <button onclick="seekRelative(10)" title="Fast Forward 10s (→ / L)" class="p-1 text-gray-300 hover:text-white transition hidden sm:inline-flex">
                       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.934 12.8a1 1 0 000-1.6l-5.334-4A1 1 0 005 8v8a1 1 0 001.6.8l5.334-4zM19.934 12.8a1 1 0 000-1.6l-5.334-4A1 1 0 0013 8v8a1 1 0 001.6.8l5.334-4z"/></svg>
                     </button>
 
@@ -1166,8 +1275,8 @@ async function showWatchPage(seriesId, chapterId) {
                       </button>
                     ` : ''}
 
-                    <!-- Volume Controls -->
-                    <div class="flex items-center gap-2">
+                    <!-- Volume Controls (Slider hidden on mobile) -->
+                    <div class="flex items-center gap-1.5">
                       <button id="btn-volume-mute" onclick="toggleMute()" class="p-1 text-gray-300 hover:text-white transition">
                         <svg id="vol-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
                       </button>
@@ -1176,41 +1285,55 @@ async function showWatchPage(seriesId, chapterId) {
                              class="scrubber w-14 sm:w-20 h-1 bg-white/30 rounded-full cursor-pointer hidden sm:inline-block">
                     </div>
 
-                    <!-- Time & Remaining Time Display -->
-                    <div class="text-xs font-mono text-gray-300 select-none pl-1 flex items-center gap-1.5">
+                    <!-- Time Display -->
+                    <div class="text-[11px] sm:text-xs font-mono text-gray-300 select-none pl-0.5 sm:pl-1 flex items-center gap-1">
                       <span id="player-time-current">00:00</span>
                       <span class="text-gray-500">/</span>
                       <span id="player-time-duration">00:00</span>
-                      <span id="player-time-remaining" class="text-gray-400 text-[11px] hidden sm:inline tabular-nums font-semibold"></span>
+                      <span id="player-time-remaining" class="text-gray-400 text-[11px] hidden md:inline tabular-nums font-semibold"></span>
                     </div>
 
                   </div>
 
                   <!-- Right Controls -->
-                  <div class="flex items-center gap-2 sm:gap-3">
+                  <div class="flex items-center gap-1.5 sm:gap-3">
                     
                     <!-- Audio & Subtitles Menu -->
                     <div class="relative">
                       <button onclick="toggleSubtitlesMenu()" id="btn-subtitles" title="Audio & Subtitles" class="p-1 text-gray-300 hover:text-white transition">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/></svg>
+                        <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/></svg>
                       </button>
                       <div id="subtitles-dropdown" class="hidden absolute bottom-full right-0 mb-2 glass-strong rounded-md p-2 shadow-2xl min-w-[200px] z-50 text-xs"></div>
                     </div>
 
                     <!-- Quality Menu -->
                     <div class="relative">
-                      <button onclick="toggleQualityMenu()" id="btn-quality" class="px-2 py-1 rounded bg-white/10 hover:bg-white/20 text-xs font-semibold text-gray-200 transition">
+                      <button onclick="toggleQualityMenu()" id="btn-quality" class="px-1.5 py-0.5 sm:px-2 sm:py-1 rounded bg-white/10 hover:bg-white/20 text-[10px] sm:text-xs font-semibold text-gray-200 transition">
                         AUTO
                       </button>
                       <div id="quality-dropdown" class="hidden absolute bottom-full right-0 mb-2 glass-strong rounded-md p-1.5 shadow-2xl min-w-[110px] z-50 text-xs divide-y divide-white/10"></div>
                     </div>
 
-                    <!-- Speed Menu -->
-                    <div class="relative">
+                    <!-- Speed Menu (hidden on mobile) -->
+                    <div class="relative hidden sm:block">
                       <button onclick="toggleSpeedMenu()" id="btn-speed" class="px-2 py-1 rounded bg-white/10 hover:bg-white/20 text-xs font-semibold text-gray-200 transition">
                         1x
                       </button>
                       <div id="speed-dropdown" class="hidden absolute bottom-full right-0 mb-2 glass-strong rounded-md p-1 shadow-2xl min-w-[75px] z-50 text-xs">
+                        ${[0.5, 0.75, 1, 1.25, 1.5, 2].map(s => `
+                          <button onclick="setPlaybackSpeed(${s})" class="w-full text-left px-2 py-1 rounded hover:bg-carbon-700 text-gray-300 hover:text-white transition">
+                            ${s}x
+                          </button>
+                        `).join('')}
+                      </div>
+                    </div>
+
+                    <!-- Fullscreen -->
+                    <button onclick="toggleFullscreen()" title="Fullscreen (F)" class="p-1 text-gray-300 hover:text-white transition">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg>
+                    </button>
+
+                  </div>
                         ${[0.5, 0.75, 1, 1.25, 1.5, 2].map(s => `
                           <button onclick="setPlaybackSpeed(${s})" class="w-full text-left px-2 py-1 rounded hover:bg-carbon-700 text-gray-300 hover:text-white transition">
                             ${s}x
