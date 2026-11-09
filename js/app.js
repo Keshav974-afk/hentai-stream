@@ -45,6 +45,7 @@ const state = {
     currentLevel: -1,
     subtitleTracks: [],
     currentSubtitle: -1,
+    parsedCues: [],
     autoPlayNext: localStorage.getItem('voidflix_autoplay') !== 'false',
     hoverPreview: localStorage.getItem('voidflix_hover_preview') !== 'false',
     isDrawerOpen: false,
@@ -1237,6 +1238,13 @@ async function showWatchPage(seriesId, chapterId) {
             <div id="seek-flash-left" class="seek-flash left-0"><div class="seek-flash-pill">${ICON.rew}<span>10s</span></div></div>
             <div id="seek-flash-right" class="seek-flash right-0"><div class="seek-flash-pill">${ICON.fwd}<span>10s</span></div></div>
 
+            <!-- Subtitle on-screen display overlay -->
+            <div id="player-subtitle-overlay" class="pointer-events-none absolute bottom-14 sm:bottom-16 md:bottom-20 left-3 right-3 sm:left-6 sm:right-6 z-[18] flex justify-center items-end text-center transition-all duration-150">
+              <div id="player-subtitle-box" class="hidden inline-block max-w-[92%] sm:max-w-[85%] md:max-w-[75%] px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-lg bg-black/85 text-white font-sans font-medium text-xs sm:text-sm md:text-base leading-relaxed tracking-normal shadow-2xl backdrop-blur-[2px] transition-all select-none" style="text-shadow: 0 1px 3px rgba(0,0,0,0.95), 0 0 2px #000;">
+                <span id="player-subtitle-text"></span>
+              </div>
+            </div>
+
             <!-- ============ CONTROLS OVERLAY ============ -->
             <div id="player-controls" class="vf-controls absolute inset-0 z-20 flex flex-col justify-between pointer-events-none">
 
@@ -1360,15 +1368,6 @@ async function showWatchPage(seriesId, chapterId) {
               </div>
             </div>
 
-            <!-- Resume prompt -->
-            ${resumeTime > 0 ? `
-              <div id="resume-banner" class="absolute left-1/2 -translate-x-1/2 bottom-20 sm:bottom-24 z-30 glass-strong rounded-lg px-3 py-2 flex items-center gap-3 border border-white/15 fade-enter w-max max-w-[92%]">
-                <p class="text-[11px] sm:text-xs text-gray-200 whitespace-nowrap">Resume from <b class="text-white">${formatTime(resumeTime)}</b>?</p>
-                <button onclick="resumePlayback(${resumeTime})" class="px-3 py-1 bg-brand-red text-white text-[11px] font-bold rounded">Resume</button>
-                <button onclick="dismissResumeBanner()" class="text-[11px] text-gray-400 hover:text-white">Dismiss</button>
-              </div>
-            ` : ''}
-
             <!-- Up-next countdown -->
             <div id="next-countdown-overlay" class="hidden absolute inset-0 z-50 bg-black/85 backdrop-blur-md flex flex-col items-center justify-center gap-2 sm:gap-4 px-4 text-center">
               <span class="text-[10px] sm:text-xs font-bold text-brand-red uppercase tracking-widest">Up Next</span>
@@ -1474,6 +1473,7 @@ function initVideoPlayer(videoUrl, seriesId, chapterId, index, seriesTitle, chap
   updateSubtitleButtonVisibility();
   bindTimelineScrubbing();
   setSpinner(true);
+  loadMasterSubtitles(videoUrl);
 
   // Desktop real mouse move listeners (ignores synthetic touch events)
   if (frame) {
@@ -1494,21 +1494,8 @@ function initVideoPlayer(videoUrl, seriesId, chapterId, index, seriesTitle, chap
 
     hls.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
       state.player.levels = data.levels || [];
-      state.player.subtitleTracks = hls.subtitleTracks || data.subtitleTracks || [];
       populateQualityMenu();
-      populateSubtitlesMenu();
-      updateSubtitleButtonVisibility();
       video.play().catch(() => { setSpinner(false); updatePlayPauseUI(false); });
-    });
-    hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, (event, data) => {
-      state.player.subtitleTracks = data.subtitleTracks || [];
-      populateSubtitlesMenu();
-      updateSubtitleButtonVisibility();
-    });
-    hls.on(Hls.Events.SUBTITLE_TRACK_SWITCH, (event, data) => {
-      state.player.currentSubtitle = data.id;
-      populateSubtitlesMenu();
-      updateSubtitleButtonVisibility();
     });
     hls.on(Hls.Events.LEVEL_SWITCHED, (event, data) => {
       state.player.currentLevel = data.level;
@@ -1535,28 +1522,21 @@ function initVideoPlayer(videoUrl, seriesId, chapterId, index, seriesTitle, chap
   video.addEventListener('loadedmetadata', () => {
     updateTimeUI(video);
     performAutoResume();
-    if (video.textTracks && video.textTracks.length > 0 && (!state.player.subtitleTracks || state.player.subtitleTracks.length === 0)) {
-      const list = [];
-      for (let i = 0; i < video.textTracks.length; i++) {
-        const t = video.textTracks[i];
-        list.push({ id: i, name: t.label || t.language || ('Track ' + (i + 1)), lang: t.language });
-      }
-      state.player.subtitleTracks = list;
-      populateSubtitlesMenu();
-      updateSubtitleButtonVisibility();
-    }
   });
 
   let lastSave = 0;
   video.addEventListener('timeupdate', () => {
     if (!video.duration) return;
     if (!state.player.isScrubbing) updateTimeUI(video);
+    syncSubtitleDisplay();
     const now = Date.now();
     if (now - lastSave > 5000) {
       lastSave = now;
       saveWatchProgress(seriesId, chapterId, index, seriesTitle, chapterTitle, thumbnail, video.currentTime, video.duration);
     }
   });
+  video.addEventListener('seeking', syncSubtitleDisplay);
+  video.addEventListener('seeked', syncSubtitleDisplay);
 
   video.addEventListener('progress', () => {
     if (video.buffered.length > 0 && video.duration > 0) {
@@ -1853,24 +1833,127 @@ function updateVolumeUI(volume, isMuted) {
   }
 }
 
-// ---- Audio & Subtitles ----
+// ---- Audio & Subtitles Engine ----
+function parseWebVTT(vttText) {
+  if (!vttText) return [];
+  const lines = vttText.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+  const cues = [];
+
+  function parseTimestamp(str) {
+    if (!str) return 0;
+    const parts = str.trim().split(':');
+    let s = 0;
+    if (parts.length === 3) {
+      s = parseFloat(parts[0]) * 3600 + parseFloat(parts[1]) * 60 + parseFloat(parts[2].replace(',', '.'));
+    } else if (parts.length === 2) {
+      s = parseFloat(parts[0]) * 60 + parseFloat(parts[1].replace(',', '.'));
+    }
+    return isNaN(s) ? 0 : s;
+  }
+
+  let currentCue = null;
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('WEBVTT') || line.startsWith('NOTE') || line.startsWith('STYLE')) {
+      if (currentCue && currentCue.text) {
+        cues.push(currentCue);
+        currentCue = null;
+      }
+      continue;
+    }
+
+    const timeMatch = line.match(/^((?:\d{2}:)?\d{2}:\d{2}[\.,]\d{3})\s*-->\s*((?:\d{2}:)?\d{2}:\d{2}[\.,]\d{3})/);
+    if (timeMatch) {
+      if (currentCue && currentCue.text) cues.push(currentCue);
+      currentCue = {
+        start: parseTimestamp(timeMatch[1]),
+        end: parseTimestamp(timeMatch[2]),
+        text: ''
+      };
+    } else if (currentCue) {
+      if (!currentCue.text && /^\d+$/.test(line)) continue;
+      currentCue.text = currentCue.text ? (currentCue.text + '\n' + rawLine) : rawLine;
+    }
+  }
+  if (currentCue && currentCue.text) cues.push(currentCue);
+  return cues;
+}
+
+async function loadMasterSubtitles(manifestUrl) {
+  if (!manifestUrl) return;
+  try {
+    const res = await fetch(manifestUrl);
+    if (!res.ok) return;
+    const manifest = await res.text();
+    const lines = manifest.split(/\r?\n/);
+    const tracks = [];
+    for (const line of lines) {
+      if (!line.startsWith('#EXT-X-MEDIA:') || !line.includes('TYPE=SUBTITLES')) continue;
+      const uriMatch = line.match(/URI=["']?([^"',\s]+)["']?/);
+      const langMatch = line.match(/LANGUAGE=["']?([^"',\s]+)["']?/);
+      const nameMatch = line.match(/NAME=["']?([^"',]+)["']?/);
+      const defMatch = line.match(/DEFAULT=(YES|NO)/i);
+      const autoMatch = line.match(/AUTOSELECT=(YES|NO)/i);
+
+      if (!uriMatch) continue;
+      const uri = uriMatch[1];
+      const lang = langMatch ? langMatch[1] : '';
+      const name = nameMatch ? nameMatch[1] : (lang ? lang.toUpperCase() : 'Track ' + (tracks.length + 1));
+      const isDefault = (defMatch && defMatch[1].toUpperCase() === 'YES') || (autoMatch && autoMatch[1].toUpperCase() === 'YES');
+
+      tracks.push({
+        id: tracks.length,
+        name,
+        lang,
+        url: new URL(uri, manifestUrl).href,
+        isDefault
+      });
+    }
+
+    if (tracks.length > 0) {
+      state.player.subtitleTracks = tracks;
+      populateSubtitlesMenu();
+      updateSubtitleButtonVisibility();
+
+      // Automatically enable English or default subtitle track
+      let defaultIdx = tracks.findIndex(t => t.isDefault && (t.lang.toLowerCase().startsWith('en') || t.name.toLowerCase().includes('en')));
+      if (defaultIdx === -1) defaultIdx = tracks.findIndex(t => t.lang.toLowerCase().startsWith('en') || t.name.toLowerCase().includes('english'));
+      if (defaultIdx === -1) defaultIdx = tracks.findIndex(t => t.isDefault);
+      if (defaultIdx === -1) defaultIdx = 0;
+
+      if (defaultIdx !== -1) {
+        setSubtitleTrack(defaultIdx, false);
+      }
+    } else {
+      state.player.subtitleTracks = [];
+      populateSubtitlesMenu();
+      updateSubtitleButtonVisibility();
+    }
+  } catch (err) {
+    console.warn('Could not parse subtitles from master playlist:', err);
+  }
+}
+
 function updateSubtitleButtonVisibility() {
   const btn = document.getElementById('btn-subs-toggle');
   const badge = document.getElementById('subs-badge');
+  const sheetSubsSec = document.getElementById('settings-sec-subs');
   const tracks = state.player.subtitleTracks || [];
   if (!btn) return;
 
   if (tracks.length > 0) {
     btn.classList.remove('hidden');
+    if (sheetSubsSec) sheetSubsSec.classList.remove('hidden');
     if (badge) {
       const active = state.player.currentSubtitle >= 0 ? tracks[state.player.currentSubtitle] : null;
-      badge.textContent = active ? (active.name || active.lang || 'ON').slice(0, 3).toUpperCase() : 'CC';
+      badge.textContent = active ? (active.name || active.lang || 'ON').slice(0, 3).toUpperCase() : 'OFF';
       badge.className = state.player.currentSubtitle >= 0
         ? 'text-[10px] font-bold px-1.5 py-0.5 rounded bg-brand-red text-white'
         : 'text-[10px] font-bold px-1.5 py-0.5 rounded bg-white/15 text-gray-300';
     }
   } else {
     btn.classList.add('hidden');
+    if (sheetSubsSec) sheetSubsSec.classList.add('hidden');
   }
 }
 
@@ -1894,7 +1977,7 @@ function populateSubtitlesMenu() {
   }
 
   box.innerHTML = `
-    <div class="space-y-1">
+    <div class="space-y-1 max-h-56 overflow-y-auto no-scrollbar pr-1">
       ${tracks.map((t, idx) => sheetOption(escapeHtml(t.name || t.lang || ('Track ' + (idx + 1))), state.player.currentSubtitle === idx, 'setSubtitleTrack(' + idx + ')')).join('')}
       ${sheetOption('Off', state.player.currentSubtitle === -1, 'setSubtitleTrack(-1)')}
     </div>
@@ -1902,24 +1985,86 @@ function populateSubtitlesMenu() {
   updateSubtitleButtonVisibility();
 }
 
-function setSubtitleTrack(trackIndex) {
+async function setSubtitleTrack(trackIndex, showNotification = true) {
   const video = document.getElementById('video-player');
   state.player.currentSubtitle = trackIndex;
+  state.player.parsedCues = [];
 
-  if (state.hls) {
-    state.hls.subtitleTrack = trackIndex;
-    state.hls.subtitleDisplay = (trackIndex !== -1);
+  if (trackIndex === -1 || !state.player.subtitleTracks || !state.player.subtitleTracks[trackIndex]) {
+    state.player.currentSubtitle = -1;
+    syncSubtitleDisplay();
+    if (video && video.textTracks) {
+      for (let i = 0; i < video.textTracks.length; i++) {
+        video.textTracks[i].mode = 'disabled';
+      }
+    }
+    populateSubtitlesMenu();
+    updateSubtitleButtonVisibility();
+    if (showNotification) showToast('Subtitles: Off', 'info');
+    return;
   }
 
-  if (video && video.textTracks) {
-    for (let i = 0; i < video.textTracks.length; i++) {
-      video.textTracks[i].mode = (i === trackIndex) ? 'showing' : 'disabled';
+  const track = state.player.subtitleTracks[trackIndex];
+  try {
+    const res = await fetch(track.url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const vtt = await res.text();
+    state.player.parsedCues = parseWebVTT(vtt);
+
+    // Also populate native video textTrack for native fullscreen / PiP
+    if (video && video.addTextTrack) {
+      try {
+        if (video.textTracks) {
+          for (let i = 0; i < video.textTracks.length; i++) {
+            video.textTracks[i].mode = 'disabled';
+          }
+        }
+        const nativeTrack = video.addTextTrack('subtitles', track.name, track.lang);
+        if (window.VTTCue) {
+          for (const c of state.player.parsedCues) {
+            nativeTrack.addCue(new VTTCue(c.start, c.end, c.text));
+          }
+        }
+        nativeTrack.mode = 'showing';
+      } catch (e) {}
     }
+
+    syncSubtitleDisplay();
+    if (showNotification) showToast(`Subtitles: ${track.name || track.lang || 'Enabled'}`, 'info');
+  } catch (err) {
+    console.error('Failed to load subtitle file:', err);
+    if (showNotification) showToast('Failed to load subtitles', 'error');
   }
 
   populateSubtitlesMenu();
   updateSubtitleButtonVisibility();
-  showToast(trackIndex === -1 ? 'Subtitles: Off' : 'Subtitles enabled', 'info');
+}
+
+function syncSubtitleDisplay() {
+  const box = document.getElementById('player-subtitle-box');
+  const textEl = document.getElementById('player-subtitle-text');
+  const video = document.getElementById('video-player');
+  if (!box || !textEl || !video) return;
+
+  if (state.player.currentSubtitle === -1 || !state.player.parsedCues || state.player.parsedCues.length === 0) {
+    box.classList.add('hidden');
+    textEl.textContent = '';
+    return;
+  }
+
+  const t = video.currentTime;
+  const cue = state.player.parsedCues.find(c => t >= c.start && t <= c.end);
+  if (cue && cue.text) {
+    textEl.innerHTML = cue.text
+      .split('\n')
+      .map(line => escapeHtml(line.trim()))
+      .filter(Boolean)
+      .join('<br>');
+    box.classList.remove('hidden');
+  } else {
+    box.classList.add('hidden');
+    textEl.textContent = '';
+  }
 }
 
 // ---- Quality ----
@@ -2380,7 +2525,7 @@ async function loadMoreCatalogueTitles() {
 
     const query = state.catalogue.activeLetter !== 'ALL' 
       ? (state.catalogue.activeLetter === '#' ? '1' : state.catalogue.activeLetter)
-      : (state.catalogue.activeTag !== 'all' ? state.catalogue.activeTag : 'a');
+      : (state.catalogue.activeTag && !['all', 'trending', 'series', 'uncensored'].includes(state.catalogue.activeTag) ? state.catalogue.activeTag : 'a');
 
     const res = await API.search(query, state.catalogue.offset);
     const newItems = Array.isArray(res?.data) ? res.data : [];
