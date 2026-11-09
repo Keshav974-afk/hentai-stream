@@ -201,13 +201,17 @@ class ApiService {
     return res;
   }
 
-  async search(query, page = 1) {
+  async search(query, pageOrOffset = 0) {
     if (!query || !query.trim()) {
       return { success: true, data: [] };
     }
+    // Calculate 20-item offset whether caller passed page number (1, 2, 3) or raw offset (0, 20, 40)
+    const offset = typeof pageOrOffset === 'number' && pageOrOffset >= 20 && pageOrOffset % 20 === 0
+      ? pageOrOffset
+      : Math.max(0, ((Number(pageOrOffset) || 1) - 1) * 20);
+    const pageNum = Math.floor(offset / 20) + 1;
     try {
-      const res = await this.fetch(`/search?q=${encodeURIComponent(query.trim())}&page=${page}`);
-      // Defensive handling for API returning string messages when 0 results match
+      const res = await this.fetch(`/search?q=${encodeURIComponent(query.trim())}&offset=${offset}&page=${pageNum}`);
       if (!res || res.data === 'No results found' || res.data === 'Enter a search' || !Array.isArray(res.data)) {
         return { success: true, data: [] };
       }

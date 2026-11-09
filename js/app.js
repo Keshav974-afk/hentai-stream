@@ -460,11 +460,22 @@ function renderMobileCategoryChips() {
   const chips = [
     { label: 'All Titles', onclick: "showHome()" },
     { label: 'Trending', onclick: "navigateTo('#/browse/trending')" },
-    { label: 'New Episodes', onclick: "document.getElementById('row-episodes')?.scrollIntoView({ behavior: 'smooth' })" },
+    { label: 'New Releases', onclick: "document.getElementById('row-episodes')?.scrollIntoView({ behavior: 'smooth' })" },
     { label: 'Uncensored', onclick: "navigateTo('#/browse/uncensored')" },
+    { label: 'Harem', onclick: "navigateTo('#/browse/harem')" },
+    { label: 'Sister', onclick: "navigateTo('#/browse/sister')" },
+    { label: 'Netorare (NTR)', onclick: "navigateTo('#/browse/netorare')" },
+    { label: 'Milf', onclick: "navigateTo('#/browse/milf')" },
+    { label: 'Maid', onclick: "navigateTo('#/browse/maid')" },
+    { label: 'Succubus', onclick: "navigateTo('#/browse/succubus')" },
+    { label: 'Isekai', onclick: "navigateTo('#/browse/isekai')" },
+    { label: 'Teacher', onclick: "navigateTo('#/browse/teacher')" },
+    { label: 'Virgin', onclick: "navigateTo('#/browse/virgin')" },
+    { label: 'Gyaru', onclick: "navigateTo('#/browse/gyaru')" },
     { label: 'Yuri', onclick: "navigateTo('#/browse/yuri')" },
     { label: 'Ecchi', onclick: "navigateTo('#/browse/ecchi')" },
     { label: 'Tentacle', onclick: "navigateTo('#/browse/tentacle')" },
+    { label: 'Vanilla', onclick: "navigateTo('#/browse/vanilla')" },
     { label: 'A-Z Catalogue', onclick: "navigateTo('#/browse/all')" },
     { label: 'My List', onclick: "navigateTo('#/watchlist')" }
   ];
@@ -1423,7 +1434,7 @@ async function showWatchPage(seriesId, chapterId) {
       </div>
     `;
 
-    initVideoPlayer(videoUrl, seriesId, activeChapterId, epIndex, title, epTitle, data.post_thumbnail);
+    initVideoPlayer(videoUrl, seriesId, activeChapterId, epIndex, title, epTitle, data.post_thumbnail, resumeTime);
 
   } catch (err) {
     renderErrorView('Failed to start playback', err, () => showWatchPage(seriesId, chapterId));
@@ -1435,13 +1446,24 @@ const PLAY_PATH = '<path d="M8 5v14l11-7z"/>';
 const PAUSE_PATH = '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>';
 const isTouchDevice = () => window.matchMedia('(hover: none)').matches;
 
-function initVideoPlayer(videoUrl, seriesId, chapterId, index, seriesTitle, chapterTitle, thumbnail) {
+function initVideoPlayer(videoUrl, seriesId, chapterId, index, seriesTitle, chapterTitle, thumbnail, resumeTime = 0) {
   const video = document.getElementById('video-player');
   const frame = document.getElementById('video-frame');
   if (!video) return;
 
   state.player.subtitleTracks = [];
   state.player.currentSubtitle = -1;
+  let hasAutoResumed = false;
+
+  const performAutoResume = () => {
+    if (hasAutoResumed || !resumeTime || resumeTime <= 10) return;
+    if (video.duration && resumeTime >= video.duration - 15) return;
+    hasAutoResumed = true;
+    try {
+      video.currentTime = resumeTime;
+      showToast('Resumed at ' + formatTime(resumeTime), 'info');
+    } catch (e) {}
+  };
 
   video.volume = state.player.volume;
   video.muted = state.player.isMuted;
@@ -1509,9 +1531,10 @@ function initVideoPlayer(videoUrl, seriesId, chapterId, index, seriesTitle, chap
   video.addEventListener('pause', () => { state.player.isPlaying = false; updatePlayPauseUI(false); revealPlayerControls(true); });
   video.addEventListener('waiting', () => setSpinner(true));
   video.addEventListener('playing', () => setSpinner(false));
-  video.addEventListener('canplay', () => setSpinner(false));
+  video.addEventListener('canplay', () => { setSpinner(false); performAutoResume(); });
   video.addEventListener('loadedmetadata', () => {
     updateTimeUI(video);
+    performAutoResume();
     if (video.textTracks && video.textTracks.length > 0 && (!state.player.subtitleTracks || state.player.subtitleTracks.length === 0)) {
       const list = [];
       for (let i = 0; i < video.textTracks.length; i++) {
@@ -2201,6 +2224,7 @@ async function showBrowse(category = 'all', sort = 'views', letter = 'ALL', page
   state.catalogue.activeTag = category;
   state.catalogue.sort = sort;
   state.catalogue.page = page;
+  state.catalogue.offset = (page - 1) * 20;
 
   app.innerHTML = `
     <div class="space-y-6 fade-enter">
@@ -2279,15 +2303,28 @@ function renderCatalogueView() {
           ['trending', 'Trending'],
           ['uncensored', 'Uncensored'],
           ['harem', 'Harem'],
-          ['school', 'School'],
-          ['maid', 'Maid'],
-          ['milf', 'Milf'],
-          ['elf', 'Elf'],
-          ['isekai', 'Isekai'],
-          ['succubus', 'Succubus'],
           ['sister', 'Sister'],
-          ['ecchi', 'Ecchi'],
+          ['netorare', 'Netorare (NTR)'],
+          ['milf', 'Milf'],
+          ['maid', 'Maid'],
+          ['nurse', 'Nurse'],
+          ['succubus', 'Succubus'],
+          ['isekai', 'Isekai'],
+          ['demon', 'Demon'],
+          ['teacher', 'Teacher'],
+          ['virgin', 'Virgin'],
+          ['cosplay', 'Cosplay'],
+          ['gyaru', 'Gyaru'],
+          ['yuri', 'Yuri'],
+          ['futanari', 'Futanari'],
+          ['fantasy', 'Fantasy'],
+          ['paizuri', 'Paizuri'],
+          ['bondage', 'Bondage'],
+          ['tentacle', 'Tentacle'],
+          ['shota', 'Shota'],
+          ['school', 'School'],
           ['vanilla', 'Vanilla'],
+          ['ecchi', 'Ecchi'],
           ['creampie', 'Creampie']
         ].map(([tag, label]) => `
           <button onclick="showBrowse('${tag}', '${sort}', 'ALL', 1)" 
@@ -2338,20 +2375,26 @@ async function loadMoreCatalogueTitles() {
   btn.innerHTML = `<span class="inline-block animate-spin mr-2">⟳</span> Loading More...`;
 
   try {
-    state.catalogue.page += 1;
+    state.catalogue.offset = (state.catalogue.offset || 0) + 20;
+    state.catalogue.page = Math.floor(state.catalogue.offset / 20) + 1;
+
     const query = state.catalogue.activeLetter !== 'ALL' 
       ? (state.catalogue.activeLetter === '#' ? '1' : state.catalogue.activeLetter)
       : (state.catalogue.activeTag !== 'all' ? state.catalogue.activeTag : 'a');
 
-    const res = await API.search(query, state.catalogue.page);
+    const res = await API.search(query, state.catalogue.offset);
     const newItems = Array.isArray(res?.data) ? res.data : [];
 
-    if (newItems.length === 0) {
+    // Filter out duplicates against already displayed titles
+    const existingIds = new Set(state.catalogue.items.map(i => String(i.post_ID || i.id)));
+    const uniqueNewItems = newItems.filter(i => !existingIds.has(String(i.post_ID || i.id)));
+
+    if (uniqueNewItems.length === 0) {
       btn.innerText = 'All Titles Loaded';
       btn.disabled = true;
     } else {
-      state.catalogue.items.push(...newItems);
-      newItems.forEach(item => {
+      state.catalogue.items.push(...uniqueNewItems);
+      uniqueNewItems.forEach(item => {
         grid.insertAdjacentHTML('beforeend', renderFlowCard(item, { width: 'w-full' }));
       });
       btn.disabled = false;
