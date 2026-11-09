@@ -1,0 +1,20 @@
+{
+  "name": "hentai-stream",
+  "version": "2.0.0",
+  "description": "Modern dark-themed streaming frontend with custom HLS player, continue watching, watchlist, and smart proxy",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "test": "node -c server.js api/index.js js/api.js js/app.js"
+  },
+  "keywords": [
+    "streaming",
+    "video-player",
+    "hls",
+    "anime",
+    "modern-ui"
+  ],
+  "author": "Keshav974-afk",
+  "license": "MIT"
+}
