@@ -457,33 +457,38 @@ function handleCardMouseLeave(card) {
   if (img) img.style.opacity = '1';
 }
 
-// ==================== FLOWFLIX MOBILE CATEGORY CHIPS ====================
+// ==================== FLOWFLIX CATEGORY CHIPS ====================
+function scrollToShelfOrBrowse(shelfId, category) {
+  const el = document.getElementById(shelfId);
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } else {
+    navigateTo('#/browse/' + category);
+  }
+}
+
 function renderMobileCategoryChips() {
   const chips = [
     { label: 'All Titles', onclick: "showHome()" },
-    { label: 'Trending', onclick: "navigateTo('#/browse/trending')" },
-    { label: 'New Releases', onclick: "document.getElementById('row-episodes')?.scrollIntoView({ behavior: 'smooth' })" },
-    { label: 'Uncensored', onclick: "navigateTo('#/browse/uncensored')" },
-    { label: 'Harem', onclick: "navigateTo('#/browse/harem')" },
-    { label: 'Sister', onclick: "navigateTo('#/browse/sister')" },
-    { label: 'Netorare (NTR)', onclick: "navigateTo('#/browse/netorare')" },
-    { label: 'Milf', onclick: "navigateTo('#/browse/milf')" },
-    { label: 'Maid', onclick: "navigateTo('#/browse/maid')" },
-    { label: 'Succubus', onclick: "navigateTo('#/browse/succubus')" },
-    { label: 'Isekai', onclick: "navigateTo('#/browse/isekai')" },
-    { label: 'Teacher', onclick: "navigateTo('#/browse/teacher')" },
-    { label: 'Virgin', onclick: "navigateTo('#/browse/virgin')" },
-    { label: 'Gyaru', onclick: "navigateTo('#/browse/gyaru')" },
-    { label: 'Yuri', onclick: "navigateTo('#/browse/yuri')" },
-    { label: 'Ecchi', onclick: "navigateTo('#/browse/ecchi')" },
-    { label: 'Tentacle', onclick: "navigateTo('#/browse/tentacle')" },
-    { label: 'Vanilla', onclick: "navigateTo('#/browse/vanilla')" },
-    { label: 'A-Z Catalogue', onclick: "navigateTo('#/browse/all')" },
-    { label: 'My List', onclick: "navigateTo('#/watchlist')" }
+    { label: '⚡ New Episodes', onclick: "scrollToShelfOrBrowse('row-episodes', 'recent')" },
+    { label: '🏆 Top 10', onclick: "scrollToShelfOrBrowse('row-top10', 'trending')" },
+    { label: '🔥 Trending', onclick: "scrollToShelfOrBrowse('row-trending', 'trending')" },
+    { label: '💎 Uncensored', onclick: "scrollToShelfOrBrowse('row-uncensored', 'uncensored')" },
+    { label: '⭐ Fan Favorites', onclick: "scrollToShelfOrBrowse('row-favorites', 'trending')" },
+    { label: '❤️ Taboo & Incest', onclick: "scrollToShelfOrBrowse('row-incest', 'incest')" },
+    { label: '🐙 Tentacle', onclick: "scrollToShelfOrBrowse('row-tentacle', 'tentacle')" },
+    { label: '🌸 Yuri', onclick: "scrollToShelfOrBrowse('row-yuri', 'yuri')" },
+    { label: '✨ Ecchi', onclick: "scrollToShelfOrBrowse('row-ecchi', 'ecchi')" },
+    { label: '👑 Harem', onclick: "scrollToShelfOrBrowse('row-harem', 'harem')" },
+    { label: '🎀 Maid', onclick: "scrollToShelfOrBrowse('row-maid', 'maid')" },
+    { label: '😈 Succubus', onclick: "scrollToShelfOrBrowse('row-succubus', 'succubus')" },
+    { label: '🕒 Recent Series', onclick: "scrollToShelfOrBrowse('row-recent', 'series')" },
+    { label: '📚 A-Z Directory', onclick: "navigateTo('#/browse/all')" },
+    { label: '❤️ My List', onclick: "navigateTo('#/watchlist')" }
   ];
 
   return `
-    <div class="lg:hidden flex gap-2 overflow-x-auto no-scrollbar py-1 px-1 -mx-1 mb-4">
+    <div class="flex gap-2 overflow-x-auto no-scrollbar py-1 px-1 -mx-1 mb-3 sm:mb-4">
       ${chips.map((c, i) => `
         <button onclick="${c.onclick}" 
                 class="shrink-0 rounded-full border border-white/20 bg-carbon-800/80 px-3.5 py-1 text-xs font-semibold text-gray-200 active:scale-95 transition hover:border-white/40 ${i === 0 ? 'bg-white text-black font-bold' : ''}">
@@ -822,6 +827,22 @@ function renderHomeLayout(data) {
   const recent = Array.isArray(data?.last) ? data.last : [];
   const uncensored = Array.isArray(data?.uncensored) ? data.uncensored : [];
   const ecchi = Array.isArray(data?.ecchi) ? data.ecchi : [];
+  const tentacle = Array.isArray(data?.tentacle) ? data.tentacle : [];
+  const incest = Array.isArray(data?.incest) ? data.incest : [];
+  const yuri = Array.isArray(data?.yuri) ? data.yuri : [];
+
+  // Compute Fan Favorites (top-viewed unique series across all available categories)
+  const allSeries = [...trending, ...recent, ...uncensored, ...ecchi, ...tentacle, ...incest, ...yuri];
+  const seenIds = new Set();
+  const fanFavorites = allSeries
+    .filter(item => {
+      const id = item.post_ID || item.id;
+      if (!id || seenIds.has(id)) return false;
+      seenIds.add(id);
+      return Number(item.post_views || 0) > 40000;
+    })
+    .sort((a, b) => Number(b.post_views || 0) - Number(a.post_views || 0))
+    .slice(0, 20);
 
   app.innerHTML = `
     <div class="fade-enter space-y-4 sm:space-y-6">
@@ -833,15 +854,50 @@ function renderHomeLayout(data) {
 
       ${renderVoidflixContinueWatching()}
       ${renderTop10Row(trending)}
-      ${renderMediaShelf('row-episodes', 'Latest Episode Releases', latestEpisodes)}
-      ${renderMediaShelf('row-trending', 'Trending Now', trending, { viewAllCategory: 'trending' })}
-      ${renderMediaShelf('row-recent', 'Recently Added Series', recent, { viewAllCategory: 'recent' })}
-      ${renderMediaShelf('row-uncensored', 'Uncensored Vault', uncensored, { viewAllCategory: 'uncensored' })}
-      ${renderMediaShelf('row-ecchi', 'Ecchi Highlights', ecchi, { viewAllCategory: 'ecchi' })}
+      ${renderMediaShelf('row-episodes', '⚡ Latest Episode Releases', latestEpisodes)}
+      ${renderMediaShelf('row-trending', '🔥 Trending Now', trending, { viewAllCategory: 'trending' })}
+      ${renderMediaShelf('row-uncensored', '💎 Uncensored Vault', uncensored, { viewAllCategory: 'uncensored' })}
+      ${renderMediaShelf('row-favorites', '⭐ All-Time Fan Favorites', fanFavorites.length > 0 ? fanFavorites : trending, { viewAllCategory: 'trending' })}
+      ${renderMediaShelf('row-incest', '❤️ Forbidden Pleasures (Taboo & Family)', incest, { viewAllCategory: 'incest' })}
+      ${renderMediaShelf('row-tentacle', '🐙 Tentacle & Supernatural', tentacle, { viewAllCategory: 'tentacle' })}
+      ${renderMediaShelf('row-yuri', '🌸 Yuri & Girls\' Romance', yuri, { viewAllCategory: 'yuri' })}
+      ${renderMediaShelf('row-ecchi', '✨ Ecchi Fan-Service', ecchi, { viewAllCategory: 'ecchi' })}
+      <div id="shelf-harem-slot"></div>
+      <div id="shelf-maid-slot"></div>
+      <div id="shelf-succubus-slot"></div>
+      ${renderMediaShelf('row-recent', '🕒 Recently Added Series', recent, { viewAllCategory: 'series' })}
     </div>
   `;
 
   startHeroTimer();
+  loadDynamicHomeShelves();
+}
+
+async function loadDynamicHomeShelves() {
+  if (!state.cachedShelves) state.cachedShelves = {};
+
+  const loadSlot = async (slotId, rowId, title, query, viewAllCategory) => {
+    try {
+      const slot = document.getElementById(slotId);
+      if (!slot) return;
+      let items = state.cachedShelves[query];
+      if (!items) {
+        const res = await API.search(query, 1);
+        items = Array.isArray(res?.data) ? res.data : [];
+        if (items.length > 0) state.cachedShelves[query] = items;
+      }
+      const currentSlot = document.getElementById(slotId);
+      if (currentSlot && items && items.length > 0) {
+        currentSlot.innerHTML = renderMediaShelf(rowId, title, items, { viewAllCategory });
+      }
+    } catch (e) {
+      console.warn('Could not load dynamic shelf: ' + query, e);
+    }
+  };
+
+  loadSlot('shelf-harem-slot', 'row-harem', '👑 Harem & Multiple Partners', 'harem', 'harem');
+  loadSlot('shelf-maid-slot', 'row-maid', '🎀 Maid & Master Dynamics', 'maid', 'maid');
+  loadSlot('shelf-succubus-slot', 'row-succubus', '😈 Succubus & Monster Girls', 'succubus', 'succubus');
 }
 
 // ==================== DEDICATED SERIES DETAIL PAGE (SEPARATE FULL PAGE) ====================
@@ -2483,13 +2539,19 @@ async function showBrowse(category = 'all', sort = 'views', letter = 'ALL', page
   try {
     let items = [];
 
-    if (category === 'trending' || category === 'series' || category === 'uncensored') {
+    const homeSections = ['trending', 'series', 'recent', 'uncensored', 'tentacle', 'incest', 'yuri', 'ecchi'];
+    if (homeSections.includes(category) && letter === 'ALL') {
       const res = await API.getHome();
       state.homeData = res.data || {};
       const d = state.homeData;
       if (category === 'trending') items = Array.isArray(d.trending_month) ? d.trending_month : [];
-      else if (category === 'series') items = Array.isArray(d.last) ? d.last : [];
+      else if (category === 'series' || category === 'recent') items = Array.isArray(d.last) ? d.last : [];
       else if (category === 'uncensored') items = Array.isArray(d.uncensored) ? d.uncensored : [];
+      else if (d[category] && Array.isArray(d[category])) items = d[category];
+      else {
+        const resSearch = await API.search(category, page);
+        items = Array.isArray(resSearch?.data) ? resSearch.data : [];
+      }
     } else {
       // General Catalogue search by Letter or Tag
       const query = letter !== 'ALL' 
@@ -2625,7 +2687,7 @@ async function loadMoreCatalogueTitles() {
 
     const query = state.catalogue.activeLetter !== 'ALL' 
       ? (state.catalogue.activeLetter === '#' ? '1' : state.catalogue.activeLetter)
-      : (state.catalogue.activeTag && !['all', 'trending', 'series', 'uncensored'].includes(state.catalogue.activeTag) ? state.catalogue.activeTag : 'a');
+      : (state.catalogue.activeTag && !['all', 'trending', 'series', 'recent', 'uncensored'].includes(state.catalogue.activeTag) ? state.catalogue.activeTag : 'a');
 
     const res = await API.search(query, state.catalogue.offset);
     const newItems = Array.isArray(res?.data) ? res.data : [];
