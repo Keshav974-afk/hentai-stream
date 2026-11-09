@@ -47,7 +47,10 @@ const state = {
     currentSubtitle: -1,
     autoPlayNext: localStorage.getItem('voidflix_autoplay') !== 'false',
     hoverPreview: localStorage.getItem('voidflix_hover_preview') !== 'false',
-    isDrawerOpen: false
+    isDrawerOpen: false,
+    isSettingsOpen: false,
+    settingsSection: null,
+    isScrubbing: false
   },
 
   // Catalogue & Pagination State
@@ -66,6 +69,70 @@ const state = {
   history: safeGetArray('voidflix_history', 'flowflix_history'),
   continueWatching: safeGetArray('voidflix_continue_watching', 'flowflix_continue_watching')
 };
+
+// ==================== POSTER & THUMBNAIL ERROR HANDLING ====================
+const POSTER_UNAVAILABLE_SVG = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 450" width="100%" height="100%">
+  <defs>
+    <linearGradient id="vfPosterBg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#191920"/>
+      <stop offset="100%" stop-color="#0E0E12"/>
+    </linearGradient>
+    <linearGradient id="vfGlow" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#E50914" stop-opacity="0.22"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect width="300" height="450" fill="url(#vfPosterBg)"/>
+  <rect width="300" height="450" fill="url(#vfGlow)"/>
+  <rect x="12" y="12" width="276" height="426" rx="8" fill="none" stroke="#FFFFFF" stroke-opacity="0.06" stroke-width="1.5"/>
+  <g transform="translate(150, 215)" text-anchor="middle">
+    <rect x="-32" y="-45" width="64" height="48" rx="6" fill="#202028" stroke="#353545" stroke-width="1.5"/>
+    <path d="M-32 -25 L32 -25" stroke="#353545" stroke-width="1.5"/>
+    <path d="M-22 -45 L-14 -25 M-6 -45 L2 -25 M10 -45 L18 -25" stroke="#FFFFFF" stroke-opacity="0.25" stroke-width="1.5"/>
+    <circle cx="0" cy="-2" r="3.5" fill="#E50914"/>
+    <text y="32" fill="#888899" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="700" letter-spacing="2.5">POSTER</text>
+    <text y="50" fill="#E50914" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="800" letter-spacing="2">UNAVAILABLE</text>
+  </g>
+</svg>`);
+
+const THUMB_UNAVAILABLE_SVG = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 225" width="100%" height="100%">
+  <defs>
+    <linearGradient id="vfThumbBg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#191920"/>
+      <stop offset="100%" stop-color="#0E0E12"/>
+    </linearGradient>
+    <linearGradient id="vfGlowWide" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#E50914" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="225" fill="url(#vfThumbBg)"/>
+  <rect width="400" height="225" fill="url(#vfGlowWide)"/>
+  <rect x="10" y="10" width="380" height="205" rx="6" fill="none" stroke="#FFFFFF" stroke-opacity="0.06" stroke-width="1.5"/>
+  <g transform="translate(200, 110)" text-anchor="middle">
+    <rect x="-28" y="-36" width="56" height="42" rx="5" fill="#202028" stroke="#353545" stroke-width="1.5"/>
+    <path d="M-28 -18 L28 -18" stroke="#353545" stroke-width="1.5"/>
+    <path d="M-18 -36 L-10 -18 M-2 -36 L6 -18 M14 -36 L22 -18" stroke="#FFFFFF" stroke-opacity="0.25" stroke-width="1.5"/>
+    <circle cx="0" cy="3" r="3" fill="#E50914"/>
+    <text y="30" fill="#888899" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="700" letter-spacing="2">THUMBNAIL</text>
+    <text y="46" fill="#E50914" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="9" font-weight="800" letter-spacing="1.8">UNAVAILABLE</text>
+  </g>
+</svg>`);
+
+function handlePosterError(img, isLandscape = false) {
+  if (!img) return;
+  const fallback = img.getAttribute('data-fallback');
+  if (fallback && fallback !== img.src && !img.dataset.secondaryTried) {
+    img.dataset.secondaryTried = 'true';
+    img.src = fallback;
+    return;
+  }
+  if (img.dataset.fallbackApplied) return;
+  img.dataset.fallbackApplied = 'true';
+  img.removeAttribute('alt');
+  img.classList.add('poster-fallback');
+  img.src = isLandscape ? THUMB_UNAVAILABLE_SVG : POSTER_UNAVAILABLE_SVG;
+}
 
 // ==================== HELPERS & UTILITIES ====================
 function escapeHtml(str) {
@@ -308,10 +375,11 @@ function renderFlowCard(item, options = {}) {
       
       <!-- Poster Container -->
       <div class="relative aspect-[2/3] bg-carbon-850 overflow-hidden">
-        <img src="${escapeHtml(thumb)}" alt="${escapeHtml(title)}"
+        <img src="${escapeHtml(thumb || POSTER_UNAVAILABLE_SVG)}"
+             data-fallback="${escapeHtml(thumb)}"
              class="card-img w-full h-full object-cover transition-transform duration-500"
              loading="lazy"
-             onerror="this.src='https://via.placeholder.com/300x450/161616/737373?text=Poster'">
+             onerror="handlePosterError(this, false)">
 
         <!-- Video Hover Preview -->
         <video class="card-video hidden absolute inset-0 w-full h-full object-cover" muted loop playsinline></video>
@@ -427,7 +495,7 @@ function renderVoidflixHero(items) {
     <!-- Mobile FlowFlix Hero (< 1024px) -->
     <section class="lg:hidden px-1 pt-1 pb-3">
       <div class="relative mx-auto aspect-[2/3] w-full max-w-[290px] sm:max-w-xs overflow-hidden rounded-2xl bg-carbon-850 shadow-2xl border border-white/10 select-none">
-        <img src="${escapeHtml(thumb)}" alt="${escapeHtml(title)}" class="absolute inset-0 w-full h-full object-cover">
+        <img src="${escapeHtml(thumb || POSTER_UNAVAILABLE_SVG)}" class="absolute inset-0 w-full h-full object-cover" loading="eager" onerror="handlePosterError(this, false)">
         <div class="absolute inset-0 bg-gradient-to-t from-carbon-950 via-carbon-950/40 to-transparent"></div>
         
         <div class="absolute inset-x-0 bottom-0 p-4 space-y-3">
@@ -469,8 +537,10 @@ function renderVoidflixHero(items) {
 
     <!-- Desktop FlowFlix Hero (>= 1024px) -->
     <section class="hidden lg:block relative w-full aspect-[21/9] max-h-[580px] rounded-2xl overflow-hidden bg-carbon-850 shadow-2xl border border-white/[0.08] group select-none">
-      <img src="${escapeHtml(thumb)}" alt="${escapeHtml(title)}"
-           class="absolute inset-0 w-full h-full object-cover filter brightness-[0.72] group-hover:scale-105 transition-transform duration-700 ease-out">
+      <img src="${escapeHtml(thumb || THUMB_UNAVAILABLE_SVG)}"
+           class="absolute inset-0 w-full h-full object-cover filter brightness-[0.72] group-hover:scale-105 transition-transform duration-700 ease-out"
+           loading="eager"
+           onerror="handlePosterError(this, true)">
 
       <div class="absolute inset-0 bg-gradient-to-t from-carbon-900 via-carbon-900/50 to-transparent"></div>
       <div class="absolute inset-0 bg-gradient-to-r from-carbon-900/95 via-carbon-900/40 to-transparent"></div>
@@ -653,7 +723,7 @@ function renderTop10Row(items) {
               <div class="flex-shrink-0 flex items-center cursor-pointer group/rank active:scale-95 transition" onclick="navigateTo('#/series/${id}')">
                 <span class="rank-number -mr-3 sm:-mr-5 z-10 font-bold group-hover/rank:scale-110 transition-transform duration-300 text-5xl sm:text-7xl">${rank}</span>
                 <div class="w-24 sm:w-32 md:w-36 aspect-[2/3] rounded-md overflow-hidden bg-carbon-800 border border-white/10 group-hover/rank:border-white/40 transition shadow-xl relative">
-                  <img src="${escapeHtml(thumb)}" alt="${escapeHtml(title)}" class="w-full h-full object-cover">
+                  <img src="${escapeHtml(thumb || POSTER_UNAVAILABLE_SVG)}" class="w-full h-full object-cover" onerror="handlePosterError(this, false)">
                   <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-2">
                     <p class="font-heading font-semibold text-[10px] sm:text-[11px] text-white truncate">${escapeHtml(title)}</p>
                   </div>
@@ -816,7 +886,7 @@ async function showSeriesPage(id) {
         <!-- Mobile Series View (< 640px) -->
         <div class="block sm:hidden space-y-3 px-1">
           <div class="relative w-full aspect-[16/10] rounded-xl overflow-hidden bg-carbon-850 shadow-xl border border-white/10">
-            <img src="${escapeHtml(thumb)}" class="w-full h-full object-cover">
+            <img src="${escapeHtml(thumb || THUMB_UNAVAILABLE_SVG)}" class="w-full h-full object-cover" onerror="handlePosterError(this, true)">
             <div class="absolute inset-0 bg-gradient-to-t from-carbon-900 via-carbon-900/30 to-transparent"></div>
             <button onclick="window.history.length > 1 ? window.history.back() : navigateTo('#/')" 
                     class="absolute top-3 left-3 px-3 py-1.5 rounded-md bg-black/75 backdrop-blur border border-white/15 text-white text-xs font-semibold flex items-center gap-1.5 active:scale-95 shadow-lg">
@@ -870,7 +940,7 @@ async function showSeriesPage(id) {
 
         <!-- Desktop Series Banner (>= 640px) -->
         <div class="hidden sm:block relative w-full aspect-[21/9] min-h-[360px] max-h-[500px] rounded-2xl overflow-hidden bg-carbon-850 shadow-2xl border border-white/10 group">
-          <img src="${escapeHtml(thumb)}" class="w-full h-full object-cover filter brightness-[0.7] transform group-hover:scale-105 transition-transform duration-700">
+          <img src="${escapeHtml(thumb || THUMB_UNAVAILABLE_SVG)}" class="w-full h-full object-cover filter brightness-[0.7] transform group-hover:scale-105 transition-transform duration-700" onerror="handlePosterError(this, true)">
           <div class="absolute inset-0 bg-gradient-to-t from-carbon-900 via-carbon-900/60 to-transparent"></div>
           <div class="absolute inset-0 bg-gradient-to-r from-carbon-900/90 via-carbon-900/40 to-transparent"></div>
 
@@ -1099,311 +1169,254 @@ async function showWatchPage(seriesId, chapterId) {
     const saved = state.continueWatching.find(c => String(c.chapterId) === String(activeChapterId));
     const resumeTime = saved && saved.currentTime > 10 ? saved.currentTime : 0;
 
+    const thumbForDl = ep.chapter_thumbnail || data.post_thumbnail || '';
+    const dlCall = `openDownloadModal('${escapeHtml(title).replace(/'/g, "\\'")}', '${escapeHtml(epTitle).replace(/'/g, "\\'")}', '${escapeHtml(videoUrl)}', '${escapeHtml(thumbForDl)}')`;
+    const nextEp = hasNext ? episodes[epIndex + 1] : null;
+    const prevEp = hasPrev ? episodes[epIndex - 1] : null;
+    const ICON = {
+      back: '<svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>',
+      rew: '<svg class="w-7 h-7 sm:w-9 sm:h-9" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 3v5h5"/><text x="12" y="15.5" text-anchor="middle" font-size="7" font-weight="700" fill="currentColor" stroke="none">10</text></svg>',
+      fwd: '<svg class="w-7 h-7 sm:w-9 sm:h-9" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M21 3v5h-5"/><text x="12" y="15.5" text-anchor="middle" font-size="7" font-weight="700" fill="currentColor" stroke="none">10</text></svg>',
+      next: '<svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>',
+      prev: '<svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>',
+      eps: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5" stroke-width="2"/><rect x="14" y="3" width="7" height="7" rx="1.5" stroke-width="2"/><rect x="3" y="14" width="7" height="7" rx="1.5" stroke-width="2"/><rect x="14" y="14" width="7" height="7" rx="1.5" stroke-width="2"/></svg>',
+      subs: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" stroke-width="2"/><path stroke-linecap="round" stroke-width="2" d="M7 13h4M13 13h4M7 16h7"/></svg>',
+      gear: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>',
+      dl: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>',
+      fs: '<svg id="fs-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>',
+      theater: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2" stroke-width="2"/></svg>',
+      close: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>'
+    };
+
+    // Reset per-episode player UI state
+    state.player.isDrawerOpen = false;
+    state.player.isSettingsOpen = false;
+
     app.innerHTML = `
-      <div class="max-w-[1500px] mx-auto space-y-6 fade-enter relative" id="player-container">
-        
-        <!-- Header Strip -->
-        <div class="flex items-center justify-between text-xs text-gray-400">
-          <button onclick="navigateTo('#/series/${seriesId}')" class="hover:text-white flex items-center gap-1.5 transition">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
-            Back to ${escapeHtml(title)}
+      <div class="max-w-[1500px] mx-auto fade-enter relative space-y-4 sm:space-y-6" id="player-container">
+
+        <!-- Desktop breadcrumb strip -->
+        <div class="hidden sm:flex items-center justify-between text-xs text-gray-400">
+          <button onclick="navigateTo('#/series/${seriesId}')" class="hover:text-white flex items-center gap-1.5 transition min-w-0">
+            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+            <span class="truncate">Back to ${escapeHtml(title)}</span>
           </button>
-          
-          <div class="flex items-center gap-3 sm:gap-4">
-            <button onclick="toggleInPlayerDrawer()" title="Episode Drawer (E)" class="hover:text-white flex items-center gap-1 transition">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
-              <span>Chapters</span>
-            </button>
-            <button onclick="openDownloadModal('${escapeHtml(title).replace(/'/g, "\\'")}', '${escapeHtml(epTitle).replace(/'/g, "\\'")}', '${escapeHtml(videoUrl)}', '${escapeHtml(ep.chapter_thumbnail || data.post_thumbnail)}')" 
-                    class="hover:text-white flex items-center gap-1 transition">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-              <span>Download</span>
-            </button>
-            <button onclick="toggleTheaterMode()" class="hover:text-white flex items-center gap-1 transition hidden sm:flex">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
-              <span id="theater-text">Theater</span>
-            </button>
-            <button onclick="showShortcutsModal(true)" class="hover:text-white transition">Controls (?)</button>
+          <div class="flex items-center gap-4 flex-shrink-0">
+            <button onclick="toggleTheaterMode()" class="hover:text-white flex items-center gap-1.5 transition">${ICON.theater}<span id="theater-text">Theater</span></button>
+            <button onclick="showShortcutsModal(true)" class="hover:text-white transition">Shortcuts (?)</button>
           </div>
         </div>
 
-        <!-- Player Canvas Outer -->
-        <div class="relative group">
-          
-          <div id="video-frame" 
-               class="relative z-10 w-full aspect-video bg-black rounded-xl overflow-hidden shadow-2xl border border-white/10 select-none"
-               onmousemove="handlePlayerMouseMove()"
-               onmouseleave="handlePlayerMouseLeave()"
-               onclick="handlePlayerClick(event)">
-            
-            <video id="video-player" class="w-full h-full object-contain cursor-pointer" playsinline></video>
+        <!-- ============ VOIDFLIX NATIVE PLAYER ============ -->
+        <div class="-mx-3 -mt-3 sm:mx-0 sm:mt-0">
+          <div id="video-frame" class="vf-frame relative w-full aspect-video bg-black sm:rounded-xl overflow-hidden select-none sm:border sm:border-white/10 shadow-2xl"
+               onmousemove="revealPlayerControls()" onmouseleave="scheduleHideControls(600)">
 
-            <!-- Center Screen Big Play Button (shown on pause) -->
-            <div id="center-play-button" onclick="togglePlayPause(); event.stopPropagation();" 
-                 class="hidden absolute inset-0 flex items-center justify-center pointer-events-auto cursor-pointer z-20">
-              <div class="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-black/60 hover:bg-brand-red backdrop-blur-md border border-white/30 flex items-center justify-center text-white shadow-2xl transform hover:scale-110 transition duration-200">
-                <svg class="w-8 h-8 sm:w-10 sm:h-10 fill-current ml-1" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-              </div>
+            <video id="video-player" class="absolute inset-0 w-full h-full object-contain bg-black" playsinline webkit-playsinline preload="auto"
+                   poster="${escapeHtml(thumbForDl || THUMB_UNAVAILABLE_SVG)}"></video>
+
+            <!-- Tap / click surface (sits under the controls) -->
+            <div id="tap-layer" class="absolute inset-0 z-10" onclick="handlePlayerTap(event)" ondblclick="handlePlayerDblClick(event)"></div>
+
+            <!-- Buffering spinner -->
+            <div id="player-spinner" class="hidden pointer-events-none absolute inset-0 z-[15] flex items-center justify-center">
+              <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-full border-[3px] border-white/20 border-t-brand-red animate-spin"></div>
             </div>
 
-            <!-- Double Tap Left / Right Seek Ripple Feedback -->
-            <div id="seek-ripple-left" class="absolute left-8 top-1/2 -translate-y-1/2 pointer-events-none opacity-0 transition-opacity duration-200 z-30">
-              <div class="w-16 h-16 rounded-full bg-black/75 backdrop-blur border border-white/20 flex flex-col items-center justify-center text-white">
-                <span class="text-xs font-bold font-mono">↺ 10s</span>
-              </div>
-            </div>
-            <div id="seek-ripple-right" class="absolute right-8 top-1/2 -translate-y-1/2 pointer-events-none opacity-0 transition-opacity duration-200 z-30">
-              <div class="w-16 h-16 rounded-full bg-black/75 backdrop-blur border border-white/20 flex flex-col items-center justify-center text-white">
-                <span class="text-xs font-bold font-mono">↻ 10s</span>
-              </div>
-            </div>
+            <!-- Double-tap seek flashes -->
+            <div id="seek-flash-left" class="seek-flash left-0"><div class="seek-flash-pill">${ICON.rew}<span>10s</span></div></div>
+            <div id="seek-flash-right" class="seek-flash right-0"><div class="seek-flash-pill">${ICON.fwd}<span>10s</span></div></div>
 
-            <!-- Resume Banner -->
-            ${resumeTime > 0 ? `
-              <div id="resume-banner" class="absolute top-4 right-4 z-30 glass-strong rounded-md p-3 flex items-center gap-3 border border-brand-red/50 fade-enter">
-                <div class="text-xs">
-                  <p class="font-bold text-white">Resume playback?</p>
-                  <p class="text-gray-400">Left off at ${formatTime(resumeTime)}</p>
+            <!-- ============ CONTROLS OVERLAY ============ -->
+            <div id="player-controls" class="vf-controls absolute inset-0 z-20 flex flex-col justify-between pointer-events-none">
+
+              <!-- Top bar -->
+              <div class="vf-top pointer-events-auto flex items-center gap-2 sm:gap-3 px-2 sm:px-5 pt-2 sm:pt-4 pb-8">
+                <button onclick="navigateTo('#/series/${seriesId}')" class="vf-icon-btn" title="Back">${ICON.back}</button>
+                <div class="min-w-0 flex-1">
+                  <h3 class="font-heading font-bold text-[13px] sm:text-base text-white truncate leading-tight">${escapeHtml(title)}</h3>
+                  <p class="text-[11px] sm:text-xs text-gray-300 truncate">${escapeHtml(epTitle)} <span class="text-gray-500">• ${epIndex + 1} of ${episodes.length}</span></p>
                 </div>
-                <div class="flex items-center gap-2">
-                  <button onclick="resumePlayback(${resumeTime})" class="px-3 py-1 bg-brand-red text-white text-xs font-bold rounded">Resume</button>
-                  <button onclick="dismissResumeBanner()" class="px-2 py-1 text-xs text-gray-400 hover:text-white">Start Over</button>
-                </div>
+                <button onclick="${dlCall}" class="vf-icon-btn" title="Download">${ICON.dl}</button>
               </div>
-            ` : ''}
 
-            <!-- Auto-play Next Countdown Overlay -->
-            <div id="next-countdown-overlay" class="hidden absolute inset-0 z-30 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center space-y-4 fade-enter">
-              <span class="text-xs font-bold text-brand-red uppercase tracking-wider">Up Next</span>
-              <h3 class="font-display text-3xl sm:text-4xl text-white text-center px-4 max-w-lg">
-                ${hasNext ? escapeHtml(episodes[epIndex + 1].chapter_name || `Episode ${epIndex + 2}`) : 'End of Series'}
-              </h3>
-              <p class="text-xs text-gray-400">Playing next episode in <span id="countdown-number" class="text-white font-bold font-mono">5</span> seconds</p>
-              <div class="flex items-center gap-3 pt-2">
-                <button onclick="executePlayNextNow(${seriesId}, ${epIndex + 1})" class="px-6 py-2 rounded bg-white text-black font-bold text-xs hover:bg-gray-200 transition">Play Now</button>
-                <button onclick="cancelNextCountdown()" class="px-4 py-2 rounded bg-carbon-700 text-gray-300 text-xs hover:text-white border border-white/10 transition">Cancel</button>
+              <!-- Center transport -->
+              <div class="vf-center pointer-events-none absolute inset-0 flex items-center justify-center gap-8 sm:gap-16">
+                <button onclick="seekRelative(-10); flashSeek('left')" class="vf-transport pointer-events-auto" title="Back 10s">${ICON.rew}</button>
+                <button onclick="togglePlayPause()" id="center-play-btn" class="vf-transport vf-transport-main pointer-events-auto" title="Play / Pause">
+                  <svg id="center-play-icon" class="w-8 h-8 sm:w-11 sm:h-11 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                </button>
+                <button onclick="seekRelative(10); flashSeek('right')" class="vf-transport pointer-events-auto" title="Forward 10s">${ICON.fwd}</button>
               </div>
-            </div>
 
-            <!-- In-Player Episodes Slide Drawer -->
-            <div id="in-player-drawer" class="hidden absolute top-0 bottom-0 right-0 w-72 sm:w-80 bg-carbon-900/95 backdrop-blur-xl border-l border-white/10 z-40 p-4 flex flex-col shadow-2xl fade-enter">
-              <div class="flex items-center justify-between pb-3 border-b border-white/10 mb-3">
-                <h4 class="font-heading font-bold text-xs uppercase tracking-wider text-white">Episodes (${episodes.length})</h4>
-                <button onclick="toggleInPlayerDrawer()" class="text-gray-400 hover:text-white p-1">✕</button>
-              </div>
-              <div class="flex-1 overflow-y-auto space-y-2 pr-1 no-scrollbar">
-                ${episodes.map((e, i) => `
-                  <div onclick="navigateTo('#/watch/${seriesId}/${e.chapter_id}')" 
-                       class="flex items-center gap-2.5 p-2 rounded cursor-pointer transition ${i === epIndex ? 'bg-carbon-750 border border-brand-red text-brand-red' : 'bg-carbon-850 hover:bg-carbon-750 border border-white/5 text-gray-300'}">
-                    <div class="w-16 aspect-video bg-carbon-800 rounded overflow-hidden flex-shrink-0">
-                      <img src="${escapeHtml(e.chapter_thumbnail || data.post_thumbnail)}" class="w-full h-full object-cover">
+              <!-- Bottom bar -->
+              <div class="vf-bottom pointer-events-auto px-2.5 sm:px-5 pb-2 sm:pb-4 pt-10 space-y-1 sm:space-y-2">
+
+                <!-- Scrubber row -->
+                <div class="flex items-center gap-2.5 sm:gap-3">
+                  <div id="timeline-container" class="vf-timeline relative flex-1 h-6 flex items-center cursor-pointer touch-none">
+                    <div class="vf-track relative w-full h-[3px] rounded-full bg-white/25 overflow-visible">
+                      <div id="player-buffer-bar" class="absolute inset-y-0 left-0 bg-white/35 rounded-full" style="width:0"></div>
+                      <div id="player-progress-bar" class="absolute inset-y-0 left-0 bg-brand-red rounded-full" style="width:0"></div>
                     </div>
-                    <div class="min-w-0 flex-1">
-                      <p class="font-semibold text-xs truncate ${i === epIndex ? 'text-brand-red' : 'text-white'}">${escapeHtml(e.chapter_name || `Episode ${i+1}`)}</p>
-                      <span class="text-[10px] text-gray-500">${e.chapter_date ? e.chapter_date.split(' ')[0] : 'HD'}</span>
+                    <div id="player-scrubber-thumb" class="vf-thumb absolute top-1/2 w-3.5 h-3.5 rounded-full bg-brand-red pointer-events-none" style="left:0"></div>
+                    <div id="player-hover-tooltip" class="hidden absolute bottom-full mb-1.5 -translate-x-1/2 px-2 py-0.5 rounded bg-black/90 border border-white/15 text-white text-[11px] font-mono pointer-events-none">00:00</div>
+                  </div>
+                  <span id="player-time-remaining" class="text-[11px] sm:text-xs font-semibold text-white tabular-nums min-w-[42px] text-right">--:--</span>
+                </div>
+
+                <!-- Button row -->
+                <div class="flex items-center justify-between gap-1">
+                  <div class="flex items-center gap-0.5 sm:gap-2 min-w-0">
+                    <button onclick="togglePlayPause()" class="vf-icon-btn hidden sm:inline-flex" title="Play / Pause (Space)">
+                      <svg id="ctrl-play-icon" class="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                    </button>
+                    ${prevEp ? `<button onclick="navigateTo('#/watch/${seriesId}/${prevEp.chapter_id}')" class="vf-icon-btn hidden sm:inline-flex" title="Previous Episode (P)">${ICON.prev}</button>` : ''}
+                    <div class="vf-volume flex items-center">
+                      <button id="btn-volume-mute" onclick="toggleMute()" class="vf-icon-btn" title="Mute (M)">
+                        <svg id="vol-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"></svg>
+                      </button>
+                      <input id="volume-slider" type="range" min="0" max="1" step="0.05" value="${state.player.volume}"
+                             oninput="handleVolumeChange(this.value)" class="scrubber vf-volume-slider hidden md:block h-1 rounded-full cursor-pointer">
+                    </div>
+                    <div class="text-[11px] sm:text-xs font-mono text-gray-300 tabular-nums whitespace-nowrap pl-1">
+                      <span id="player-time-current">00:00</span><span class="text-gray-500"> / </span><span id="player-time-duration">00:00</span>
                     </div>
                   </div>
+
+                  <div class="flex items-center gap-0.5 sm:gap-1.5 flex-shrink-0">
+                    ${nextEp ? `<button onclick="navigateTo('#/watch/${seriesId}/${nextEp.chapter_id}')" class="vf-bar-btn" title="Next Episode (N)">${ICON.next}<span class="hidden sm:inline">Next</span></button>` : ''}
+                    ${episodes.length > 1 ? `<button onclick="toggleInPlayerDrawer()" class="vf-bar-btn" title="Episodes (E)">${ICON.eps}<span class="hidden sm:inline">Episodes</span></button>` : ''}
+                    <button onclick="togglePlayerSettings('subs')" class="vf-bar-btn" title="Audio & Subtitles">${ICON.subs}<span class="hidden lg:inline">Audio</span></button>
+                    <button onclick="togglePlayerSettings('quality')" class="vf-bar-btn" title="Quality & Speed">
+                      ${ICON.gear}<span id="btn-quality" class="hidden sm:inline text-[11px] font-bold px-1.5 py-px rounded bg-white/15">AUTO</span>
+                    </button>
+                    <button onclick="toggleFullscreen()" class="vf-icon-btn" title="Fullscreen (F)">${ICON.fs}</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ============ SETTINGS SHEET (Quality / Speed / Audio / Subtitles) ============ -->
+            <div id="player-settings-backdrop" class="hidden absolute inset-0 z-30 bg-black/40" onclick="togglePlayerSettings(false)"></div>
+            <div id="player-settings" class="vf-sheet hidden absolute z-40 glass-strong overflow-y-auto no-scrollbar">
+              <div class="flex items-center justify-between px-4 pt-3 pb-2 sticky top-0 bg-[rgba(14,14,18,0.96)] z-10">
+                <h4 class="font-heading font-bold text-sm text-white">Playback Settings</h4>
+                <button onclick="togglePlayerSettings(false)" class="vf-icon-btn -mr-2">${ICON.close}</button>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-2 px-2 pb-3">
+                <section id="settings-sec-quality">
+                  <h5 class="vf-sheet-title">Quality</h5>
+                  <div id="quality-dropdown" class="space-y-0.5"><p class="px-3 py-2 text-xs text-gray-500">Loading stream levels…</p></div>
+                </section>
+                <section>
+                  <h5 class="vf-sheet-title">Playback Speed</h5>
+                  <div id="speed-dropdown" class="grid grid-cols-3 gap-1.5 px-2"></div>
+                </section>
+                <section id="settings-sec-subs">
+                  <h5 class="vf-sheet-title">Audio &amp; Subtitles</h5>
+                  <div id="subtitles-dropdown" class="space-y-0.5"></div>
+                </section>
+                <section>
+                  <h5 class="vf-sheet-title">Preferences</h5>
+                  <label class="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-white/5 cursor-pointer text-sm text-gray-200">
+                    <span>Auto-play next episode</span>
+                    <input type="checkbox" ${state.player.autoPlayNext ? 'checked' : ''} onchange="state.player.autoPlayNext=this.checked; localStorage.setItem('voidflix_autoplay', String(this.checked));" class="w-4 h-4 accent-[#E50914]">
+                  </label>
+                </section>
+              </div>
+            </div>
+
+            <!-- ============ EPISODE DRAWER ============ -->
+            <div id="in-player-drawer" class="vf-drawer absolute top-0 bottom-0 right-0 z-40 w-full sm:w-80 bg-carbon-950/95 backdrop-blur-xl border-l border-white/10 flex flex-col">
+              <div class="flex items-center justify-between px-4 py-3 border-b border-white/10">
+                <h4 class="font-heading font-bold text-xs uppercase tracking-wider text-white">Episodes · ${episodes.length}</h4>
+                <button onclick="toggleInPlayerDrawer()" class="vf-icon-btn -mr-2">${ICON.close}</button>
+              </div>
+              <div class="flex-1 overflow-y-auto p-2.5 space-y-2 no-scrollbar">
+                ${episodes.map((e, i) => `
+                  <button onclick="navigateTo('#/watch/${seriesId}/${e.chapter_id}')"
+                          class="w-full text-left flex items-center gap-3 p-2 rounded-lg transition ${i === epIndex ? 'bg-white/10 ring-1 ring-brand-red' : 'hover:bg-white/5'}">
+                    <div class="relative w-24 aspect-video rounded-md overflow-hidden bg-carbon-800 flex-shrink-0">
+                      <img src="${escapeHtml(e.chapter_thumbnail || data.post_thumbnail || THUMB_UNAVAILABLE_SVG)}" data-fallback="${escapeHtml(data.post_thumbnail || '')}" class="w-full h-full object-cover" loading="lazy" onerror="handlePosterError(this, true)">
+                      ${i === epIndex ? '<span class="absolute inset-0 flex items-center justify-center bg-black/50 text-[10px] font-bold text-white uppercase tracking-wider">Playing</span>' : ''}
+                    </div>
+                    <div class="min-w-0 flex-1">
+                      <p class="font-semibold text-xs truncate ${i === epIndex ? 'text-brand-red' : 'text-white'}">${escapeHtml(e.chapter_name || `Episode ${i + 1}`)}</p>
+                      <span class="text-[10px] text-gray-500">${e.chapter_date ? e.chapter_date.split(' ')[0] : 'HD'}</span>
+                    </div>
+                  </button>
                 `).join('')}
               </div>
             </div>
 
-            <!-- Custom Controls Overlay (Auto-Hides) -->
-            <div id="player-controls" class="absolute inset-0 z-20 flex flex-col justify-between p-4 sm:p-6 bg-gradient-to-t from-black/95 via-transparent to-black/70 opacity-100 transition-opacity duration-300">
-              
-              <!-- Top Controls -->
-              <div class="flex items-center justify-between">
-                <div>
-                  <h3 class="font-heading font-bold text-sm sm:text-base text-white truncate max-w-lg">${escapeHtml(title)}</h3>
-                  <p class="text-xs text-gray-400">${escapeHtml(epTitle)}</p>
-                </div>
-                <div class="flex items-center gap-2">
-                  <button onclick="openDownloadModal('${escapeHtml(title).replace(/'/g, "\\'")}', '${escapeHtml(epTitle).replace(/'/g, "\\'")}', '${escapeHtml(videoUrl)}', '${escapeHtml(ep.chapter_thumbnail || data.post_thumbnail)}')" 
-                          title="Download Episode" class="p-2 rounded bg-black/40 hover:bg-black/70 border border-white/10 text-white transition">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                  </button>
-                  <button onclick="toggleInPlayerDrawer()" title="Chapters (E)" class="p-2 rounded bg-black/40 hover:bg-black/70 border border-white/10 text-white transition">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
-                  </button>
-                </div>
+            <!-- Resume prompt -->
+            ${resumeTime > 0 ? `
+              <div id="resume-banner" class="absolute left-1/2 -translate-x-1/2 bottom-20 sm:bottom-24 z-30 glass-strong rounded-lg px-3 py-2 flex items-center gap-3 border border-white/15 fade-enter w-max max-w-[92%]">
+                <p class="text-[11px] sm:text-xs text-gray-200 whitespace-nowrap">Resume from <b class="text-white">${formatTime(resumeTime)}</b>?</p>
+                <button onclick="resumePlayback(${resumeTime})" class="px-3 py-1 bg-brand-red text-white text-[11px] font-bold rounded">Resume</button>
+                <button onclick="dismissResumeBanner()" class="text-[11px] text-gray-400 hover:text-white">Dismiss</button>
               </div>
+            ` : ''}
 
-              <!-- Bottom Controls Group -->
-              <div class="space-y-3">
-                
-                <!-- Progress Scrubber with Netflix-style Red Dot & Hover Tooltip -->
-                <div class="relative flex items-center group/scrubber cursor-pointer py-1" id="timeline-container" 
-                     onclick="handleTimelineClick(event)"
-                     onmousemove="handleTimelineHover(event)"
-                     onmouseleave="handleTimelineLeave()">
-                  <div class="w-full h-1 group-hover/scrubber:h-2 bg-white/20 rounded-full overflow-hidden transition-all relative">
-                    <div id="player-buffer-bar" class="absolute left-0 top-0 bottom-0 bg-white/30 rounded-full w-0"></div>
-                    <div id="player-progress-bar" class="absolute left-0 top-0 bottom-0 bg-brand-red rounded-full w-0"></div>
-                  </div>
-                  <!-- Netflix Red Draggable Dot -->
-                  <div id="player-scrubber-thumb" class="absolute w-3.5 h-3.5 rounded-full bg-brand-red pointer-events-none transform -translate-x-1/2 scale-100 group-hover/scrubber:scale-125 transition-transform shadow-lg border border-white/30"></div>
-                  <!-- Hover Time Tooltip -->
-                  <div id="player-hover-tooltip" class="hidden absolute bottom-full mb-2 -translate-x-1/2 px-2 py-0.5 rounded bg-black/90 text-white text-[10px] font-mono pointer-events-none border border-white/20">00:00</div>
-                </div>
-
-                <!-- Bottom Button Row -->
-                <div class="flex items-center justify-between text-white">
-                  
-                  <!-- Left Controls -->
-                  <div class="flex items-center gap-1.5 sm:gap-4">
-                    
-                    <button id="btn-play-pause" onclick="togglePlayPause()" class="p-1 hover:text-gray-300 transition">
-                      <svg id="ctrl-play-icon" class="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                    </button>
-
-                    ${hasPrev ? `
-                      <button onclick="navigateTo('#/watch/${seriesId}/${episodes[epIndex - 1].chapter_id}')" title="Previous Episode (P)" class="p-1 text-gray-300 hover:text-white transition hidden sm:inline-flex">
-                        <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
-                      </button>
-                    ` : ''}
-
-                    <button onclick="seekRelative(-10)" title="Rewind 10s (← / J)" class="p-1 text-gray-300 hover:text-white transition hidden sm:inline-flex">
-                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0019 16V8a1 1 0 00-1.6-.8l-5.334 4zM4.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0011 16V8a1 1 0 00-1.6-.8l-5.334 4z"/></svg>
-                    </button>
-
-                    <button onclick="seekRelative(10)" title="Fast Forward 10s (→ / L)" class="p-1 text-gray-300 hover:text-white transition hidden sm:inline-flex">
-                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.934 12.8a1 1 0 000-1.6l-5.334-4A1 1 0 005 8v8a1 1 0 001.6.8l5.334-4zM19.934 12.8a1 1 0 000-1.6l-5.334-4A1 1 0 0013 8v8a1 1 0 001.6.8l5.334-4z"/></svg>
-                    </button>
-
-                    ${hasNext ? `
-                      <button onclick="navigateTo('#/watch/${seriesId}/${episodes[epIndex + 1].chapter_id}')" title="Next Episode (N)" class="p-1 text-gray-300 hover:text-brand-red transition">
-                        <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
-                      </button>
-                    ` : ''}
-
-                    <!-- Volume Controls (Slider hidden on mobile) -->
-                    <div class="flex items-center gap-1.5">
-                      <button id="btn-volume-mute" onclick="toggleMute()" class="p-1 text-gray-300 hover:text-white transition">
-                        <svg id="vol-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
-                      </button>
-                      <input id="volume-slider" type="range" min="0" max="1" step="0.05" value="${state.player.volume}" 
-                             oninput="handleVolumeChange(this.value)"
-                             class="scrubber w-14 sm:w-20 h-1 bg-white/30 rounded-full cursor-pointer hidden sm:inline-block">
-                    </div>
-
-                    <!-- Time Display -->
-                    <div class="text-[11px] sm:text-xs font-mono text-gray-300 select-none pl-0.5 sm:pl-1 flex items-center gap-1">
-                      <span id="player-time-current">00:00</span>
-                      <span class="text-gray-500">/</span>
-                      <span id="player-time-duration">00:00</span>
-                      <span id="player-time-remaining" class="text-gray-400 text-[11px] hidden md:inline tabular-nums font-semibold"></span>
-                    </div>
-
-                  </div>
-
-                  <!-- Right Controls -->
-                  <div class="flex items-center gap-1.5 sm:gap-3">
-                    
-                    <!-- Audio & Subtitles Menu -->
-                    <div class="relative">
-                      <button onclick="toggleSubtitlesMenu()" id="btn-subtitles" title="Audio & Subtitles" class="p-1 text-gray-300 hover:text-white transition">
-                        <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/></svg>
-                      </button>
-                      <div id="subtitles-dropdown" class="hidden absolute bottom-full right-0 mb-2 glass-strong rounded-md p-2 shadow-2xl min-w-[200px] z-50 text-xs"></div>
-                    </div>
-
-                    <!-- Quality Menu -->
-                    <div class="relative">
-                      <button onclick="toggleQualityMenu()" id="btn-quality" class="px-1.5 py-0.5 sm:px-2 sm:py-1 rounded bg-white/10 hover:bg-white/20 text-[10px] sm:text-xs font-semibold text-gray-200 transition">
-                        AUTO
-                      </button>
-                      <div id="quality-dropdown" class="hidden absolute bottom-full right-0 mb-2 glass-strong rounded-md p-1.5 shadow-2xl min-w-[110px] z-50 text-xs divide-y divide-white/10"></div>
-                    </div>
-
-                    <!-- Speed Menu (hidden on mobile) -->
-                    <div class="relative hidden sm:block">
-                      <button onclick="toggleSpeedMenu()" id="btn-speed" class="px-2 py-1 rounded bg-white/10 hover:bg-white/20 text-xs font-semibold text-gray-200 transition">
-                        1x
-                      </button>
-                      <div id="speed-dropdown" class="hidden absolute bottom-full right-0 mb-2 glass-strong rounded-md p-1 shadow-2xl min-w-[75px] z-50 text-xs">
-                        ${[0.5, 0.75, 1, 1.25, 1.5, 2].map(s => `
-                          <button onclick="setPlaybackSpeed(${s})" class="w-full text-left px-2 py-1 rounded hover:bg-carbon-700 text-gray-300 hover:text-white transition">
-                            ${s}x
-                          </button>
-                        `).join('')}
-                      </div>
-                    </div>
-
-                    <!-- Fullscreen -->
-                    <button onclick="toggleFullscreen()" title="Fullscreen (F)" class="p-1 text-gray-300 hover:text-white transition">
-                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg>
-                    </button>
-
-                  </div>
-                        ${[0.5, 0.75, 1, 1.25, 1.5, 2].map(s => `
-                          <button onclick="setPlaybackSpeed(${s})" class="w-full text-left px-2 py-1 rounded hover:bg-carbon-700 text-gray-300 hover:text-white transition">
-                            ${s}x
-                          </button>
-                        `).join('')}
-                      </div>
-                    </div>
-
-                    <!-- Fullscreen -->
-                    <button onclick="toggleFullscreen()" title="Fullscreen (F)" class="p-1 text-gray-300 hover:text-white transition">
-                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg>
-                    </button>
-
-                  </div>
-
-                </div>
-
+            <!-- Up-next countdown -->
+            <div id="next-countdown-overlay" class="hidden absolute inset-0 z-50 bg-black/85 backdrop-blur-md flex flex-col items-center justify-center gap-2 sm:gap-4 px-4 text-center">
+              <span class="text-[10px] sm:text-xs font-bold text-brand-red uppercase tracking-widest">Up Next</span>
+              <h3 class="font-display text-2xl sm:text-4xl text-white max-w-lg leading-tight">${nextEp ? escapeHtml(nextEp.chapter_name || `Episode ${epIndex + 2}`) : 'End of Series'}</h3>
+              <p class="text-[11px] sm:text-xs text-gray-400">Playing in <span id="countdown-number" class="text-white font-bold font-mono">5</span>s</p>
+              <div class="flex items-center gap-2 sm:gap-3 pt-1">
+                <button onclick="executePlayNextNow(${seriesId}, ${epIndex + 1})" class="px-5 py-2 rounded bg-white text-black font-bold text-xs hover:bg-gray-200 transition">Play Now</button>
+                <button onclick="cancelNextCountdown()" class="px-4 py-2 rounded bg-white/10 text-gray-200 text-xs hover:bg-white/20 border border-white/10 transition">Cancel</button>
               </div>
-
             </div>
 
           </div>
-
         </div>
 
-        <!-- Below Player Metadata & Episode Guide -->
-        <div class="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-6 bg-carbon-850 p-6 rounded-xl border border-white/10">
-          <div class="space-y-3">
-            <div class="flex items-center gap-2">
-              <span class="px-2 py-0.5 rounded bg-brand-red text-white text-[10px] font-bold">18+ Mature</span>
-              <span class="text-emerald-400 font-bold text-xs">98% Match</span>
-              <span class="text-gray-400 text-xs">${ep.chapter_date ? ep.chapter_date.split(' ')[0] : 'HD'}</span>
+        <!-- ============ BELOW PLAYER: INFO ============ -->
+        <div class="bg-carbon-850 rounded-xl border border-white/10 p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-4 sm:gap-6">
+          <div class="space-y-2.5 min-w-0">
+            <div class="flex flex-wrap items-center gap-2 text-[11px]">
+              <span class="px-1.5 py-0.5 rounded bg-brand-red text-white font-bold">18+</span>
+              <span class="text-emerald-400 font-bold">98% Match</span>
+              <span class="text-gray-400">${ep.chapter_date ? ep.chapter_date.split(' ')[0] : 'HD'}</span>
+              <span class="px-1.5 py-0.5 rounded border border-white/20 text-gray-300 font-semibold">HD</span>
             </div>
-            <h2 class="font-heading font-bold text-xl sm:text-2xl text-white">${escapeHtml(title)} — ${escapeHtml(epTitle)}</h2>
-            <p class="text-gray-300 text-xs sm:text-sm leading-relaxed">${escapeHtml(data.post_content || 'Stream all episodes in high definition with VoidFlix.')}</p>
+            <h2 class="font-heading font-bold text-lg sm:text-2xl text-white leading-snug">${escapeHtml(title)} <span class="text-gray-400 font-semibold">· ${escapeHtml(epTitle)}</span></h2>
+            <p id="watch-synopsis" class="text-gray-300 text-xs sm:text-sm leading-relaxed line-clamp-3">${escapeHtml(data.post_content || 'Stream all episodes in high definition with VoidFlix.')}</p>
+            <button onclick="document.getElementById('watch-synopsis').classList.toggle('line-clamp-3'); this.textContent = this.textContent === 'More' ? 'Less' : 'More';" class="text-[11px] font-semibold text-gray-400 hover:text-white">More</button>
           </div>
-
-          <div class="flex flex-col justify-center gap-3 border-t lg:border-t-0 lg:border-l border-white/10 lg:pl-6 pt-4 lg:pt-0">
-            <button onclick="openDownloadModal('${escapeHtml(title).replace(/'/g, "\\'")}', '${escapeHtml(epTitle).replace(/'/g, "\\'")}', '${escapeHtml(videoUrl)}', '${escapeHtml(ep.chapter_thumbnail || data.post_thumbnail)}')" 
-                    class="py-2.5 px-4 rounded-md bg-carbon-800 hover:bg-carbon-700 text-white font-bold text-xs flex items-center justify-center gap-2 border border-white/10 transition">
-              <svg class="w-4 h-4 text-brand-red" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-              Download This Episode
+          <div class="grid grid-cols-3 lg:grid-cols-1 gap-2 lg:border-l lg:border-white/10 lg:pl-6 content-center">
+            <button onclick="${dlCall}" class="vf-action-btn">${ICON.dl}<span>Download</span></button>
+            <button onclick="toggleWatchlist({ id: ${seriesId}, title: '${escapeHtml(title).replace(/'/g, "\\'")}', thumbnail: '${escapeHtml(data.post_thumbnail || '')}' }, event)" data-watchlist-id="${seriesId}" class="vf-action-btn">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg><span>My List</span>
             </button>
-            <button onclick="toggleWatchlist({ id: ${seriesId}, title: '${escapeHtml(title).replace(/'/g, "\\'")}', thumbnail: '${escapeHtml(data.post_thumbnail)}' }, event)"
-                    data-watchlist-id="${seriesId}"
-                    class="py-2.5 px-4 rounded-md bg-carbon-800 hover:bg-carbon-700 text-gray-300 hover:text-white text-xs font-semibold flex items-center justify-center gap-2 border border-white/10 transition">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-              <span>Bookmark Series</span>
+            <button onclick="copyToClipboard(window.location.href, 'Episode link copied!')" class="vf-action-btn">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg><span>Share</span>
             </button>
           </div>
         </div>
 
-        <!-- Next Episodes in Series -->
-        <div class="space-y-4 pt-4">
+        <!-- ============ EPISODE LIST ============ -->
+        <div class="space-y-3 pb-6">
           <div class="flex items-center justify-between pb-2 border-b border-white/10">
-            <h3 class="font-heading font-bold text-base text-white">All Chapters (${episodes.length})</h3>
-            <button onclick="navigateTo('#/series/${seriesId}')" class="text-xs text-brand-red hover:underline font-semibold">View Series Detail Page ›</button>
+            <h3 class="font-heading font-bold text-base text-white">Episodes <span class="text-gray-500 font-semibold">(${episodes.length})</span></h3>
+            <button onclick="navigateTo('#/series/${seriesId}')" class="text-xs text-gray-400 hover:text-white font-semibold">Series details ›</button>
           </div>
-          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">
             ${episodes.map((e, idx) => `
-              <div onclick="navigateTo('#/watch/${seriesId}/${e.chapter_id}')"
-                   class="group/ep rounded-lg overflow-hidden bg-carbon-800 border transition cursor-pointer ${idx === epIndex ? 'border-brand-red ring-1 ring-brand-red' : 'border-white/10 hover:border-white/30'}">
-                <div class="relative aspect-video bg-carbon-850">
-                  <img src="${escapeHtml(e.chapter_thumbnail || data.post_thumbnail)}" class="w-full h-full object-cover">
-                  <span class="absolute bottom-1 right-1 text-[9px] bg-black/80 px-1 rounded font-bold">${idx + 1}</span>
+              <button onclick="navigateTo('#/watch/${seriesId}/${e.chapter_id}')"
+                      class="text-left flex sm:flex-col gap-3 sm:gap-0 rounded-lg overflow-hidden bg-carbon-800 border transition active:scale-[0.98] ${idx === epIndex ? 'border-brand-red ring-1 ring-brand-red' : 'border-white/10 hover:border-white/30'}">
+                <div class="relative w-32 sm:w-full aspect-video bg-carbon-850 flex-shrink-0">
+                  <img src="${escapeHtml(e.chapter_thumbnail || data.post_thumbnail || THUMB_UNAVAILABLE_SVG)}" data-fallback="${escapeHtml(data.post_thumbnail || '')}" class="w-full h-full object-cover" loading="lazy" onerror="handlePosterError(this, true)">
+                  <span class="absolute bottom-1 left-1 text-[9px] bg-black/80 px-1.5 py-0.5 rounded font-bold text-white">EP ${idx + 1}</span>
+                  ${idx === epIndex ? '<span class="absolute top-1 left-1 text-[9px] bg-brand-red px-1.5 py-0.5 rounded font-bold text-white uppercase">Now Playing</span>' : ''}
                 </div>
-                <div class="p-2">
-                  <p class="font-semibold text-xs truncate ${idx === epIndex ? 'text-brand-red' : 'text-white'}">${escapeHtml(e.chapter_name || `Episode ${idx+1}`)}</p>
+                <div class="py-2 pr-3 sm:px-3 min-w-0 flex flex-col justify-center">
+                  <p class="font-semibold text-xs sm:text-sm truncate ${idx === epIndex ? 'text-brand-red' : 'text-white'}">${escapeHtml(e.chapter_name || `Episode ${idx + 1}`)}</p>
+                  <span class="text-[10px] text-gray-500">${e.chapter_date ? e.chapter_date.split(' ')[0] : 'HD'} · 1080p</span>
                 </div>
-              </div>
+              </button>
             `).join('')}
           </div>
         </div>
@@ -1418,217 +1431,308 @@ async function showWatchPage(seriesId, chapterId) {
   }
 }
 
-// ==================== FLOWFLIX PLAYER ENGINE & EVENT HANDLERS ====================
+// ==================== VOIDFLIX NATIVE PLAYER ENGINE ====================
+const PLAY_PATH = '<path d="M8 5v14l11-7z"/>';
+const PAUSE_PATH = '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>';
+const isTouchDevice = () => window.matchMedia('(hover: none)').matches;
+
 function initVideoPlayer(videoUrl, seriesId, chapterId, index, seriesTitle, chapterTitle, thumbnail) {
   const video = document.getElementById('video-player');
   if (!video) return;
 
   video.volume = state.player.volume;
   video.muted = state.player.isMuted;
+  video.playbackRate = state.player.speed || 1;
   updateVolumeUI(video.volume, video.muted);
+  renderSpeedOptions();
+  populateSubtitlesMenu();
+  bindTimelineScrubbing();
+  setSpinner(true);
 
-  if (Hls.isSupported()) {
-    const hls = new Hls({ enableWorker: true, lowLatencyMode: false });
+  if (window.Hls && Hls.isSupported()) {
+    const hls = new Hls({ enableWorker: true, lowLatencyMode: false, capLevelToPlayerSize: true });
     state.hls = hls;
-
     hls.loadSource(videoUrl);
     hls.attachMedia(video);
 
     hls.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
       state.player.levels = data.levels || [];
       populateQualityMenu();
-      populateSubtitlesMenu();
-      video.play().catch(() => {});
+      video.play().catch(() => { setSpinner(false); updatePlayPauseUI(false); });
     });
-
     hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, (event, data) => {
       state.player.subtitleTracks = data.subtitleTracks || [];
       populateSubtitlesMenu();
     });
-
     hls.on(Hls.Events.LEVEL_SWITCHED, (event, data) => {
       state.player.currentLevel = data.level;
-      const btn = document.getElementById('btn-quality');
-      if (btn) {
-        if (hls.autoLevelEnabled) {
-          btn.textContent = 'AUTO';
-        } else {
-          const l = state.player.levels[data.level];
-          btn.textContent = l ? `${l.height}p` : 'HD';
-        }
-      }
+      updateQualityLabel();
+      populateQualityMenu();
     });
-
     hls.on(Hls.Events.ERROR, (event, data) => {
-      if (data.fatal) {
-        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad();
-        else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError();
-        else hls.destroy();
-      }
+      if (!data.fatal) return;
+      if (data.type === Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad();
+      else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError();
+      else { hls.destroy(); showToast('Playback error — stream unavailable', 'error'); setSpinner(false); }
     });
   } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
     video.src = videoUrl;
-    video.play().catch(() => {});
+    populateQualityMenu();
+    video.play().catch(() => { setSpinner(false); updatePlayPauseUI(false); });
   }
 
-  video.addEventListener('play', () => {
-    state.player.isPlaying = true;
-    updatePlayPauseUI(true);
-    document.getElementById('center-play-button')?.classList.add('hidden');
-  });
+  video.addEventListener('play', () => { state.player.isPlaying = true; updatePlayPauseUI(true); scheduleHideControls(); });
+  video.addEventListener('pause', () => { state.player.isPlaying = false; updatePlayPauseUI(false); revealPlayerControls(true); });
+  video.addEventListener('waiting', () => setSpinner(true));
+  video.addEventListener('playing', () => setSpinner(false));
+  video.addEventListener('canplay', () => setSpinner(false));
+  video.addEventListener('loadedmetadata', () => updateTimeUI(video));
 
-  video.addEventListener('pause', () => {
-    state.player.isPlaying = false;
-    updatePlayPauseUI(false);
-    document.getElementById('center-play-button')?.classList.remove('hidden');
-  });
-
+  let lastSave = 0;
   video.addEventListener('timeupdate', () => {
     if (!video.duration) return;
-    const current = video.currentTime;
-    const duration = video.duration;
-
-    const currentEl = document.getElementById('player-time-current');
-    const durationEl = document.getElementById('player-time-duration');
-    const remainingEl = document.getElementById('player-time-remaining');
-
-    if (currentEl) currentEl.textContent = formatTime(current);
-    if (durationEl) durationEl.textContent = formatTime(duration);
-    if (remainingEl) remainingEl.textContent = '-' + formatTime(Math.max(0, duration - current));
-
-    const percent = (current / duration) * 100;
-    const pBar = document.getElementById('player-progress-bar');
-    const thumb = document.getElementById('player-scrubber-thumb');
-    if (pBar) pBar.style.width = `${percent}%`;
-    if (thumb) thumb.style.left = `${percent}%`;
-
-    if (Math.floor(current) % 5 === 0) {
-      saveWatchProgress(seriesId, chapterId, index, seriesTitle, chapterTitle, thumbnail, current, duration);
+    if (!state.player.isScrubbing) updateTimeUI(video);
+    const now = Date.now();
+    if (now - lastSave > 5000) {
+      lastSave = now;
+      saveWatchProgress(seriesId, chapterId, index, seriesTitle, chapterTitle, thumbnail, video.currentTime, video.duration);
     }
   });
 
   video.addEventListener('progress', () => {
     if (video.buffered.length > 0 && video.duration > 0) {
-      const bufferedEnd = video.buffered.end(video.buffered.length - 1);
-      const percent = (bufferedEnd / video.duration) * 100;
+      const pct = (video.buffered.end(video.buffered.length - 1) / video.duration) * 100;
       const bBar = document.getElementById('player-buffer-bar');
-      if (bBar) bBar.style.width = `${percent}%`;
+      if (bBar) bBar.style.width = `${pct}%`;
     }
   });
 
   video.addEventListener('ended', () => {
     saveWatchProgress(seriesId, chapterId, index, seriesTitle, chapterTitle, thumbnail, video.duration, video.duration);
-    if (state.player.autoPlayNext) {
-      startNextEpisodeCountdown(seriesId, index + 1);
-    }
+    if (state.player.autoPlayNext) startNextEpisodeCountdown(seriesId, index + 1);
   });
+
+  revealPlayerControls(true);
 }
 
-// Mobile Touch Double-Tap & Single-Tap Handling
-function handlePlayerClick(e) {
-  // If clicked on controls, ignore double tap
-  if (e.target.closest('#player-controls') || e.target.closest('#in-player-drawer') || e.target.closest('#resume-banner') || e.target.closest('#next-countdown-overlay')) return;
+function updateTimeUI(video, overrideTime) {
+  const duration = video.duration || 0;
+  const current = overrideTime != null ? overrideTime : video.currentTime;
+  const pct = duration ? (current / duration) * 100 : 0;
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  set('player-time-current', formatTime(current));
+  set('player-time-duration', formatTime(duration));
+  set('player-time-remaining', duration ? '-' + formatTime(Math.max(0, duration - current)) : '--:--');
+  const pBar = document.getElementById('player-progress-bar');
+  const thumb = document.getElementById('player-scrubber-thumb');
+  if (pBar) pBar.style.width = `${pct}%`;
+  if (thumb) thumb.style.left = `${pct}%`;
+}
+
+function setSpinner(on) {
+  document.getElementById('player-spinner')?.classList.toggle('hidden', !on);
+}
+
+// ---- Controls visibility ----
+function revealPlayerControls(sticky) {
+  const frame = document.getElementById('video-frame');
+  if (!frame) return;
+  frame.classList.remove('controls-hidden');
+  if (!sticky) scheduleHideControls();
+  else clearTimeout(state.playerControlsTimer);
+}
+
+function scheduleHideControls(delay = 3000) {
+  clearTimeout(state.playerControlsTimer);
+  state.playerControlsTimer = setTimeout(() => {
+    const frame = document.getElementById('video-frame');
+    const video = document.getElementById('video-player');
+    if (!frame || !video || video.paused || state.player.isDrawerOpen || state.player.isSettingsOpen || state.player.isScrubbing) return;
+    frame.classList.add('controls-hidden');
+  }, delay);
+}
+
+function hidePlayerControlsNow() {
+  const video = document.getElementById('video-player');
+  if (!video || video.paused) return;
+  clearTimeout(state.playerControlsTimer);
+  document.getElementById('video-frame')?.classList.add('controls-hidden');
+}
+
+// ---- Tap / click handling (touch: tap toggles controls, double-tap seeks; mouse: click toggles play) ----
+function handlePlayerTap(e) {
+  const frame = document.getElementById('video-frame');
+  if (!frame) return;
+
+  if (!isTouchDevice()) {
+    clearTimeout(state.singleTapTimer);
+    state.singleTapTimer = setTimeout(() => togglePlayPause(), 200);
+    revealPlayerControls();
+    return;
+  }
 
   const now = Date.now();
-  const diff = now - state.lastTapTime;
+  const isDouble = now - state.lastTapTime < 280;
   state.lastTapTime = now;
+  const rect = frame.getBoundingClientRect();
+  const x = (e.clientX - rect.left) / rect.width;
 
-  if (diff < 300) {
-    // Double tap detected: cancel pending single tap action
+  if (isDouble && (x < 0.35 || x > 0.65)) {
     clearTimeout(state.singleTapTimer);
-    state.singleTapTimer = null;
-
-    const frame = document.getElementById('video-frame');
-    if (!frame) return;
-    const rect = frame.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-
-    if (clickX < rect.width * 0.35) {
-      seekRelative(-10);
-      showSeekRipple('left');
-    } else if (clickX > rect.width * 0.65) {
-      seekRelative(10);
-      showSeekRipple('right');
-    } else {
-      togglePlayPause();
-    }
-  } else {
-    // Single tap: toggle controls after small delay to distinguish from double tap
-    clearTimeout(state.singleTapTimer);
-    state.singleTapTimer = setTimeout(() => {
-      const controls = document.getElementById('player-controls');
-      if (controls) {
-        const isVisible = controls.style.opacity === '1';
-        controls.style.opacity = isVisible ? '0' : '1';
-        controls.style.pointerEvents = isVisible ? 'none' : 'auto';
-      }
-    }, 250);
+    const side = x < 0.35 ? 'left' : 'right';
+    seekRelative(side === 'left' ? -10 : 10);
+    flashSeek(side);
+    revealPlayerControls();
+    return;
   }
+
+  clearTimeout(state.singleTapTimer);
+  state.singleTapTimer = setTimeout(() => {
+    if (frame.classList.contains('controls-hidden')) revealPlayerControls();
+    else hidePlayerControlsNow();
+  }, 220);
 }
 
-function showSeekRipple(side) {
-  const el = document.getElementById(`seek-ripple-${side}`);
+function handlePlayerDblClick() {
+  if (isTouchDevice()) return;
+  clearTimeout(state.singleTapTimer);
+  toggleFullscreen();
+}
+
+function flashSeek(side) {
+  const el = document.getElementById(`seek-flash-${side}`);
   if (!el) return;
-  el.style.opacity = '1';
-  setTimeout(() => { el.style.opacity = '0'; }, 320);
+  el.classList.remove('show');
+  void el.offsetWidth;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), 550);
+}
+// Backwards compat
+function showSeekRipple(side) { flashSeek(side); }
+
+// ---- Drawer & settings sheet ----
+function toggleInPlayerDrawer(force) {
+  state.player.isDrawerOpen = typeof force === 'boolean' ? force : !state.player.isDrawerOpen;
+  document.getElementById('in-player-drawer')?.classList.toggle('open', state.player.isDrawerOpen);
+  if (state.player.isDrawerOpen) { togglePlayerSettings(false); revealPlayerControls(true); }
+  else scheduleHideControls();
 }
 
-function toggleInPlayerDrawer() {
-  state.player.isDrawerOpen = !state.player.isDrawerOpen;
-  const drawer = document.getElementById('in-player-drawer');
-  if (drawer) drawer.classList.toggle('hidden', !state.player.isDrawerOpen);
-}
-
-function updatePlayPauseUI(isPlaying) {
-  const icon = document.getElementById('ctrl-play-icon');
-  if (icon) {
-    icon.innerHTML = isPlaying 
-      ? '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>' 
-      : '<path d="M8 5v14l11-7z"/>';
+function togglePlayerSettings(section) {
+  const sheet = document.getElementById('player-settings');
+  const backdrop = document.getElementById('player-settings-backdrop');
+  if (!sheet) return;
+  const open = section === false ? false : (section === true || typeof section === 'string') ? !(state.player.isSettingsOpen && state.player.settingsSection === section) : !state.player.isSettingsOpen;
+  state.player.isSettingsOpen = open;
+  state.player.settingsSection = open ? section : null;
+  sheet.classList.toggle('hidden', !open);
+  backdrop?.classList.toggle('hidden', !open);
+  if (open) {
+    if (state.player.isDrawerOpen) toggleInPlayerDrawer(false);
+    revealPlayerControls(true);
+    const target = section === 'subs' ? 'settings-sec-subs' : 'settings-sec-quality';
+    const sec = document.getElementById(target);
+    if (sec && sheet.scrollHeight > sheet.clientHeight) sheet.scrollTop = sec.offsetTop - 48;
+  } else {
+    scheduleHideControls();
   }
+}
+
+function closeAllPlayerDropdowns() { togglePlayerSettings(false); }
+function toggleSubtitlesMenu() { togglePlayerSettings('subs'); }
+function toggleQualityMenu() { togglePlayerSettings('quality'); }
+function toggleSpeedMenu() { togglePlayerSettings('quality'); }
+
+function sheetOption(label, active, onclick, sub) {
+  return `
+    <button onclick="${onclick}" class="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-left text-sm transition hover:bg-white/5 ${active ? 'text-white font-semibold' : 'text-gray-400'}">
+      <svg class="w-4 h-4 flex-shrink-0 ${active ? 'text-brand-red opacity-100' : 'opacity-0'}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+      <span class="flex-1 truncate">${label}</span>
+      ${sub ? `<span class="text-[10px] text-gray-500 font-normal">${sub}</span>` : ''}
+    </button>`;
+}
+
+// ---- Playback ----
+function updatePlayPauseUI(isPlaying) {
+  const path = isPlaying ? PAUSE_PATH : PLAY_PATH;
+  const a = document.getElementById('ctrl-play-icon');
+  const b = document.getElementById('center-play-icon');
+  if (a) a.innerHTML = path;
+  if (b) b.innerHTML = path;
 }
 
 function togglePlayPause() {
   const video = document.getElementById('video-player');
   if (!video) return;
-  if (video.paused) video.play();
+  if (video.paused) video.play().catch(() => {});
   else video.pause();
 }
 
 function seekRelative(delta) {
   const video = document.getElementById('video-player');
-  if (!video) return;
+  if (!video || !video.duration) return;
   video.currentTime = Math.max(0, Math.min(video.duration, video.currentTime + delta));
+  updateTimeUI(video);
 }
 
-function handleTimelineClick(e) {
+// ---- Timeline scrubbing (mouse + touch via pointer events) ----
+function bindTimelineScrubbing() {
+  const tl = document.getElementById('timeline-container');
   const video = document.getElementById('video-player');
-  const container = document.getElementById('timeline-container');
-  if (!video || !container || !video.duration) return;
-  const rect = container.getBoundingClientRect();
-  const pos = (e.clientX - rect.left) / rect.width;
-  video.currentTime = pos * video.duration;
-}
-
-function handleTimelineHover(e) {
-  const video = document.getElementById('video-player');
-  const container = document.getElementById('timeline-container');
   const tooltip = document.getElementById('player-hover-tooltip');
-  if (!video || !container || !tooltip || !video.duration) return;
+  if (!tl || !video) return;
 
-  const rect = container.getBoundingClientRect();
-  const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-  const hoverTime = pos * video.duration;
+  const posFromEvent = (e) => {
+    const rect = tl.getBoundingClientRect();
+    return Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+  };
+  const showTip = (pos) => {
+    if (!tooltip || !video.duration) return;
+    tooltip.textContent = formatTime(pos * video.duration);
+    tooltip.style.left = `${pos * 100}%`;
+    tooltip.classList.remove('hidden');
+  };
 
-  tooltip.textContent = formatTime(hoverTime);
-  tooltip.style.left = `${pos * 100}%`;
-  tooltip.classList.remove('hidden');
+  tl.addEventListener('pointerdown', (e) => {
+    if (!video.duration) return;
+    e.preventDefault();
+    state.player.isScrubbing = true;
+    tl.classList.add('scrubbing');
+    tl.setPointerCapture?.(e.pointerId);
+    const pos = posFromEvent(e);
+    updateTimeUI(video, pos * video.duration);
+    showTip(pos);
+    revealPlayerControls(true);
+  });
+  tl.addEventListener('pointermove', (e) => {
+    if (!video.duration) return;
+    const pos = posFromEvent(e);
+    if (state.player.isScrubbing) updateTimeUI(video, pos * video.duration);
+    if (state.player.isScrubbing || e.pointerType === 'mouse') showTip(pos);
+  });
+  const end = (e) => {
+    if (!state.player.isScrubbing) return;
+    state.player.isScrubbing = false;
+    tl.classList.remove('scrubbing');
+    video.currentTime = posFromEvent(e) * video.duration;
+    tooltip?.classList.add('hidden');
+    scheduleHideControls();
+  };
+  tl.addEventListener('pointerup', end);
+  tl.addEventListener('pointercancel', end);
+  tl.addEventListener('pointerleave', (e) => { if (!state.player.isScrubbing && e.pointerType === 'mouse') tooltip?.classList.add('hidden'); });
 }
 
-function handleTimelineLeave() {
-  document.getElementById('player-hover-tooltip')?.classList.add('hidden');
-}
+// Legacy handlers (kept for compatibility)
+function handleTimelineClick() {}
+function handleTimelineHover() {}
+function handleTimelineLeave() {}
+function handlePlayerClick(e) { handlePlayerTap(e); }
+function handlePlayerMouseMove() { revealPlayerControls(); }
+function handlePlayerMouseLeave() { scheduleHideControls(600); }
 
+// ---- Volume ----
 function handleVolumeChange(val) {
   const video = document.getElementById('video-player');
   if (!video) return;
@@ -1645,6 +1749,7 @@ function toggleMute() {
   const video = document.getElementById('video-player');
   if (!video) return;
   video.muted = !video.muted;
+  if (!video.muted && video.volume === 0) video.volume = 0.5;
   state.player.isMuted = video.muted;
   localStorage.setItem('voidflix_muted', String(video.muted));
   updateVolumeUI(video.volume, video.muted);
@@ -1653,175 +1758,144 @@ function toggleMute() {
 function updateVolumeUI(volume, isMuted) {
   const icon = document.getElementById('vol-icon');
   const slider = document.getElementById('volume-slider');
-  if (slider) slider.value = isMuted ? 0 : volume;
+  const level = isMuted ? 0 : volume;
+  if (slider) {
+    slider.value = level;
+    slider.style.background = `linear-gradient(to right, #fff ${level * 100}%, rgba(255,255,255,0.25) ${level * 100}%)`;
+  }
   if (!icon) return;
-
+  const speaker = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/>';
   if (isMuted || volume === 0) {
-    icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"/>';
+    icon.innerHTML = speaker + '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"/>';
   } else {
-    icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/>';
+    icon.innerHTML = speaker + '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072"/>' + (volume > 0.5 ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636a9 9 0 010 12.728"/>' : '');
   }
 }
 
-function handlePlayerMouseMove() {
-  const controls = document.getElementById('player-controls');
-  const video = document.getElementById('video-player');
-  if (controls) controls.style.opacity = '1';
-  if (video) video.style.cursor = 'default';
-
-  clearTimeout(state.playerControlsTimer);
-  state.playerControlsTimer = setTimeout(() => {
-    if (state.player.isPlaying && controls && !state.player.isDrawerOpen) {
-      controls.style.opacity = '0';
-      if (video) video.style.cursor = 'none';
-      closeAllPlayerDropdowns();
-    }
-  }, 2800);
-}
-
-function handlePlayerMouseLeave() {
-  if (state.player.isPlaying && !state.player.isDrawerOpen) {
-    const controls = document.getElementById('player-controls');
-    if (controls) controls.style.opacity = '0';
-    closeAllPlayerDropdowns();
-  }
-}
-
-function closeAllPlayerDropdowns() {
-  document.getElementById('quality-dropdown')?.classList.add('hidden');
-  document.getElementById('speed-dropdown')?.classList.add('hidden');
-  document.getElementById('subtitles-dropdown')?.classList.add('hidden');
-}
-
-// Subtitles Menu
-function toggleSubtitlesMenu() {
-  document.getElementById('quality-dropdown')?.classList.add('hidden');
-  document.getElementById('speed-dropdown')?.classList.add('hidden');
-  document.getElementById('subtitles-dropdown')?.classList.toggle('hidden');
-}
-
+// ---- Audio & Subtitles ----
 function populateSubtitlesMenu() {
-  const dropdown = document.getElementById('subtitles-dropdown');
-  if (!dropdown) return;
-
+  const box = document.getElementById('subtitles-dropdown');
+  if (!box) return;
   const tracks = state.player.subtitleTracks || [];
-  dropdown.innerHTML = `
-    <div class="pb-1.5 mb-1.5 border-b border-white/10">
-      <span class="text-[10px] text-gray-400 font-bold uppercase tracking-wider block mb-1">Audio Track</span>
-      <div class="px-2 py-1 rounded bg-carbon-800 text-white font-semibold text-xs flex items-center justify-between">
-        <span>Japanese (Original Audio)</span>
-        <span class="text-brand-red">✓</span>
-      </div>
-    </div>
-    <div class="pt-0.5">
-      <span class="text-[10px] text-gray-400 font-bold uppercase tracking-wider block mb-1">Subtitles</span>
-      ${tracks.length > 0 ? `
-        ${tracks.map((t, idx) => `
-          <button onclick="setSubtitleTrack(${idx})" class="w-full text-left px-2 py-1 rounded hover:bg-carbon-700 text-xs flex items-center justify-between transition ${state.player.currentSubtitle === idx ? 'text-brand-red font-bold' : 'text-gray-300'}">
-            <span>${escapeHtml(t.name || `Track ${idx + 1}`)}</span>
-            ${state.player.currentSubtitle === idx ? '<span>✓</span>' : ''}
-          </button>
-        `).join('')}
-        <button onclick="setSubtitleTrack(-1)" class="w-full text-left px-2 py-1 rounded hover:bg-carbon-700 text-xs flex items-center justify-between transition ${state.player.currentSubtitle === -1 ? 'text-brand-red font-bold' : 'text-gray-400'}">
-          <span>Off</span>
-          ${state.player.currentSubtitle === -1 ? '<span>✓</span>' : ''}
-        </button>
-      ` : `
-        <div class="px-2 py-1.5 rounded bg-carbon-800/80 text-gray-200 text-xs flex items-center justify-between">
-          <span>English (Embedded HD)</span>
-          <span class="text-emerald-400 font-bold">✓ Active</span>
-        </div>
-        <p class="text-[9px] text-gray-400 px-1 mt-1 leading-normal">English subtitles are hard-encoded directly into the HD video frames.</p>
-      `}
-    </div>
+  box.innerHTML = `
+    <p class="px-3 pt-1 pb-0.5 text-[10px] uppercase tracking-wider text-gray-500 font-bold">Audio</p>
+    ${sheetOption('Japanese', true, '', 'Original')}
+    <p class="px-3 pt-2 pb-0.5 text-[10px] uppercase tracking-wider text-gray-500 font-bold">Subtitles</p>
+    ${tracks.length > 0
+      ? tracks.map((t, idx) => sheetOption(escapeHtml(t.name || t.lang || `Track ${idx + 1}`), state.player.currentSubtitle === idx, `setSubtitleTrack(${idx})`)).join('') +
+        sheetOption('Off', state.player.currentSubtitle === -1, 'setSubtitleTrack(-1)')
+      : sheetOption('English', true, '', 'Burned-in') +
+        `<p class="px-3 pb-1 text-[10px] text-gray-500 leading-snug">English subtitles are embedded in the video and can't be turned off.</p>`}
   `;
 }
 
 function setSubtitleTrack(trackIndex) {
-  if (state.hls) {
-    state.hls.subtitleTrack = trackIndex;
-    state.player.currentSubtitle = trackIndex;
-  }
+  if (state.hls) state.hls.subtitleTrack = trackIndex;
+  state.player.currentSubtitle = trackIndex;
   populateSubtitlesMenu();
-  closeAllPlayerDropdowns();
 }
 
-// Quality Menu
-function toggleQualityMenu() {
-  document.getElementById('speed-dropdown')?.classList.add('hidden');
-  document.getElementById('subtitles-dropdown')?.classList.add('hidden');
-  document.getElementById('quality-dropdown')?.classList.toggle('hidden');
+// ---- Quality ----
+function qualityLabel(h) {
+  if (!h) return 'HD';
+  return `${h}p`;
 }
 
 function populateQualityMenu() {
-  const dropdown = document.getElementById('quality-dropdown');
-  if (!dropdown || !state.hls) return;
+  const box = document.getElementById('quality-dropdown');
+  if (!box) return;
+  if (!state.hls) {
+    box.innerHTML = sheetOption('Auto', true, '', 'Native HLS');
+    return;
+  }
+  const levels = (state.player.levels || []).map((l, idx) => ({ ...l, idx })).sort((a, b) => (b.height || 0) - (a.height || 0));
+  const auto = state.hls.autoLevelEnabled;
+  const cur = state.hls.currentLevel;
+  const autoSub = auto && state.player.levels[cur] ? qualityLabel(state.player.levels[cur].height) : '';
+  box.innerHTML = sheetOption('Auto', auto, 'setQualityLevel(-1)', autoSub) +
+    levels.map(l => sheetOption(qualityLabel(l.height), !auto && cur === l.idx, `setQualityLevel(${l.idx})`,
+      l.height >= 1080 ? 'Full HD' : l.height >= 720 ? 'HD' : 'SD')).join('');
+}
 
-  const levels = state.player.levels || [];
-  dropdown.innerHTML = `
-    <button onclick="setQualityLevel(-1)" class="w-full text-left px-2 py-1.5 rounded hover:bg-carbon-700 text-gray-300 hover:text-white transition ${state.hls.autoLevelEnabled ? 'text-brand-red font-bold' : ''}">
-      Auto (Adaptive)
-    </button>
-    ${levels.map((lvl, idx) => `
-      <button onclick="setQualityLevel(${idx})" class="w-full text-left px-2 py-1.5 rounded hover:bg-carbon-700 text-gray-300 hover:text-white transition">
-        ${lvl.height ? `${lvl.height}p ${lvl.height >= 1080 ? '(Full HD)' : lvl.height >= 720 ? '(HD)' : '(SD)'}` : `Stream ${idx+1}`}
-      </button>
-    `).join('')}
-  `;
+function updateQualityLabel() {
+  const btn = document.getElementById('btn-quality');
+  if (!btn || !state.hls) return;
+  if (state.hls.autoLevelEnabled) btn.textContent = 'AUTO';
+  else {
+    const l = state.player.levels[state.hls.currentLevel];
+    btn.textContent = l ? qualityLabel(l.height) : 'HD';
+  }
 }
 
 function setQualityLevel(levelIndex) {
   if (!state.hls) return;
-  if (levelIndex === -1) {
-    state.hls.currentLevel = -1;
-    document.getElementById('btn-quality').textContent = 'AUTO';
-  } else {
-    state.hls.currentLevel = levelIndex;
-    const lvl = state.player.levels[levelIndex];
-    document.getElementById('btn-quality').textContent = lvl ? `${lvl.height}p` : 'HD';
-  }
-  closeAllPlayerDropdowns();
+  state.hls.currentLevel = levelIndex;
+  updateQualityLabel();
+  populateQualityMenu();
 }
 
-// Speed Menu
-function toggleSpeedMenu() {
-  document.getElementById('quality-dropdown')?.classList.add('hidden');
-  document.getElementById('subtitles-dropdown')?.classList.add('hidden');
-  document.getElementById('speed-dropdown')?.classList.toggle('hidden');
+// ---- Speed ----
+function renderSpeedOptions() {
+  const box = document.getElementById('speed-dropdown');
+  if (!box) return;
+  const cur = state.player.speed || 1;
+  box.innerHTML = [0.5, 0.75, 1, 1.25, 1.5, 2].map(s => `
+    <button onclick="setPlaybackSpeed(${s})" class="py-2 rounded-lg text-xs font-semibold transition border ${s === cur ? 'bg-white text-black border-white' : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10'}">
+      ${s === 1 ? 'Normal' : s + 'x'}
+    </button>`).join('');
 }
 
 function setPlaybackSpeed(s) {
   const video = document.getElementById('video-player');
-  if (!video) return;
-  video.playbackRate = s;
+  if (video) video.playbackRate = s;
   state.player.speed = s;
-  document.getElementById('btn-speed').textContent = `${s}x`;
-  closeAllPlayerDropdowns();
+  renderSpeedOptions();
 }
 
+// ---- Theater & Fullscreen ----
 function toggleTheaterMode() {
   state.player.isTheater = !state.player.isTheater;
   const container = document.getElementById('player-container');
   const txt = document.getElementById('theater-text');
-
   if (container) {
-    if (state.player.isTheater) {
-      container.className = 'w-full max-w-full space-y-6 fade-enter px-2 sm:px-4';
-      if (txt) txt.textContent = 'Standard';
-    } else {
-      container.className = 'max-w-[1500px] mx-auto space-y-6 fade-enter';
-      if (txt) txt.textContent = 'Theater';
-    }
+    container.classList.toggle('max-w-[1500px]', !state.player.isTheater);
+    container.classList.toggle('max-w-full', state.player.isTheater);
   }
+  if (txt) txt.textContent = state.player.isTheater ? 'Standard' : 'Theater';
 }
 
 function toggleFullscreen() {
   const frame = document.getElementById('video-frame');
+  const video = document.getElementById('video-player');
   if (!frame) return;
-  if (!document.fullscreenElement) frame.requestFullscreen().catch(() => {});
-  else document.exitFullscreen().catch(() => {});
+  const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+  if (fsEl) {
+    (document.exitFullscreen || document.webkitExitFullscreen)?.call(document);
+    return;
+  }
+  const req = frame.requestFullscreen || frame.webkitRequestFullscreen;
+  if (req) {
+    Promise.resolve(req.call(frame)).then(() => {
+      try { screen.orientation?.lock?.('landscape').catch(() => {}); } catch (e) {}
+    }).catch(() => {});
+  } else if (video?.webkitEnterFullscreen) {
+    video.webkitEnterFullscreen(); // iOS Safari
+  }
 }
 
+['fullscreenchange', 'webkitfullscreenchange'].forEach(evt => document.addEventListener(evt, () => {
+  const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+  document.getElementById('video-frame')?.classList.toggle('is-fullscreen', isFs);
+  const icon = document.getElementById('fs-icon');
+  if (icon) {
+    icon.innerHTML = isFs
+      ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>'
+      : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>';
+  }
+  if (!isFs) { try { screen.orientation?.unlock?.(); } catch (e) {} }
+}));
+
+// ---- Resume & Up Next ----
 function resumePlayback(time) {
   const video = document.getElementById('video-player');
   if (video) {
@@ -1838,6 +1912,8 @@ function dismissResumeBanner() {
 
 let countdownInterval = null;
 function startNextEpisodeCountdown(seriesId, nextIndex) {
+  const episodes = Array.isArray(state.currentSeries?.post_episodes) ? state.currentSeries.post_episodes : [];
+  if (nextIndex >= episodes.length) return;
   const overlay = document.getElementById('next-countdown-overlay');
   const countEl = document.getElementById('countdown-number');
   if (!overlay || !countEl) return;
@@ -1873,6 +1949,8 @@ function executePlayNextNow(seriesId, nextIndex) {
   }
 }
 
+
+
 // ==================== VOIDFLIX DOWNLOAD MODAL ====================
 function openDownloadModal(seriesTitle, chapterName, streamUrl, thumbnail) {
   const modal = document.getElementById('download-modal');
@@ -1885,7 +1963,7 @@ function openDownloadModal(seriesTitle, chapterName, streamUrl, thumbnail) {
 
   content.innerHTML = `
     <div class="flex items-center gap-3 p-3 rounded-lg bg-carbon-800 border border-white/10">
-      <img src="${escapeHtml(thumbnail)}" class="w-16 aspect-video object-cover rounded bg-carbon-850">
+      <img src="${escapeHtml(thumbnail || THUMB_UNAVAILABLE_SVG)}" class="w-16 aspect-video object-cover rounded bg-carbon-850" onerror="handlePosterError(this, true)">
       <div class="min-w-0 flex-1">
         <h4 class="font-heading font-semibold text-white text-xs truncate">${escapeHtml(seriesTitle)}</h4>
         <p class="text-[11px] text-gray-400 truncate">${escapeHtml(chapterName)}</p>
@@ -2154,7 +2232,7 @@ function handleSearchInput(e) {
           const thumb = it.post_thumbnail || it.thumbnail;
           return `
             <div onclick="navigateTo('#/series/${id}'); closeSearchDropdown();" class="flex items-center gap-3 p-2 rounded hover:bg-carbon-700 cursor-pointer transition">
-              <img src="${escapeHtml(thumb)}" class="w-9 h-12 object-cover rounded bg-carbon-800 flex-shrink-0">
+              <img src="${escapeHtml(thumb || POSTER_UNAVAILABLE_SVG)}" class="w-9 h-12 object-cover rounded bg-carbon-800 flex-shrink-0" onerror="handlePosterError(this, false)">
               <div class="min-w-0 flex-1">
                 <p class="font-heading font-semibold text-xs text-white truncate">${escapeHtml(title)}</p>
                 <span class="text-[10px] text-gray-400">View Series Info ›</span>
@@ -2318,7 +2396,7 @@ function showHistory() {
               
               <div class="flex items-center gap-4">
                 <div class="w-32 aspect-video rounded overflow-hidden bg-carbon-850 flex-shrink-0 relative">
-                  <img src="${escapeHtml(it.thumbnail)}" class="w-full h-full object-cover">
+                  <img src="${escapeHtml(it.thumbnail || THUMB_UNAVAILABLE_SVG)}" class="w-full h-full object-cover" onerror="handlePosterError(this, true)">
                   <span class="absolute bottom-1 right-1 text-[9px] bg-black/80 px-1 rounded font-mono text-white">${formatTime(it.currentTime)}</span>
                 </div>
                 <div>
@@ -2442,7 +2520,8 @@ document.addEventListener('keydown', (e) => {
     closeDownloadModal();
     toggleSettingsModal(false);
     showShortcutsModal(false);
-    if (state.player.isDrawerOpen) toggleInPlayerDrawer();
+    if (state.player.isSettingsOpen) togglePlayerSettings(false);
+    if (state.player.isDrawerOpen) toggleInPlayerDrawer(false);
   }
 });
 
