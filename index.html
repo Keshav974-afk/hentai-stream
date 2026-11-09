@@ -257,6 +257,69 @@
       box-shadow: 0 12px 35px rgba(229, 9, 20, 0.7);
     }
 
+    /* Clean Floating Center Transport (VoidFlix Screenshot Spec) */
+    .vf-transport-clean {
+      background: transparent;
+      border: none;
+      color: #ffffff;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.15s ease;
+      filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.85));
+    }
+    .vf-transport-clean:hover {
+      transform: scale(1.18);
+      opacity: 1;
+    }
+    .vf-transport-clean:active {
+      transform: scale(0.92);
+    }
+
+    /* VoidFlix Action Bar Buttons (Clip, Speed, Quality, Episodes, Audio, Next Ep.) */
+    .vf-action-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 500;
+      color: #e5e5e5;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease;
+      white-space: nowrap;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    @media (min-width: 640px) {
+      .vf-action-pill {
+        padding: 6px 11px;
+        font-size: 12.5px;
+        gap: 6.5px;
+      }
+    }
+    .vf-action-pill:hover {
+      background: rgba(255, 255, 255, 0.14);
+      color: #ffffff;
+    }
+    .vf-action-pill:active {
+      transform: scale(0.95);
+    }
+
+    /* Subtitle position adjustment on controls toggle */
+    .vf-frame.controls-hidden #player-subtitle-overlay {
+      bottom: 1.25rem !important;
+    }
+    @media (min-width: 640px) {
+      .vf-frame.controls-hidden #player-subtitle-overlay {
+        bottom: 2rem !important;
+      }
+    }
+
     /* Icon buttons (Back, Download, Fullscreen, Mute) */
     .vf-icon-btn {
       width: 38px;

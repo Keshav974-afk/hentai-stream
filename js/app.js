@@ -46,6 +46,7 @@ const state = {
     subtitleTracks: [],
     currentSubtitle: -1,
     parsedCues: [],
+    brightness: parseFloat(localStorage.getItem('voidflix_brightness') || '1'),
     autoPlayNext: localStorage.getItem('voidflix_autoplay') !== 'false',
     hoverPreview: localStorage.getItem('voidflix_hover_preview') !== 'false',
     isDrawerOpen: false,
@@ -1238,78 +1239,123 @@ async function showWatchPage(seriesId, chapterId) {
             <div id="seek-flash-left" class="seek-flash left-0"><div class="seek-flash-pill">${ICON.rew}<span>10s</span></div></div>
             <div id="seek-flash-right" class="seek-flash right-0"><div class="seek-flash-pill">${ICON.fwd}<span>10s</span></div></div>
 
-            <!-- Subtitle on-screen display overlay -->
-            <div id="player-subtitle-overlay" class="pointer-events-none absolute bottom-14 sm:bottom-16 md:bottom-20 left-3 right-3 sm:left-6 sm:right-6 z-[18] flex justify-center items-end text-center transition-all duration-150">
-              <div id="player-subtitle-box" class="hidden inline-block max-w-[92%] sm:max-w-[85%] md:max-w-[75%] px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-lg bg-black/85 text-white font-sans font-medium text-xs sm:text-sm md:text-base leading-relaxed tracking-normal shadow-2xl backdrop-blur-[2px] transition-all select-none" style="text-shadow: 0 1px 3px rgba(0,0,0,0.95), 0 0 2px #000;">
-                <span id="player-subtitle-text"></span>
-              </div>
-            </div>
-
             <!-- ============ CONTROLS OVERLAY ============ -->
             <div id="player-controls" class="vf-controls absolute inset-0 z-20 flex flex-col justify-between pointer-events-none">
 
               <!-- Top bar -->
-              <div class="vf-top pointer-events-auto flex items-center gap-2 sm:gap-3 px-2 sm:px-5 pt-2 sm:pt-4 pb-8">
+              <div class="vf-top pointer-events-auto flex items-center gap-2 sm:gap-3 px-3 sm:px-6 pt-3 sm:pt-4 pb-10">
                 <button onclick="navigateTo('#/series/${seriesId}')" class="vf-icon-btn" title="Back">${ICON.back}</button>
                 <div class="min-w-0 flex-1">
                   <h3 class="font-heading font-bold text-[13px] sm:text-base text-white truncate leading-tight">${escapeHtml(title)}</h3>
                   <p class="text-[11px] sm:text-xs text-gray-300 truncate">${escapeHtml(epTitle)} <span class="text-gray-500">• ${epIndex + 1} of ${episodes.length}</span></p>
                 </div>
-                <button onclick="${dlCall}" class="vf-icon-btn" title="Download">${ICON.dl}</button>
+                <button onclick="${dlCall}" class="vf-icon-btn" title="Download / Clip">${ICON.dl}</button>
               </div>
 
-              <!-- Center transport -->
-              <div class="vf-center pointer-events-none absolute inset-0 flex items-center justify-center gap-8 sm:gap-16">
-                <button onclick="event.stopPropagation(); seekRelative(-10); flashSeek('left');" class="vf-transport pointer-events-auto" title="Back 10s">${ICON.rew}</button>
-                <button onclick="togglePlayPause(event)" id="center-play-btn" class="vf-transport vf-transport-main pointer-events-auto" title="Play / Pause">
-                  <svg id="center-play-icon" class="w-8 h-8 sm:w-11 sm:h-11 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+              <!-- Center transport (Clean Floating VoidFlix Spec) -->
+              <div class="vf-center pointer-events-none absolute inset-0 flex items-center justify-center gap-10 sm:gap-24">
+                <button onclick="event.stopPropagation(); seekRelative(-10); flashSeek('left');" class="vf-transport-clean pointer-events-auto" title="Back 10s">
+                  <svg class="w-9 h-9 sm:w-12 sm:h-12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                    <path d="M3 3v5h5"/>
+                    <text x="12" y="15" font-size="8" font-weight="bold" fill="currentColor" stroke="none" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">10</text>
+                  </svg>
                 </button>
-                <button onclick="event.stopPropagation(); seekRelative(10); flashSeek('right');" class="vf-transport pointer-events-auto" title="Forward 10s">${ICON.fwd}</button>
+                <button onclick="togglePlayPause(event)" id="center-play-btn" class="vf-transport-clean pointer-events-auto" title="Play / Pause">
+                  <svg id="center-play-icon" class="w-12 h-12 sm:w-16 sm:h-16 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                </button>
+                <button onclick="event.stopPropagation(); seekRelative(10); flashSeek('right');" class="vf-transport-clean pointer-events-auto" title="Forward 10s">
+                  <svg class="w-9 h-9 sm:w-12 sm:h-12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 12a9 9 0 1 1-9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+                    <path d="M21 3v5h-5"/>
+                    <text x="12" y="15" font-size="8" font-weight="bold" fill="currentColor" stroke="none" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">10</text>
+                  </svg>
+                </button>
               </div>
 
-              <!-- Bottom bar -->
-              <div class="vf-bottom pointer-events-auto px-2.5 sm:px-5 pb-2 sm:pb-4 pt-10 space-y-1 sm:space-y-2">
+              <!-- Right-Side Vertical Brightness Slider (From VoidFlix Screenshot) -->
+              <div id="player-brightness-ctrl" class="absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 z-20 flex flex-col items-center gap-2 pointer-events-auto select-none opacity-85 hover:opacity-100 transition-opacity">
+                <button onclick="resetPlayerBrightness()" class="text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] hover:scale-110 transition-transform" title="Reset Brightness (100%)">
+                  <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                </button>
+                <div id="brightness-track" class="relative w-1.5 h-24 sm:h-32 rounded-full bg-white/25 backdrop-blur-sm cursor-pointer py-1" title="Adjust Brightness">
+                  <div id="brightness-fill" class="absolute bottom-0 inset-x-0 bg-white rounded-full transition-all" style="height: 60%;"></div>
+                  <div id="brightness-thumb" class="absolute w-3.5 h-3.5 -left-1 rounded-full bg-white shadow-md pointer-events-none transition-all" style="bottom: calc(60% - 7px);"></div>
+                </div>
+              </div>
+
+              <!-- Bottom bar (VoidFlix Specs) -->
+              <div class="vf-bottom pointer-events-auto px-3 sm:px-6 pb-2.5 sm:pb-4 pt-12 space-y-1 sm:space-y-2">
 
                 <!-- Scrubber row -->
-                <div class="flex items-center gap-2.5 sm:gap-3">
-                  <div id="timeline-container" class="vf-timeline relative flex-1 h-6 flex items-center cursor-pointer touch-none">
-                    <div class="vf-track relative w-full h-[3px] rounded-full bg-white/25 overflow-visible">
+                <div class="flex items-center gap-3">
+                  <div id="timeline-container" class="vf-timeline relative flex-1 h-5 flex items-center cursor-pointer touch-none">
+                    <div class="vf-track relative w-full h-[3px] rounded-full bg-white/20 overflow-visible">
                       <div id="player-buffer-bar" class="absolute inset-y-0 left-0 bg-white/35 rounded-full" style="width:0"></div>
                       <div id="player-progress-bar" class="absolute inset-y-0 left-0 bg-brand-red rounded-full" style="width:0"></div>
                     </div>
-                    <div id="player-scrubber-thumb" class="vf-thumb absolute top-1/2 w-3.5 h-3.5 rounded-full bg-brand-red pointer-events-none" style="left:0"></div>
+                    <div id="player-scrubber-thumb" class="vf-thumb absolute top-1/2 w-3.5 h-3.5 rounded-full bg-brand-red ring-2 ring-white/60 pointer-events-none shadow" style="left:0"></div>
                     <div id="player-hover-tooltip" class="hidden absolute bottom-full mb-1.5 -translate-x-1/2 px-2 py-0.5 rounded bg-black/90 border border-white/15 text-white text-[11px] font-mono pointer-events-none">00:00</div>
                   </div>
-                  <span id="player-time-remaining" class="text-[11px] sm:text-xs font-semibold text-white tabular-nums min-w-[42px] text-right">--:--</span>
+                  <span id="player-time-remaining" class="text-xs sm:text-sm font-medium text-white tabular-nums min-w-[42px] text-right drop-shadow">00:00</span>
                 </div>
 
-                <!-- Button row -->
-                <div class="flex items-center justify-between gap-1">
-                  <div class="flex items-center gap-0.5 sm:gap-2 min-w-0">
-                    <button onclick="togglePlayPause()" class="vf-icon-btn hidden sm:inline-flex" title="Play / Pause (Space)">
-                      <svg id="ctrl-play-icon" class="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                <!-- Bottom Button Row (Exact Order from VoidFlix Screenshot) -->
+                <div class="flex items-center justify-between gap-1 sm:gap-2 pt-0.5">
+                  <div class="flex items-center gap-1 sm:gap-2 overflow-x-auto no-scrollbar min-w-0 pr-1">
+                    <!-- 1. Clip -->
+                    <button onclick="${dlCall}" class="vf-action-pill" title="Clip / Download Episode">
+                      <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879a3 3 0 11-4.242-4.242 3 3 0 014.242 0zM12 12L9.121 9.121a3 3 0 114.242-4.242 3 3 0 010 4.242z"/></svg>
+                      <span>Clip</span>
                     </button>
-                    ${prevEp ? `<button onclick="navigateTo('#/watch/${seriesId}/${prevEp.chapter_id}')" class="vf-icon-btn hidden sm:inline-flex" title="Previous Episode (P)">${ICON.prev}</button>` : ''}
-                    <div class="vf-volume flex items-center">
-                      <button id="btn-volume-mute" onclick="toggleMute()" class="vf-icon-btn" title="Mute (M)">
-                        <svg id="vol-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"></svg>
+
+                    <!-- 2. Speed (1x) -->
+                    <button onclick="event.stopPropagation(); togglePlayerSettings('speed');" class="vf-action-pill" title="Playback Speed">
+                      <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16.2 7.8l-4.2 4.2"/><path d="M12 12v.01"/></svg>
+                      <span id="btn-speed-label">Speed (${state.player.speed || 1}x)</span>
+                    </button>
+
+                    <!-- 3. Quality -->
+                    <button onclick="event.stopPropagation(); togglePlayerSettings('quality');" class="vf-action-pill" title="Stream Quality">
+                      <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg>
+                      <span>Quality</span>
+                    </button>
+
+                    <!-- 4. Episodes -->
+                    ${episodes.length > 1 ? `
+                      <button onclick="event.stopPropagation(); toggleInPlayerDrawer();" class="vf-action-pill" title="Episode Drawer">
+                        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+                        <span>Episodes</span>
                       </button>
-                      <input id="volume-slider" type="range" min="0" max="1" step="0.05" value="${state.player.volume}"
-                             oninput="handleVolumeChange(this.value)" class="scrubber vf-volume-slider hidden md:block h-1 rounded-full cursor-pointer">
-                    </div>
-                    <div class="text-[11px] sm:text-xs font-mono text-gray-300 tabular-nums whitespace-nowrap pl-1">
-                      <span id="player-time-current">00:00</span><span class="text-gray-500"> / </span><span id="player-time-duration">00:00</span>
-                    </div>
+                    ` : ''}
+
+                    <!-- 5. Audio & Subtitles -->
+                    <button id="btn-subs-toggle" onclick="event.stopPropagation(); togglePlayerSettings('subs');" class="vf-action-pill hidden" title="Audio & Subtitles">
+                      <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                      <span>Audio &amp; Subtitles</span>
+                    </button>
+
+                    <!-- 6. Next Ep. -->
+                    ${nextEp ? `
+                      <button onclick="navigateTo('#/watch/${seriesId}/${nextEp.chapter_id}')" class="vf-action-pill" title="Next Episode">
+                        <svg class="w-4 h-4 flex-shrink-0 fill-current" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+                        <span>Next Ep.</span>
+                      </button>
+                    ` : ''}
                   </div>
 
-                  <div class="flex items-center gap-0.5 sm:gap-1.5 flex-shrink-0">
-                    ${nextEp ? `<button onclick="navigateTo('#/watch/${seriesId}/${nextEp.chapter_id}')" class="vf-bar-btn" title="Next Episode (N)">${ICON.next}<span class="hidden sm:inline">Next</span></button>` : ''}
-                    ${episodes.length > 1 ? `<button onclick="event.stopPropagation(); toggleInPlayerDrawer();" class="vf-bar-btn" title="Episodes (E)">${ICON.eps}<span class="hidden sm:inline">Episodes</span></button>` : ''}
-                    <button id="btn-subs-toggle" onclick="event.stopPropagation(); togglePlayerSettings('subs');" class="vf-bar-btn hidden" title="Subtitles">${ICON.subs}<span id="subs-badge" class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-white/15 text-gray-300">CC</span></button>
-                    <button onclick="event.stopPropagation(); togglePlayerSettings('quality');" class="vf-bar-btn" title="Quality & Speed">
-                      ${ICON.gear}<span id="btn-quality" class="hidden sm:inline text-[11px] font-bold px-1.5 py-px rounded bg-white/15">AUTO</span>
+                  <!-- Right Group: Volume & Fullscreen -->
+                  <div class="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+                    <div class="vf-volume flex items-center gap-1.5">
+                      <button id="btn-volume-mute" onclick="toggleMute()" class="vf-action-pill p-1.5" title="Mute (M)">
+                        <svg id="vol-icon" class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"></svg>
+                      </button>
+                      <input id="volume-slider" type="range" min="0" max="1" step="0.05" value="${state.player.volume}"
+                             oninput="handleVolumeChange(this.value)" class="scrubber vf-volume-slider hidden sm:block w-16 md:w-20 h-1 rounded-full cursor-pointer">
+                    </div>
+                    <button onclick="event.stopPropagation(); toggleFullscreen();" class="vf-action-pill p-1.5" title="Fullscreen (F)">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg>
                     </button>
-                    <button onclick="event.stopPropagation(); toggleFullscreen();" class="vf-icon-btn" title="Fullscreen (F)">${ICON.fs}</button>
                   </div>
                 </div>
               </div>
@@ -1327,7 +1373,7 @@ async function showWatchPage(seriesId, chapterId) {
                   <h5 class="vf-sheet-title">Quality</h5>
                   <div id="quality-dropdown" class="space-y-0.5"><p class="px-3 py-2 text-xs text-gray-500">Loading stream levels…</p></div>
                 </section>
-                <section>
+                <section id="settings-sec-speed">
                   <h5 class="vf-sheet-title">Playback Speed</h5>
                   <div id="speed-dropdown" class="grid grid-cols-3 gap-1.5 px-2"></div>
                 </section>
@@ -1475,6 +1521,11 @@ function initVideoPlayer(videoUrl, seriesId, chapterId, index, seriesTitle, chap
   setSpinner(true);
   loadMasterSubtitles(videoUrl);
 
+  // Initialize brightness from saved state
+  video.style.filter = `brightness(${state.player.brightness || 1})`;
+  updateBrightnessUI(state.player.brightness || 1);
+  bindBrightnessControls();
+
   // Desktop real mouse move listeners (ignores synthetic touch events)
   if (frame) {
     frame.addEventListener('mousemove', (e) => {
@@ -1528,15 +1579,12 @@ function initVideoPlayer(videoUrl, seriesId, chapterId, index, seriesTitle, chap
   video.addEventListener('timeupdate', () => {
     if (!video.duration) return;
     if (!state.player.isScrubbing) updateTimeUI(video);
-    syncSubtitleDisplay();
     const now = Date.now();
     if (now - lastSave > 5000) {
       lastSave = now;
       saveWatchProgress(seriesId, chapterId, index, seriesTitle, chapterTitle, thumbnail, video.currentTime, video.duration);
     }
   });
-  video.addEventListener('seeking', syncSubtitleDisplay);
-  video.addEventListener('seeked', syncSubtitleDisplay);
 
   video.addEventListener('progress', () => {
     if (video.buffered.length > 0 && video.duration > 0) {
@@ -1561,7 +1609,7 @@ function updateTimeUI(video, overrideTime) {
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
   set('player-time-current', formatTime(current));
   set('player-time-duration', formatTime(duration));
-  set('player-time-remaining', duration ? '-' + formatTime(Math.max(0, duration - current)) : '--:--');
+  set('player-time-remaining', duration ? formatTime(duration) : '--:--');
   const pBar = document.getElementById('player-progress-bar');
   const thumb = document.getElementById('player-scrubber-thumb');
   if (pBar) pBar.style.width = `${pct}%`;
@@ -1686,7 +1734,7 @@ function togglePlayerSettings(section) {
   if (open) {
     if (state.player.isDrawerOpen) toggleInPlayerDrawer(false);
     revealPlayerControls(true);
-    const target = section === 'subs' ? 'settings-sec-subs' : 'settings-sec-quality';
+    const target = section === 'subs' ? 'settings-sec-subs' : section === 'speed' ? 'settings-sec-speed' : 'settings-sec-quality';
     const sec = document.getElementById(target);
     if (sec && sheet.scrollHeight > sheet.clientHeight) sheet.scrollTop = sec.offsetTop - 48;
   } else {
@@ -1990,14 +2038,15 @@ async function setSubtitleTrack(trackIndex, showNotification = true) {
   state.player.currentSubtitle = trackIndex;
   state.player.parsedCues = [];
 
+  // Disable all existing native text tracks so subtitles never duplicate or stack
+  if (video && video.textTracks) {
+    for (let i = 0; i < video.textTracks.length; i++) {
+      video.textTracks[i].mode = 'disabled';
+    }
+  }
+
   if (trackIndex === -1 || !state.player.subtitleTracks || !state.player.subtitleTracks[trackIndex]) {
     state.player.currentSubtitle = -1;
-    syncSubtitleDisplay();
-    if (video && video.textTracks) {
-      for (let i = 0; i < video.textTracks.length; i++) {
-        video.textTracks[i].mode = 'disabled';
-      }
-    }
     populateSubtitlesMenu();
     updateSubtitleButtonVisibility();
     if (showNotification) showToast('Subtitles: Off', 'info');
@@ -2009,27 +2058,33 @@ async function setSubtitleTrack(trackIndex, showNotification = true) {
     const res = await fetch(track.url);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const vtt = await res.text();
-    state.player.parsedCues = parseWebVTT(vtt);
+    const cues = parseWebVTT(vtt);
+    state.player.parsedCues = cues;
 
-    // Also populate native video textTrack for native fullscreen / PiP
+    // Render exclusively inside the video element via native HTML5 text track
     if (video && video.addTextTrack) {
-      try {
-        if (video.textTracks) {
-          for (let i = 0; i < video.textTracks.length; i++) {
-            video.textTracks[i].mode = 'disabled';
+      let nativeTrack = null;
+      if (video.textTracks) {
+        for (let i = 0; i < video.textTracks.length; i++) {
+          if (video.textTracks[i].label === track.name) {
+            nativeTrack = video.textTracks[i];
+            break;
           }
         }
-        const nativeTrack = video.addTextTrack('subtitles', track.name, track.lang);
+      }
+      if (!nativeTrack) {
+        nativeTrack = video.addTextTrack('subtitles', track.name, track.lang);
         if (window.VTTCue) {
-          for (const c of state.player.parsedCues) {
-            nativeTrack.addCue(new VTTCue(c.start, c.end, c.text));
+          for (const c of cues) {
+            try {
+              nativeTrack.addCue(new VTTCue(c.start, c.end, c.text));
+            } catch (e) {}
           }
         }
-        nativeTrack.mode = 'showing';
-      } catch (e) {}
+      }
+      nativeTrack.mode = 'showing';
     }
 
-    syncSubtitleDisplay();
     if (showNotification) showToast(`Subtitles: ${track.name || track.lang || 'Enabled'}`, 'info');
   } catch (err) {
     console.error('Failed to load subtitle file:', err);
@@ -2040,31 +2095,68 @@ async function setSubtitleTrack(trackIndex, showNotification = true) {
   updateSubtitleButtonVisibility();
 }
 
-function syncSubtitleDisplay() {
-  const box = document.getElementById('player-subtitle-box');
-  const textEl = document.getElementById('player-subtitle-text');
+// ---- Brightness Control (VoidFlix Spec) ----
+function updateBrightnessUI(val) {
+  const fill = document.getElementById('brightness-fill');
+  const thumb = document.getElementById('brightness-thumb');
+  const min = 0.4;
+  const max = 1.6;
+  const clamped = Math.min(max, Math.max(min, val));
+  const pct = (clamped - min) / (max - min);
+  if (fill) fill.style.height = `${pct * 100}%`;
+  if (thumb) thumb.style.bottom = `calc(${pct * 100}% - 7px)`;
+}
+
+function resetPlayerBrightness() {
   const video = document.getElementById('video-player');
-  if (!box || !textEl || !video) return;
+  state.player.brightness = 1.0;
+  if (video) video.style.filter = 'brightness(1)';
+  localStorage.setItem('voidflix_brightness', '1');
+  updateBrightnessUI(1.0);
+  showToast('Brightness: 100%', 'info');
+}
 
-  if (state.player.currentSubtitle === -1 || !state.player.parsedCues || state.player.parsedCues.length === 0) {
-    box.classList.add('hidden');
-    textEl.textContent = '';
-    return;
-  }
+function handleBrightnessInput(e) {
+  const track = document.getElementById('brightness-track');
+  const video = document.getElementById('video-player');
+  if (!track || !video) return;
+  const rect = track.getBoundingClientRect();
+  const clientY = (e.touches && e.touches[0]) ? e.touches[0].clientY : e.clientY;
+  const offsetY = rect.bottom - clientY;
+  const pct = Math.max(0, Math.min(1, offsetY / rect.height));
+  const min = 0.4;
+  const max = 1.6;
+  const brightness = +(min + pct * (max - min)).toFixed(2);
+  state.player.brightness = brightness;
+  video.style.filter = `brightness(${brightness})`;
+  localStorage.setItem('voidflix_brightness', String(brightness));
+  updateBrightnessUI(brightness);
+}
 
-  const t = video.currentTime;
-  const cue = state.player.parsedCues.find(c => t >= c.start && t <= c.end);
-  if (cue && cue.text) {
-    textEl.innerHTML = cue.text
-      .split('\n')
-      .map(line => escapeHtml(line.trim()))
-      .filter(Boolean)
-      .join('<br>');
-    box.classList.remove('hidden');
-  } else {
-    box.classList.add('hidden');
-    textEl.textContent = '';
-  }
+function bindBrightnessControls() {
+  const track = document.getElementById('brightness-track');
+  if (!track) return;
+  let isDragging = false;
+  const onStart = (e) => {
+    isDragging = true;
+    handleBrightnessInput(e);
+    revealPlayerControls(true);
+  };
+  const onMove = (e) => {
+    if (!isDragging) return;
+    handleBrightnessInput(e);
+  };
+  const onEnd = () => {
+    if (!isDragging) return;
+    isDragging = false;
+    scheduleHideControls();
+  };
+  track.addEventListener('mousedown', onStart);
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('mouseup', onEnd);
+  track.addEventListener('touchstart', onStart, { passive: true });
+  window.addEventListener('touchmove', onMove, { passive: true });
+  window.addEventListener('touchend', onEnd);
 }
 
 // ---- Quality ----
@@ -2122,6 +2214,9 @@ function setPlaybackSpeed(s) {
   if (video) video.playbackRate = s;
   state.player.speed = s;
   renderSpeedOptions();
+  const label = document.getElementById('btn-speed-label');
+  if (label) label.textContent = `Speed (${s}x)`;
+  showToast(`Speed: ${s}x`, 'info');
 }
 
 // ---- Theater & Fullscreen ----
