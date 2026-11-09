@@ -2063,10 +2063,16 @@ function openDownloadModal(seriesTitle, chapterName, streamUrl, thumbnail) {
 
   const safeTitle = (seriesTitle || 'Anime').replace(/[^a-zA-Z0-9_-]/g, '_');
   const safeEp = (chapterName || 'Episode').replace(/[^a-zA-Z0-9_-]/g, '_');
-  const fileName = `${safeTitle}_${safeEp}.m3u8`;
+  const fileName = safeTitle + '_' + safeEp + '.m3u8';
   const cleanUrl = streamUrl || '';
-  const ytDlpCmd = `yt-dlp "${cleanUrl}" -o "${safeTitle} - ${safeEp}.mp4"`;
-  const vlcIntentUrl = `intent://${cleanUrl.replace(/^https?:\/\//, '')}#Intent;type=video/*;package=org.videolan.vlc;S.browser_fallback_url=${encodeURIComponent(cleanUrl)};end`;
+  const ytDlpCmd = 'yt-dlp "' + cleanUrl + '" -o "' + safeTitle + ' - ' + safeEp + '.mp4"';
+  const vlcIntentUrl = 'intent://' + cleanUrl.replace(/^https?:\/\//, '') + '#Intent;type=video/*;package=org.videolan.vlc;S.browser_fallback_url=' + encodeURIComponent(cleanUrl) + ';end';
+
+  state.activeDownload = {
+    url: cleanUrl,
+    fileName: fileName,
+    ytDlpCmd: ytDlpCmd
+  };
 
   content.innerHTML = `
     <!-- Episode Card Header -->
@@ -2092,10 +2098,10 @@ function openDownloadModal(seriesTitle, chapterName, streamUrl, thumbnail) {
         <span class="text-[10px] text-emerald-400 font-normal lowercase">for 1DM / ADM / IDM / VLC</span>
       </div>
       <div class="flex items-center gap-2">
-        <input type="text" readonly value="${escapeHtml(cleanUrl)}"
+        <input type="text" readonly id="dl-stream-input" value="${escapeHtml(cleanUrl)}"
                class="flex-1 min-w-0 bg-carbon-850 text-gray-200 text-xs px-3 py-2.5 rounded-lg border border-white/10 font-mono truncate focus:outline-none select-all"
                onclick="this.select()">
-        <button onclick="copyToClipboard('${escapeHtml(cleanUrl).replace(/'/g, "\\'")}', 'Stream URL copied to clipboard! Paste into 1DM, ADM or VLC');"
+        <button onclick="copyActiveStreamUrl()"
                 class="px-3.5 py-2.5 rounded-lg bg-white hover:bg-gray-200 text-black font-bold text-xs flex items-center gap-1.5 flex-shrink-0 transition active:scale-95 shadow">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
           <span>Copy</span>
@@ -2106,14 +2112,14 @@ function openDownloadModal(seriesTitle, chapterName, streamUrl, thumbnail) {
     <!-- Quick Action Buttons -->
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
       <!-- Open in VLC -->
-      <a href="${vlcIntentUrl}" target="_blank" rel="noopener"
+      <a href="${escapeHtml(vlcIntentUrl)}" target="_blank" rel="noopener"
          class="flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg bg-carbon-800 hover:bg-carbon-700 border border-white/15 text-white text-xs font-semibold active:scale-95 transition text-center shadow">
         <svg class="w-4 h-4 text-orange-400" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L4 18h16L12 2zm0 4.2L16.4 16H7.6L12 6.2z"/></svg>
         <span>Open in VLC Player</span>
       </a>
 
       <!-- Save .M3U8 Playlist File -->
-      <button onclick="downloadM3u8File('${escapeHtml(cleanUrl).replace(/'/g, "\\'")}', '${escapeHtml(fileName).replace(/'/g, "\\"')}')"
+      <button onclick="downloadActiveM3u8()"
               class="flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg bg-carbon-800 hover:bg-carbon-700 border border-white/15 text-white text-xs font-semibold active:scale-95 transition shadow">
         <svg class="w-4 h-4 text-brand-red" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
         <span>Save .M3U8 File</span>
@@ -2127,7 +2133,7 @@ function openDownloadModal(seriesTitle, chapterName, streamUrl, thumbnail) {
           <svg class="w-3.5 h-3.5 text-brand-red" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
           CLI Downloader (yt-dlp)
         </span>
-        <button onclick="copyToClipboard('${ytDlpCmd.replace(/'/g, "\\'")}', 'yt-dlp command copied!')" class="text-[10px] text-brand-red hover:underline font-bold">
+        <button onclick="copyActiveYtDlp()" class="text-[10px] text-brand-red hover:underline font-bold">
           Copy Command
         </button>
       </div>
@@ -2142,6 +2148,24 @@ function openDownloadModal(seriesTitle, chapterName, streamUrl, thumbnail) {
   `;
 
   modal.classList.remove('hidden');
+}
+
+function copyActiveStreamUrl() {
+  if (state.activeDownload && state.activeDownload.url) {
+    copyToClipboard(state.activeDownload.url, 'Stream URL copied to clipboard! Paste into 1DM, ADM or VLC');
+  }
+}
+
+function copyActiveYtDlp() {
+  if (state.activeDownload && state.activeDownload.ytDlpCmd) {
+    copyToClipboard(state.activeDownload.ytDlpCmd, 'yt-dlp command copied!');
+  }
+}
+
+function downloadActiveM3u8() {
+  if (state.activeDownload && state.activeDownload.url && state.activeDownload.fileName) {
+    downloadM3u8File(state.activeDownload.url, state.activeDownload.fileName);
+  }
 }
 
 function closeDownloadModal() {
