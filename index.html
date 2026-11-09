@@ -310,17 +310,19 @@
       transform: scale(0.95);
     }
 
-    /* Subtitle position adjustment on controls toggle */
-    .vf-frame.controls-hidden #player-subtitle-overlay {
-      bottom: 1.25rem !important;
+    /* Subtitle Cue Styling */
+    ::cue,
+    video::cue {
+      background-color: rgba(0, 0, 0, 0.85) !important;
+      color: #ffffff !important;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+      font-size: clamp(14px, 2.2vw, 22px) !important;
+      font-weight: 600 !important;
+      line-height: 1.35 !important;
+      text-shadow: 0 1px 4px rgba(0, 0, 0, 0.95), 0 0 2px #000 !important;
+      border-radius: 4px !important;
+      padding: 3px 8px !important;
     }
-    @media (min-width: 640px) {
-      .vf-frame.controls-hidden #player-subtitle-overlay {
-        bottom: 2rem !important;
-      }
-    }
-
-    /* Icon buttons (Back, Download, Fullscreen, Mute) */
     .vf-icon-btn {
       width: 38px;
       height: 38px;
@@ -527,18 +529,7 @@
     }
 
   
-    /* Subtitle Cue Styling */
-    ::cue {
-      background-color: rgba(0, 0, 0, 0.8) !important;
-      color: #ffffff !important;
-      font-family: 'Plus Jakarta Sans', system-ui, sans-serif !important;
-      font-size: 1.05rem !important;
-      font-weight: 600 !important;
-      line-height: 1.35 !important;
-      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 1px #000 !important;
-      border-radius: 4px !important;
-      padding: 3px 8px !important;
-    }
+
 
   </style>
 </head>

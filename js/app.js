@@ -1249,7 +1249,7 @@ async function showWatchPage(seriesId, chapterId) {
                   <h3 class="font-heading font-bold text-[13px] sm:text-base text-white truncate leading-tight">${escapeHtml(title)}</h3>
                   <p class="text-[11px] sm:text-xs text-gray-300 truncate">${escapeHtml(epTitle)} <span class="text-gray-500">• ${epIndex + 1} of ${episodes.length}</span></p>
                 </div>
-                <button onclick="${dlCall}" class="vf-icon-btn" title="Download / Clip">${ICON.dl}</button>
+                <button onclick="${dlCall}" class="vf-icon-btn" title="Download Episode">${ICON.dl}</button>
               </div>
 
               <!-- Center transport (Clean Floating VoidFlix Spec) -->
@@ -1303,13 +1303,7 @@ async function showWatchPage(seriesId, chapterId) {
                 <!-- Bottom Button Row (Exact Order from VoidFlix Screenshot) -->
                 <div class="flex items-center justify-between gap-1 sm:gap-2 pt-0.5">
                   <div class="flex items-center gap-1 sm:gap-2 overflow-x-auto no-scrollbar min-w-0 pr-1">
-                    <!-- 1. Clip -->
-                    <button onclick="${dlCall}" class="vf-action-pill" title="Clip / Download Episode">
-                      <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879a3 3 0 11-4.242-4.242 3 3 0 014.242 0zM12 12L9.121 9.121a3 3 0 114.242-4.242 3 3 0 010 4.242z"/></svg>
-                      <span>Clip</span>
-                    </button>
-
-                    <!-- 2. Speed (1x) -->
+                    <!-- 1. Speed (1x) -->
                     <button onclick="event.stopPropagation(); togglePlayerSettings('speed');" class="vf-action-pill" title="Playback Speed">
                       <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16.2 7.8l-4.2 4.2"/><path d="M12 12v.01"/></svg>
                       <span id="btn-speed-label">Speed (${state.player.speed || 1}x)</span>
@@ -1498,6 +1492,7 @@ function initVideoPlayer(videoUrl, seriesId, chapterId, index, seriesTitle, chap
 
   state.player.subtitleTracks = [];
   state.player.currentSubtitle = -1;
+  state.player.nativeTrackMap = {};
   let hasAutoResumed = false;
 
   const performAutoResume = () => {
@@ -1538,7 +1533,12 @@ function initVideoPlayer(videoUrl, seriesId, chapterId, index, seriesTitle, chap
   }
 
   if (window.Hls && Hls.isSupported()) {
-    const hls = new Hls({ enableWorker: true, lowLatencyMode: false, capLevelToPlayerSize: true });
+    const hls = new Hls({
+      enableWorker: true,
+      lowLatencyMode: false,
+      capLevelToPlayerSize: true,
+      renderTextTracksNatively: false
+    });
     state.hls = hls;
     hls.loadSource(videoUrl);
     hls.attachMedia(video);
@@ -2038,7 +2038,11 @@ async function setSubtitleTrack(trackIndex, showNotification = true) {
   state.player.currentSubtitle = trackIndex;
   state.player.parsedCues = [];
 
-  // Disable all existing native text tracks so subtitles never duplicate or stack
+  // Remove any legacy track elements if present
+  const prevTrack = document.getElementById('voidflix-active-track');
+  if (prevTrack) prevTrack.remove();
+
+  // Disable all existing text tracks so subtitles never duplicate or overlap
   if (video && video.textTracks) {
     for (let i = 0; i < video.textTracks.length; i++) {
       video.textTracks[i].mode = 'disabled';
@@ -2055,33 +2059,34 @@ async function setSubtitleTrack(trackIndex, showNotification = true) {
 
   const track = state.player.subtitleTracks[trackIndex];
   try {
-    const res = await fetch(track.url);
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const vtt = await res.text();
-    const cues = parseWebVTT(vtt);
-    state.player.parsedCues = cues;
+    const CueClass = window.VTTCue || window.TextTrackCue;
+    if (!state.player.nativeTrackMap) state.player.nativeTrackMap = {};
 
-    // Render exclusively inside the video element via native HTML5 text track
-    if (video && video.addTextTrack) {
-      let nativeTrack = null;
-      if (video.textTracks) {
-        for (let i = 0; i < video.textTracks.length; i++) {
-          if (video.textTracks[i].label === track.name) {
-            nativeTrack = video.textTracks[i];
-            break;
-          }
-        }
-      }
-      if (!nativeTrack) {
-        nativeTrack = video.addTextTrack('subtitles', track.name, track.lang);
-        if (window.VTTCue) {
+    let nativeTrack = state.player.nativeTrackMap[trackIndex];
+
+    // If we haven't created and populated this track yet, fetch and add cues
+    if (!nativeTrack) {
+      const res = await fetch(track.url);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const vtt = await res.text();
+      const cues = parseWebVTT(vtt);
+      state.player.parsedCues = cues;
+
+      if (video && video.addTextTrack) {
+        nativeTrack = video.addTextTrack('subtitles', track.name || 'Subtitles', track.lang || 'en');
+        if (CueClass) {
           for (const c of cues) {
             try {
-              nativeTrack.addCue(new VTTCue(c.start, c.end, c.text));
+              nativeTrack.addCue(new CueClass(c.start, c.end, c.text));
             } catch (e) {}
           }
         }
+        state.player.nativeTrackMap[trackIndex] = nativeTrack;
       }
+    }
+
+    // Set ONLY this native track to showing (all other tracks are disabled)
+    if (nativeTrack) {
       nativeTrack.mode = 'showing';
     }
 
