@@ -1209,8 +1209,7 @@ async function showWatchPage(seriesId, chapterId) {
 
         <!-- ============ VOIDFLIX NATIVE PLAYER ============ -->
         <div class="-mx-3 -mt-3 sm:mx-0 sm:mt-0">
-          <div id="video-frame" class="vf-frame relative w-full aspect-video bg-black sm:rounded-xl overflow-hidden select-none sm:border sm:border-white/10 shadow-2xl"
-               onmousemove="revealPlayerControls()" onmouseleave="scheduleHideControls(600)">
+          <div id="video-frame" class="vf-frame relative w-full aspect-video bg-black sm:rounded-xl overflow-hidden select-none sm:border sm:border-white/10 shadow-2xl">
 
             <video id="video-player" class="absolute inset-0 w-full h-full object-contain bg-black" playsinline webkit-playsinline preload="auto"
                    poster="${escapeHtml(thumbForDl || THUMB_UNAVAILABLE_SVG)}"></video>
@@ -1242,11 +1241,11 @@ async function showWatchPage(seriesId, chapterId) {
 
               <!-- Center transport -->
               <div class="vf-center pointer-events-none absolute inset-0 flex items-center justify-center gap-8 sm:gap-16">
-                <button onclick="seekRelative(-10); flashSeek('left')" class="vf-transport pointer-events-auto" title="Back 10s">${ICON.rew}</button>
-                <button onclick="togglePlayPause()" id="center-play-btn" class="vf-transport vf-transport-main pointer-events-auto" title="Play / Pause">
+                <button onclick="event.stopPropagation(); seekRelative(-10); flashSeek('left');" class="vf-transport pointer-events-auto" title="Back 10s">${ICON.rew}</button>
+                <button onclick="togglePlayPause(event)" id="center-play-btn" class="vf-transport vf-transport-main pointer-events-auto" title="Play / Pause">
                   <svg id="center-play-icon" class="w-8 h-8 sm:w-11 sm:h-11 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                 </button>
-                <button onclick="seekRelative(10); flashSeek('right')" class="vf-transport pointer-events-auto" title="Forward 10s">${ICON.fwd}</button>
+                <button onclick="event.stopPropagation(); seekRelative(10); flashSeek('right');" class="vf-transport pointer-events-auto" title="Forward 10s">${ICON.fwd}</button>
               </div>
 
               <!-- Bottom bar -->
@@ -1286,12 +1285,12 @@ async function showWatchPage(seriesId, chapterId) {
 
                   <div class="flex items-center gap-0.5 sm:gap-1.5 flex-shrink-0">
                     ${nextEp ? `<button onclick="navigateTo('#/watch/${seriesId}/${nextEp.chapter_id}')" class="vf-bar-btn" title="Next Episode (N)">${ICON.next}<span class="hidden sm:inline">Next</span></button>` : ''}
-                    ${episodes.length > 1 ? `<button onclick="toggleInPlayerDrawer()" class="vf-bar-btn" title="Episodes (E)">${ICON.eps}<span class="hidden sm:inline">Episodes</span></button>` : ''}
-                    <button onclick="togglePlayerSettings('subs')" class="vf-bar-btn" title="Audio & Subtitles">${ICON.subs}<span class="hidden lg:inline">Audio</span></button>
-                    <button onclick="togglePlayerSettings('quality')" class="vf-bar-btn" title="Quality & Speed">
+                    ${episodes.length > 1 ? `<button onclick="event.stopPropagation(); toggleInPlayerDrawer();" class="vf-bar-btn" title="Episodes (E)">${ICON.eps}<span class="hidden sm:inline">Episodes</span></button>` : ''}
+                    <button id="btn-subs-toggle" onclick="event.stopPropagation(); togglePlayerSettings('subs');" class="vf-bar-btn hidden" title="Subtitles">${ICON.subs}<span id="subs-badge" class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-white/15 text-gray-300">CC</span></button>
+                    <button onclick="event.stopPropagation(); togglePlayerSettings('quality');" class="vf-bar-btn" title="Quality & Speed">
                       ${ICON.gear}<span id="btn-quality" class="hidden sm:inline text-[11px] font-bold px-1.5 py-px rounded bg-white/15">AUTO</span>
                     </button>
-                    <button onclick="toggleFullscreen()" class="vf-icon-btn" title="Fullscreen (F)">${ICON.fs}</button>
+                    <button onclick="event.stopPropagation(); toggleFullscreen();" class="vf-icon-btn" title="Fullscreen (F)">${ICON.fs}</button>
                   </div>
                 </div>
               </div>
@@ -1438,7 +1437,11 @@ const isTouchDevice = () => window.matchMedia('(hover: none)').matches;
 
 function initVideoPlayer(videoUrl, seriesId, chapterId, index, seriesTitle, chapterTitle, thumbnail) {
   const video = document.getElementById('video-player');
+  const frame = document.getElementById('video-frame');
   if (!video) return;
+
+  state.player.subtitleTracks = [];
+  state.player.currentSubtitle = -1;
 
   video.volume = state.player.volume;
   video.muted = state.player.isMuted;
@@ -1446,8 +1449,20 @@ function initVideoPlayer(videoUrl, seriesId, chapterId, index, seriesTitle, chap
   updateVolumeUI(video.volume, video.muted);
   renderSpeedOptions();
   populateSubtitlesMenu();
+  updateSubtitleButtonVisibility();
   bindTimelineScrubbing();
   setSpinner(true);
+
+  // Desktop real mouse move listeners (ignores synthetic touch events)
+  if (frame) {
+    frame.addEventListener('mousemove', (e) => {
+      if (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) return;
+      revealPlayerControls();
+    });
+    frame.addEventListener('mouseleave', () => {
+      scheduleHideControls(800);
+    });
+  }
 
   if (window.Hls && Hls.isSupported()) {
     const hls = new Hls({ enableWorker: true, lowLatencyMode: false, capLevelToPlayerSize: true });
@@ -1457,12 +1472,21 @@ function initVideoPlayer(videoUrl, seriesId, chapterId, index, seriesTitle, chap
 
     hls.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
       state.player.levels = data.levels || [];
+      state.player.subtitleTracks = hls.subtitleTracks || data.subtitleTracks || [];
       populateQualityMenu();
+      populateSubtitlesMenu();
+      updateSubtitleButtonVisibility();
       video.play().catch(() => { setSpinner(false); updatePlayPauseUI(false); });
     });
     hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, (event, data) => {
       state.player.subtitleTracks = data.subtitleTracks || [];
       populateSubtitlesMenu();
+      updateSubtitleButtonVisibility();
+    });
+    hls.on(Hls.Events.SUBTITLE_TRACK_SWITCH, (event, data) => {
+      state.player.currentSubtitle = data.id;
+      populateSubtitlesMenu();
+      updateSubtitleButtonVisibility();
     });
     hls.on(Hls.Events.LEVEL_SWITCHED, (event, data) => {
       state.player.currentLevel = data.level;
@@ -1486,7 +1510,19 @@ function initVideoPlayer(videoUrl, seriesId, chapterId, index, seriesTitle, chap
   video.addEventListener('waiting', () => setSpinner(true));
   video.addEventListener('playing', () => setSpinner(false));
   video.addEventListener('canplay', () => setSpinner(false));
-  video.addEventListener('loadedmetadata', () => updateTimeUI(video));
+  video.addEventListener('loadedmetadata', () => {
+    updateTimeUI(video);
+    if (video.textTracks && video.textTracks.length > 0 && (!state.player.subtitleTracks || state.player.subtitleTracks.length === 0)) {
+      const list = [];
+      for (let i = 0; i < video.textTracks.length; i++) {
+        const t = video.textTracks[i];
+        list.push({ id: i, name: t.label || t.language || ('Track ' + (i + 1)), lang: t.language });
+      }
+      state.player.subtitleTracks = list;
+      populateSubtitlesMenu();
+      updateSubtitleButtonVisibility();
+    }
+  });
 
   let lastSave = 0;
   video.addEventListener('timeupdate', () => {
@@ -1538,11 +1574,15 @@ function revealPlayerControls(sticky) {
   const frame = document.getElementById('video-frame');
   if (!frame) return;
   frame.classList.remove('controls-hidden');
-  if (!sticky) scheduleHideControls();
-  else clearTimeout(state.playerControlsTimer);
+  const video = document.getElementById('video-player');
+  if (!sticky && video && !video.paused) {
+    scheduleHideControls(3500);
+  } else {
+    clearTimeout(state.playerControlsTimer);
+  }
 }
 
-function scheduleHideControls(delay = 3000) {
+function scheduleHideControls(delay = 3500) {
   clearTimeout(state.playerControlsTimer);
   state.playerControlsTimer = setTimeout(() => {
     const frame = document.getElementById('video-frame');
@@ -1553,49 +1593,61 @@ function scheduleHideControls(delay = 3000) {
 }
 
 function hidePlayerControlsNow() {
-  const video = document.getElementById('video-player');
-  if (!video || video.paused) return;
   clearTimeout(state.playerControlsTimer);
   document.getElementById('video-frame')?.classList.add('controls-hidden');
 }
 
-// ---- Tap / click handling (touch: tap toggles controls, double-tap seeks; mouse: click toggles play) ----
+// ---- Clean Touch Toggle & Double-Tap Seek (FlowFlix/YouTube Standard) ----
+let playerTapTimer = null;
+let lastTapTimestamp = 0;
+
 function handlePlayerTap(e) {
   const frame = document.getElementById('video-frame');
-  if (!frame) return;
-
-  if (!isTouchDevice()) {
-    clearTimeout(state.singleTapTimer);
-    state.singleTapTimer = setTimeout(() => togglePlayPause(), 200);
-    revealPlayerControls();
-    return;
-  }
+  const video = document.getElementById('video-player');
+  if (!frame || !video) return;
 
   const now = Date.now();
-  const isDouble = now - state.lastTapTime < 280;
-  state.lastTapTime = now;
-  const rect = frame.getBoundingClientRect();
-  const x = (e.clientX - rect.left) / rect.width;
+  const timeSinceLast = now - lastTapTimestamp;
+  lastTapTimestamp = now;
 
-  if (isDouble && (x < 0.35 || x > 0.65)) {
-    clearTimeout(state.singleTapTimer);
-    const side = x < 0.35 ? 'left' : 'right';
-    seekRelative(side === 'left' ? -10 : 10);
-    flashSeek(side);
+  const rect = frame.getBoundingClientRect();
+  const xRatio = (e.clientX - rect.left) / Math.max(1, rect.width);
+
+  // Double-tap detected (within 300ms) on left or right third -> seek ±10s
+  if (timeSinceLast < 300 && (xRatio < 0.35 || xRatio > 0.65)) {
+    clearTimeout(playerTapTimer);
+    playerTapTimer = null;
+    const isLeft = xRatio < 0.35;
+    seekRelative(isLeft ? -10 : 10);
+    flashSeek(isLeft ? 'left' : 'right');
     revealPlayerControls();
     return;
   }
 
-  clearTimeout(state.singleTapTimer);
-  state.singleTapTimer = setTimeout(() => {
-    if (frame.classList.contains('controls-hidden')) revealPlayerControls();
-    else hidePlayerControlsNow();
+  // Single-tap: Cleanly toggle controls visibility (NEVER accidentally pauses video!)
+  clearTimeout(playerTapTimer);
+  playerTapTimer = setTimeout(() => {
+    // If settings sheet or drawer is open, dismiss them on tap
+    if (state.player.isSettingsOpen) {
+      togglePlayerSettings(false);
+      return;
+    }
+    if (state.player.isDrawerOpen) {
+      toggleInPlayerDrawer(false);
+      return;
+    }
+
+    const isHidden = frame.classList.contains('controls-hidden');
+    if (isHidden) {
+      revealPlayerControls();
+    } else {
+      hidePlayerControlsNow();
+    }
   }, 220);
 }
 
 function handlePlayerDblClick() {
-  if (isTouchDevice()) return;
-  clearTimeout(state.singleTapTimer);
+  clearTimeout(playerTapTimer);
   toggleFullscreen();
 }
 
@@ -1662,11 +1714,17 @@ function updatePlayPauseUI(isPlaying) {
   if (b) b.innerHTML = path;
 }
 
-function togglePlayPause() {
+function togglePlayPause(e) {
+  if (e && e.stopPropagation) e.stopPropagation();
   const video = document.getElementById('video-player');
   if (!video) return;
-  if (video.paused) video.play().catch(() => {});
-  else video.pause();
+  if (video.paused) {
+    video.play().catch(() => {});
+    revealPlayerControls();
+  } else {
+    video.pause();
+    revealPlayerControls(true); // sticky controls when paused
+  }
 }
 
 function seekRelative(delta) {
@@ -1773,26 +1831,72 @@ function updateVolumeUI(volume, isMuted) {
 }
 
 // ---- Audio & Subtitles ----
+function updateSubtitleButtonVisibility() {
+  const btn = document.getElementById('btn-subs-toggle');
+  const badge = document.getElementById('subs-badge');
+  const tracks = state.player.subtitleTracks || [];
+  if (!btn) return;
+
+  if (tracks.length > 0) {
+    btn.classList.remove('hidden');
+    if (badge) {
+      const active = state.player.currentSubtitle >= 0 ? tracks[state.player.currentSubtitle] : null;
+      badge.textContent = active ? (active.name || active.lang || 'ON').slice(0, 3).toUpperCase() : 'CC';
+      badge.className = state.player.currentSubtitle >= 0
+        ? 'text-[10px] font-bold px-1.5 py-0.5 rounded bg-brand-red text-white'
+        : 'text-[10px] font-bold px-1.5 py-0.5 rounded bg-white/15 text-gray-300';
+    }
+  } else {
+    btn.classList.add('hidden');
+  }
+}
+
 function populateSubtitlesMenu() {
   const box = document.getElementById('subtitles-dropdown');
   if (!box) return;
   const tracks = state.player.subtitleTracks || [];
+
+  if (tracks.length === 0) {
+    box.innerHTML = `
+      <div class="px-3 py-2.5 rounded-lg bg-white/[0.04] border border-white/10 text-xs text-gray-400 space-y-1">
+        <div class="flex items-center gap-1.5 font-semibold text-gray-300">
+          <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          No Subtitle Tracks
+        </div>
+        <p class="text-[11px] leading-relaxed text-gray-500">This anime stream has hardcoded audio/subtitles. No selectable subtitle tracks are present in the stream.</p>
+      </div>
+    `;
+    updateSubtitleButtonVisibility();
+    return;
+  }
+
   box.innerHTML = `
-    <p class="px-3 pt-1 pb-0.5 text-[10px] uppercase tracking-wider text-gray-500 font-bold">Audio</p>
-    ${sheetOption('Japanese', true, '', 'Original')}
-    <p class="px-3 pt-2 pb-0.5 text-[10px] uppercase tracking-wider text-gray-500 font-bold">Subtitles</p>
-    ${tracks.length > 0
-      ? tracks.map((t, idx) => sheetOption(escapeHtml(t.name || t.lang || `Track ${idx + 1}`), state.player.currentSubtitle === idx, `setSubtitleTrack(${idx})`)).join('') +
-        sheetOption('Off', state.player.currentSubtitle === -1, 'setSubtitleTrack(-1)')
-      : sheetOption('English', true, '', 'Burned-in') +
-        `<p class="px-3 pb-1 text-[10px] text-gray-500 leading-snug">English subtitles are embedded in the video and can't be turned off.</p>`}
+    <div class="space-y-1">
+      ${tracks.map((t, idx) => sheetOption(escapeHtml(t.name || t.lang || ('Track ' + (idx + 1))), state.player.currentSubtitle === idx, 'setSubtitleTrack(' + idx + ')')).join('')}
+      ${sheetOption('Off', state.player.currentSubtitle === -1, 'setSubtitleTrack(-1)')}
+    </div>
   `;
+  updateSubtitleButtonVisibility();
 }
 
 function setSubtitleTrack(trackIndex) {
-  if (state.hls) state.hls.subtitleTrack = trackIndex;
+  const video = document.getElementById('video-player');
   state.player.currentSubtitle = trackIndex;
+
+  if (state.hls) {
+    state.hls.subtitleTrack = trackIndex;
+    state.hls.subtitleDisplay = (trackIndex !== -1);
+  }
+
+  if (video && video.textTracks) {
+    for (let i = 0; i < video.textTracks.length; i++) {
+      video.textTracks[i].mode = (i === trackIndex) ? 'showing' : 'disabled';
+    }
+  }
+
   populateSubtitlesMenu();
+  updateSubtitleButtonVisibility();
+  showToast(trackIndex === -1 ? 'Subtitles: Off' : 'Subtitles enabled', 'info');
 }
 
 // ---- Quality ----
@@ -1960,34 +2064,80 @@ function openDownloadModal(seriesTitle, chapterName, streamUrl, thumbnail) {
   const safeTitle = (seriesTitle || 'Anime').replace(/[^a-zA-Z0-9_-]/g, '_');
   const safeEp = (chapterName || 'Episode').replace(/[^a-zA-Z0-9_-]/g, '_');
   const fileName = `${safeTitle}_${safeEp}.m3u8`;
+  const cleanUrl = streamUrl || '';
+  const ytDlpCmd = `yt-dlp "${cleanUrl}" -o "${safeTitle} - ${safeEp}.mp4"`;
+  const vlcIntentUrl = `intent://${cleanUrl.replace(/^https?:\/\//, '')}#Intent;type=video/*;package=org.videolan.vlc;S.browser_fallback_url=${encodeURIComponent(cleanUrl)};end`;
 
   content.innerHTML = `
-    <div class="flex items-center gap-3 p-3 rounded-lg bg-carbon-800 border border-white/10">
-      <img src="${escapeHtml(thumbnail || THUMB_UNAVAILABLE_SVG)}" class="w-16 aspect-video object-cover rounded bg-carbon-850" onerror="handlePosterError(this, true)">
-      <div class="min-w-0 flex-1">
-        <h4 class="font-heading font-semibold text-white text-xs truncate">${escapeHtml(seriesTitle)}</h4>
-        <p class="text-[11px] text-gray-400 truncate">${escapeHtml(chapterName)}</p>
-        <span class="text-[10px] text-emerald-400 font-bold">1080p / 720p HLS Stream Available</span>
+    <!-- Episode Card Header -->
+    <div class="flex items-center gap-3.5 p-3 rounded-xl bg-carbon-800/90 border border-white/10 shadow-inner">
+      <div class="relative w-24 aspect-video rounded-lg overflow-hidden bg-carbon-850 flex-shrink-0 border border-white/10">
+        <img src="${escapeHtml(thumbnail || THUMB_UNAVAILABLE_SVG)}" class="w-full h-full object-cover" onerror="handlePosterError(this, true)">
+        <span class="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/80 font-mono text-[9px] text-white font-bold">1080p</span>
+      </div>
+      <div class="min-w-0 flex-1 space-y-1">
+        <h4 class="font-heading font-bold text-white text-xs sm:text-sm truncate leading-snug">${escapeHtml(seriesTitle)}</h4>
+        <p class="text-[11px] sm:text-xs text-gray-300 truncate">${escapeHtml(chapterName)}</p>
+        <div class="flex items-center gap-2 text-[10px]">
+          <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30">HLS Direct Stream</span>
+          <span class="text-gray-400">• High Speed CDN</span>
+        </div>
       </div>
     </div>
 
-    <div class="space-y-2">
-      <label class="block text-gray-300 font-semibold text-[11px]">Download Options:</label>
-      
-      <button onclick="downloadM3u8File('${escapeHtml(streamUrl)}', '${fileName}')" class="w-full py-2.5 px-3 rounded-md bg-brand-red hover:bg-brand-darkRed text-white font-bold text-xs flex items-center justify-center gap-2 transition shadow-lg">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-        Download M3U8 Playlist (VLC / PotPlayer / IDM)
+    <!-- Direct Stream URL (Copy Link) -->
+    <div class="space-y-1.5">
+      <div class="flex items-center justify-between text-[11px] font-semibold text-gray-300 uppercase tracking-wider">
+        <span>Direct Stream Link</span>
+        <span class="text-[10px] text-emerald-400 font-normal lowercase">for 1DM / ADM / IDM / VLC</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <input type="text" readonly value="${escapeHtml(cleanUrl)}"
+               class="flex-1 min-w-0 bg-carbon-850 text-gray-200 text-xs px-3 py-2.5 rounded-lg border border-white/10 font-mono truncate focus:outline-none select-all"
+               onclick="this.select()">
+        <button onclick="copyToClipboard('${escapeHtml(cleanUrl).replace(/'/g, "\\'")}', 'Stream URL copied to clipboard! Paste into 1DM, ADM or VLC');"
+                class="px-3.5 py-2.5 rounded-lg bg-white hover:bg-gray-200 text-black font-bold text-xs flex items-center gap-1.5 flex-shrink-0 transition active:scale-95 shadow">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+          <span>Copy</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Quick Action Buttons -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+      <!-- Open in VLC -->
+      <a href="${vlcIntentUrl}" target="_blank" rel="noopener"
+         class="flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg bg-carbon-800 hover:bg-carbon-700 border border-white/15 text-white text-xs font-semibold active:scale-95 transition text-center shadow">
+        <svg class="w-4 h-4 text-orange-400" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L4 18h16L12 2zm0 4.2L16.4 16H7.6L12 6.2z"/></svg>
+        <span>Open in VLC Player</span>
+      </a>
+
+      <!-- Save .M3U8 Playlist File -->
+      <button onclick="downloadM3u8File('${escapeHtml(cleanUrl).replace(/'/g, "\\'")}', '${escapeHtml(fileName).replace(/'/g, "\\"')}')"
+              class="flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg bg-carbon-800 hover:bg-carbon-700 border border-white/15 text-white text-xs font-semibold active:scale-95 transition shadow">
+        <svg class="w-4 h-4 text-brand-red" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        <span>Save .M3U8 File</span>
       </button>
     </div>
 
+    <!-- Command-line Box (yt-dlp) -->
     <div class="space-y-1.5 pt-2 border-t border-white/10">
-      <span class="text-[10px] text-gray-400 font-semibold block uppercase tracking-wider">Fast Command-Line Download:</span>
-      <div class="relative bg-carbon-900 border border-white/10 rounded p-2 text-[10px] font-mono text-gray-300 select-all overflow-x-auto">
-        yt-dlp "${escapeHtml(streamUrl)}" -o "${safeTitle} - ${safeEp}.mp4"
+      <div class="flex items-center justify-between">
+        <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5 text-brand-red" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+          CLI Downloader (yt-dlp)
+        </span>
+        <button onclick="copyToClipboard('${ytDlpCmd.replace(/'/g, "\\'")}', 'yt-dlp command copied!')" class="text-[10px] text-brand-red hover:underline font-bold">
+          Copy Command
+        </button>
       </div>
-      <button onclick="copyToClipboard('yt-dlp &quot;${escapeHtml(streamUrl)}&quot; -o &quot;${safeTitle} - ${safeEp}.mp4&quot;', 'yt-dlp command copied!')" class="text-[10px] text-brand-red hover:underline font-semibold">
-        Copy yt-dlp command
-      </button>
+      <div class="relative bg-black/60 border border-white/10 rounded-lg p-2.5 text-[11px] font-mono text-gray-300 overflow-x-auto no-scrollbar select-all">
+        <code>${escapeHtml(ytDlpCmd)}</code>
+      </div>
+    </div>
+
+    <div class="text-[10px] text-gray-400 text-center pt-1 border-t border-white/5">
+      💡 <span class="text-gray-300 font-semibold">Mobile Tip:</span> Copy the link and paste into <span class="text-white font-bold">1DM</span> or <span class="text-white font-bold">ADM</span> to download at full speed with pause/resume support.
     </div>
   `;
 

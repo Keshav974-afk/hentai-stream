@@ -463,6 +463,20 @@
       background: #141418 !important;
     }
 
+  
+    /* Subtitle Cue Styling */
+    ::cue {
+      background-color: rgba(0, 0, 0, 0.8) !important;
+      color: #ffffff !important;
+      font-family: 'Plus Jakarta Sans', system-ui, sans-serif !important;
+      font-size: 1.05rem !important;
+      font-weight: 600 !important;
+      line-height: 1.35 !important;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 1px #000 !important;
+      border-radius: 4px !important;
+      padding: 3px 8px !important;
+    }
+
   </style>
 </head>
 
@@ -566,7 +580,7 @@
 
   <!-- ==================== VOIDFLIX DOWNLOAD MODAL ==================== -->
   <div id="download-modal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden flex items-center justify-center p-4">
-    <div class="glass-strong w-full max-w-md rounded-xl p-6 shadow-2xl relative border border-white/10 fade-enter">
+    <div class="glass-strong w-full max-w-md rounded-2xl p-4 sm:p-6 shadow-2xl relative border border-white/10 fade-enter max-h-[92vh] overflow-y-auto no-scrollbar">
       <div class="flex items-center justify-between pb-3 border-b border-white/10 mb-4">
         <h3 class="font-heading font-bold text-sm text-white flex items-center gap-2">
           <svg class="w-4 h-4 text-brand-red" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
