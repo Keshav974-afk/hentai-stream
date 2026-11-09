@@ -58,8 +58,13 @@ class ApiService {
       if (this.isProxyMode) {
         const res = await fetch(`${this.baseUrl}/health`, { signal: AbortSignal.timeout(6000) });
         if (res.ok) {
-          const data = await res.json();
-          return { ok: true, mode: 'proxy', details: data };
+          const text = await res.text();
+          try {
+            const data = JSON.parse(text);
+            return { ok: true, mode: 'proxy', details: data };
+          } catch (e) {
+            return { ok: false, error: 'Proxy returned HTML instead of JSON. Cloudflare Functions may still be deploying.', mode: 'proxy' };
+          }
         }
       }
       const token = await this.getToken();
@@ -96,7 +101,17 @@ class ApiService {
         throw new Error(`Token fetch returned status ${res.status}`);
       }
 
-      const data = await res.json();
+      const text = await res.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        if (this.isProxyMode) {
+          return 'proxy-managed';
+        }
+        throw new Error('Invalid token response format');
+      }
+
       if (!data || !data.data || !data.data.token) {
         throw new Error(data?.data || 'Invalid token structure');
       }
@@ -145,14 +160,25 @@ class ApiService {
           headers
         });
         if (!retryRes.ok) throw new Error(`API error ${retryRes.status}`);
-        return retryRes.json();
+        const retryText = await retryRes.text();
+        return JSON.parse(retryText);
       }
 
       if (!res.ok) {
         throw new Error(`API error ${res.status}`);
       }
 
-      return res.json();
+      const text = await res.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (jsonErr) {
+        if (text.trim().startsWith('<') || text.includes('<!DOCTYPE')) {
+          throw new Error('API gateway returned HTML instead of JSON. Cloudflare Pages Functions are building/deploying. Please allow 1-2 minutes for the deployment or verify gateway settings.');
+        }
+        throw new Error(`Malformed JSON response: ${jsonErr.message}`);
+      }
+      return data;
     } catch (err) {
       console.error(`Request to ${path} failed:`, err);
       throw err;

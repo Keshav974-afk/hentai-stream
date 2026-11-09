@@ -23,8 +23,7 @@
   - Remaining time countdown (e.g. `-14:20`) displayed tabular-nums on the right.
 - **Download Episode Button:**
   - In-player download modal with 1-click M3U8 playlist file download (plays in VLC, PotPlayer, IINA, mpv).
-  - Direct video stream open & copy.
-  - Instant command-line copy for `yt-dlp` and `ffmpeg` downloaders.
+  - Instant command-line copy for `yt-dlp` MP4 downloader with automatic episode naming.
 - **Audio & Subtitles:**
   - Japanese original audio track.
   - Subtitle manager: detects HLS softsub tracks and displays English hardsubbed status.
@@ -111,7 +110,15 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## ☁️ Deployment
 
-### 1-Click Vercel Deployment
+### Cloudflare Pages (Recommended)
+The repository includes native Cloudflare Pages Functions (`functions/api/[[path]].js`), `_routes.json`, and `_headers`:
+1. Connect your repository to **[Cloudflare Pages](https://pages.cloudflare.com/)**.
+2. Set **Framework preset**: `None`.
+3. Set **Build command**: (leave empty).
+4. Set **Build output directory**: `/` (or root `.`).
+5. Click **Save and Deploy**. Cloudflare automatically compiles the edge proxy function to handle `/api/*`.
+
+### Vercel Deployment
 The repository includes `vercel.json` and `api/index.js` configured for Vercel Serverless Functions:
 1. Push to your GitHub account.
 2. Import into [Vercel](https://vercel.com).
