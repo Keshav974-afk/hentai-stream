@@ -486,7 +486,7 @@ function scrollToShelfOrBrowse(shelfId, category) {
 function renderMobileCategoryChips() {
   const chips = [
     { label: '🔥 All Titles', onclick: "showHome()" },
-    { label: '🏷️ All Genres', onclick: "navigateTo('#/genres')" },
+    { label: '🏷️ All Genres', onclick: "showGenresPage()" },
     { label: '⚡ New Episodes', onclick: "scrollToShelfOrBrowse('row-episodes', 'recent')" },
     { label: '🏆 Top 10', onclick: "scrollToShelfOrBrowse('row-top10', 'trending')" },
     { label: '🔥 Trending', onclick: "scrollToShelfOrBrowse('row-trending', 'trending')" },
@@ -2812,6 +2812,9 @@ function handleSortChange(sort) {
 // ==================== GENRES DIRECTORY & DETAIL SYSTEM ====================
 
 async function showGenresPage() {
+  if (window.location.hash !== '#/genres' && window.location.hash !== '#genre' && window.location.hash !== '#/genre') {
+    window.location.hash = '#/genres';
+  }
   updateNavHighlight('genres');
   window.scrollTo({ top: 0, behavior: 'smooth' });
 
@@ -3008,11 +3011,33 @@ async function showGenreDetailPage(termId, page = 1) {
   updateNavHighlight('genres');
   window.scrollTo({ top: 0, behavior: 'smooth' });
 
-  // Load genres list in parallel if not already loaded (for header pill switcher)
+  // Ensure genres list is loaded so we can look up slugs or display quick switcher
   if (!state.genres.list || state.genres.list.length === 0) {
-    API.getGenres().then(res => {
-      state.genres.list = Array.isArray(res?.data) ? res.data : [];
-    }).catch(e => console.warn('Genres prefetch warning:', e));
+    try {
+      const gRes = await API.getGenres();
+      state.genres.list = Array.isArray(gRes?.data) ? gRes.data : [];
+    } catch (e) {
+      console.warn('Genres prefetch warning:', e);
+    }
+  }
+
+  // Resolve numeric term_id if slug or string was passed (e.g. "3d-hentai" -> 2245)
+  let resolvedId = termId;
+  const numId = Number(termId);
+  if (isNaN(numId) || String(numId) !== String(termId).trim()) {
+    const cleanSlug = String(termId || '').toLowerCase().trim();
+    const match = (state.genres.list || []).find(g => 
+      (g.slug && g.slug.toLowerCase() === cleanSlug) || 
+      (g.name && g.name.toLowerCase() === cleanSlug.replace(/-/g, ' ')) ||
+      (g.name && g.name.toLowerCase().includes(cleanSlug))
+    );
+    if (match) {
+      resolvedId = match.term_id;
+    } else {
+      // If not recognized as a genre slug, fallback gracefully to general search/browse
+      showBrowse(termId);
+      return;
+    }
   }
 
   // Show skeleton shimmer on initial page load
@@ -3028,12 +3053,12 @@ async function showGenreDetailPage(termId, page = 1) {
   `;
 
   try {
-    const res = await API.getGenreTitles(termId, page);
+    const res = await API.getGenreTitles(resolvedId, page);
     const data = res?.data || {};
-    const term = data.term || (state.genres.list.find(g => String(g.term_id) === String(termId)) || { term_id: termId, name: 'Genre', count: 0 });
+    const term = data.term || (state.genres.list.find(g => String(g.term_id) === String(resolvedId)) || { term_id: resolvedId, name: 'Genre', count: 0 });
     const hentais = Array.isArray(data.hentais) ? data.hentais : [];
 
-    state.genres.currentTermId = termId;
+    state.genres.currentTermId = resolvedId;
     state.genres.currentGenre = term;
     state.genres.items = hentais;
     state.genres.page = page;
@@ -3603,29 +3628,44 @@ function renderErrorView(title, err, retryFn) {
 
 // ==================== ROUTING SYSTEM (HASH BASED) ====================
 function handleRoute() {
-  const hash = window.location.hash || '#/';
+  const rawHash = window.location.hash || '#/';
+  // Normalize by stripping leading # and /: e.g. "#/genre" -> "genre", "#genre" -> "genre", "#/genre/2245" -> "genre/2245"
+  const clean = rawHash.replace(/^#\/?/, '').trim();
   
-  if (hash.startsWith('#/series/')) {
-    const seriesId = hash.replace('#/series/', '').split('?')[0].split('/')[0];
+  if (clean.startsWith('series/')) {
+    const seriesId = clean.replace('series/', '').split('?')[0].split('/')[0];
     showSeriesPage(seriesId);
-  } else if (hash.startsWith('#/watch/')) {
-    const parts = hash.replace('#/watch/', '').split('?')[0].split('/');
+  } else if (clean.startsWith('watch/')) {
+    const parts = clean.replace('watch/', '').split('?')[0].split('/');
     const seriesId = parts[0];
     const chapterId = parts[1] || null;
     showWatchPage(seriesId, chapterId);
-  } else if (hash.startsWith('#/genres')) {
+  } else if (
+    clean === 'genre' || 
+    clean === 'genres' || 
+    clean === 'genre/' || 
+    clean === 'genres/' || 
+    clean === 'genre/all' || 
+    clean === 'genres/all' ||
+    clean === 'category' ||
+    clean === 'categories'
+  ) {
     showGenresPage();
-  } else if (hash.startsWith('#/genre/')) {
-    const termId = hash.replace('#/genre/', '').split('?')[0].split('/')[0];
-    showGenreDetailPage(termId);
-  } else if (hash.startsWith('#/browse/')) {
-    const cat = decodeURIComponent(hash.replace('#/browse/', '').split('?')[0]);
+  } else if (clean.startsWith('genre/') || clean.startsWith('genres/')) {
+    const termId = clean.replace(/^(genres?\/)/, '').split('?')[0].split('/')[0];
+    if (!termId || termId === 'all') {
+      showGenresPage();
+    } else {
+      showGenreDetailPage(termId);
+    }
+  } else if (clean.startsWith('browse/')) {
+    const cat = decodeURIComponent(clean.replace('browse/', '').split('?')[0]);
     showBrowse(cat);
-  } else if (hash.startsWith('#/browse')) {
+  } else if (clean === 'browse' || clean.startsWith('browse')) {
     showBrowse('all');
-  } else if (hash.startsWith('#/watchlist')) {
+  } else if (clean.startsWith('watchlist')) {
     showWatchlist();
-  } else if (hash.startsWith('#/history')) {
+  } else if (clean.startsWith('history')) {
     showHistory();
   } else {
     showHome();
