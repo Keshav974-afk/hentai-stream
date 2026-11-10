@@ -237,6 +237,27 @@ class ApiService {
     }
     return res;
   }
+
+  async getGenres() {
+    const res = await this.fetch('/genre/all');
+    if (!res || !Array.isArray(res.data)) {
+      return { success: true, data: [] };
+    }
+    return res;
+  }
+
+  async getGenreTitles(termId, page = 1) {
+    try {
+      const res = await this.fetch(`/genre/${termId}?p=${page}`);
+      if (!res || !res.data || res.success === false || typeof res.data === 'string') {
+        return { success: true, data: { term: null, hentais: [] } };
+      }
+      return res;
+    } catch (e) {
+      console.warn('Genre titles fetch error:', e);
+      return { success: true, data: { term: null, hentais: [] } };
+    }
+  }
 }
 
 const API = new ApiService();

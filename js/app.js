@@ -66,6 +66,19 @@ const state = {
     sort: 'views'
   },
 
+  // Genres & Category System State
+  genres: {
+    list: [],
+    searchQuery: '',
+    sort: 'count', // 'count' (most titles) or 'name' (A-Z)
+    currentGenre: null,
+    currentTermId: null,
+    items: [],
+    page: 1,
+    hasMore: true,
+    isLoading: false
+  },
+
   // Persistent Collections (LocalStorage)
   watchlist: safeGetArray('voidflix_watchlist', 'flowflix_watchlist'),
   history: safeGetArray('voidflix_history', 'flowflix_history'),
@@ -203,10 +216,10 @@ function navigateTo(hash) {
 
 function updateNavHighlight(route) {
   state.route = route;
-  ['home', 'series', 'trending', 'uncensored', 'browse', 'watchlist', 'history'].forEach(r => {
+  ['home', 'genres', 'series', 'trending', 'uncensored', 'browse', 'watchlist', 'history'].forEach(r => {
     const el = document.getElementById(`nav-${r}`);
     if (el) {
-      if (r === route) {
+      if (r === route || (r === 'genres' && (route === 'genre' || route === 'genres'))) {
         el.className = 'nav-pill active';
       } else {
         el.className = 'nav-pill';
@@ -224,14 +237,14 @@ function updateNavHighlight(route) {
     }
   }
 
-  ['home', 'trending', 'browse', 'watchlist', 'history'].forEach(r => {
+  ['home', 'genres', 'trending', 'browse', 'watchlist', 'history'].forEach(r => {
     const mobEl = document.getElementById(`mobile-nav-${r}`);
     if (mobEl) {
-      const isActive = (r === route) || (r === 'browse' && (route === 'series' || route === 'uncensored'));
+      const isActive = (r === route) || (r === 'genres' && (route === 'genre' || route === 'genres')) || (r === 'browse' && (route === 'series' || route === 'uncensored'));
       if (isActive) {
-        mobEl.className = 'flex flex-col items-center gap-1 text-brand-red font-bold transition py-1 px-3 rounded-xl bg-brand-red/10 border border-brand-red/20 shadow-sm';
+        mobEl.className = 'flex flex-col items-center gap-1 text-brand-red font-bold transition py-1 px-2.5 rounded-xl bg-brand-red/10 border border-brand-red/20 shadow-sm';
       } else {
-        mobEl.className = 'flex flex-col items-center gap-1 text-zinc-400 hover:text-white transition py-1 px-3 rounded-xl';
+        mobEl.className = 'flex flex-col items-center gap-1 text-zinc-400 hover:text-white transition py-1 px-2.5 rounded-xl';
       }
     }
   });
@@ -473,6 +486,7 @@ function scrollToShelfOrBrowse(shelfId, category) {
 function renderMobileCategoryChips() {
   const chips = [
     { label: '🔥 All Titles', onclick: "showHome()" },
+    { label: '🏷️ All Genres', onclick: "navigateTo('#/genres')" },
     { label: '⚡ New Episodes', onclick: "scrollToShelfOrBrowse('row-episodes', 'recent')" },
     { label: '🏆 Top 10', onclick: "scrollToShelfOrBrowse('row-top10', 'trending')" },
     { label: '🔥 Trending', onclick: "scrollToShelfOrBrowse('row-trending', 'trending')" },
@@ -1118,7 +1132,7 @@ async function showSeriesPage(id) {
               <span class="text-zinc-500 font-bold block mb-2 uppercase tracking-wider text-[11px]">Genres</span>
               <div class="flex flex-wrap gap-1.5">
                 ${genres.map(g => `
-                  <button onclick="navigateTo('#/browse/${encodeURIComponent(g.name.toLowerCase())}')" 
+                  <button onclick="navigateTo('${g.term_id ? `#/genre/${g.term_id}` : `#/browse/${encodeURIComponent(g.name.toLowerCase())}`}')" 
                           class="px-3 py-1.5 rounded-full bg-carbon-800 hover:bg-brand-red/20 hover:border-brand-red/40 text-zinc-300 hover:text-white border border-white/10 text-xs transition shadow-sm">
                     ${escapeHtml(g.name)}
                   </button>
@@ -2795,6 +2809,364 @@ function handleSortChange(sort) {
   }
 }
 
+// ==================== GENRES DIRECTORY & DETAIL SYSTEM ====================
+
+async function showGenresPage() {
+  updateNavHighlight('genres');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  // Shimmer placeholder if no genres loaded yet
+  if (!state.genres.list || state.genres.list.length === 0) {
+    app.innerHTML = `
+      <div class="space-y-6 fade-enter max-w-[1720px] mx-auto px-1 sm:px-2">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
+          <div class="space-y-2">
+            <div class="h-8 w-60 bg-carbon-800 rounded-lg shimmer"></div>
+            <div class="h-4 w-96 bg-carbon-800 rounded shimmer"></div>
+          </div>
+          <div class="h-10 w-72 bg-carbon-800 rounded-xl shimmer"></div>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
+          ${Array.from({ length: 18 }).map(() => `<div class="aspect-[16/11] bg-carbon-800 rounded-xl shimmer"></div>`).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  try {
+    if (!state.genres.list || state.genres.list.length === 0) {
+      const res = await API.getGenres();
+      state.genres.list = Array.isArray(res?.data) ? res.data : [];
+    }
+    renderGenresDirectoryView();
+  } catch (err) {
+    renderErrorView('Failed to load genres', err, () => showGenresPage());
+  }
+}
+
+function renderGenresDirectoryView() {
+  const genres = state.genres.list || [];
+  const query = (state.genres.searchQuery || '').trim().toLowerCase();
+  const sortMode = state.genres.sort || 'count'; // 'count' or 'name'
+
+  // Filter and sort
+  let filtered = genres.filter(g => {
+    if (!query) return true;
+    return (g.name || '').toLowerCase().includes(query) || (g.slug || '').toLowerCase().includes(query);
+  });
+
+  if (sortMode === 'count') {
+    filtered.sort((a, b) => (Number(b.count) || 0) - (Number(a.count) || 0));
+  } else {
+    filtered.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  }
+
+  app.innerHTML = `
+    <div class="space-y-6 sm:space-y-8 fade-enter max-w-[1720px] mx-auto px-1 sm:px-2">
+
+      <!-- Hero Header Banner with Ambient Backglow -->
+      <div class="relative rounded-2xl overflow-hidden p-6 sm:p-10 border border-white/10 bg-gradient-to-br from-carbon-850 via-carbon-900 to-black shadow-2xl">
+        <div class="absolute -top-24 -right-24 w-96 h-96 bg-brand-red/15 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute -bottom-24 -left-24 w-80 h-80 bg-rose-950/20 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div class="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div class="space-y-2 max-w-2xl">
+            <div class="flex items-center gap-2">
+              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-widest bg-brand-red text-white shadow-md">
+                CATEGORY DIRECTORY
+              </span>
+              <span class="text-xs text-zinc-400 font-medium">${genres.length} Curated Genres</span>
+            </div>
+            <h1 class="font-display text-3xl sm:text-5xl uppercase text-white tracking-wide font-extrabold flex items-center gap-3">
+              <span class="w-2 h-8 sm:h-10 rounded-full bg-brand-red shadow-[0_0_12px_rgba(229,9,20,0.8)]"></span>
+              GENRES &amp; THEMES
+            </h1>
+            <p class="text-xs sm:text-sm text-zinc-300 leading-relaxed">
+              Explore releases by theme, archetype, and style. Select any category below to stream hundreds of matched series in 1080p Full HD.
+            </p>
+          </div>
+
+          <!-- Controls: Live Filter + Sort Tabs -->
+          <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3 flex-shrink-0">
+            <!-- Live Search Filter -->
+            <div class="relative flex-1 sm:w-64">
+              <input type="text"
+                     id="genre-search-input"
+                     value="${escapeHtml(state.genres.searchQuery || '')}"
+                     oninput="handleGenreSearchInput(this.value)"
+                     placeholder="Filter genres (e.g. Yuri, 3D)..."
+                     class="w-full bg-carbon-800/95 border border-white/15 rounded-xl pl-9 pr-8 py-2 text-xs text-white placeholder-zinc-400 focus:outline-none focus:border-brand-red transition shadow-inner">
+              <svg class="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+              </svg>
+              ${state.genres.searchQuery ? `
+                <button onclick="handleGenreSearchInput('')" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white">✕</button>
+              ` : ''}
+            </div>
+
+            <!-- Sort Toggle -->
+            <div class="flex items-center gap-1 bg-carbon-800/90 p-1 rounded-xl border border-white/10 text-xs">
+              <button onclick="handleGenreSortChange('count')" 
+                      class="px-3 py-1.5 rounded-lg font-semibold transition ${sortMode === 'count' ? 'bg-brand-red text-white shadow-sm' : 'text-zinc-400 hover:text-white'}">
+                🔥 Most Titles
+              </button>
+              <button onclick="handleGenreSortChange('name')" 
+                      class="px-3 py-1.5 rounded-lg font-semibold transition ${sortMode === 'name' ? 'bg-brand-red text-white shadow-sm' : 'text-zinc-400 hover:text-white'}">
+                🔤 A–Z
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Genres Count Status Bar -->
+      <div class="flex items-center justify-between text-xs text-zinc-400 px-1 border-b border-white/5 pb-2">
+        <span>Showing <strong class="text-white">${filtered.length}</strong> of ${genres.length} Genres</span>
+        <span class="hidden sm:inline">Click any genre card to open full collection</span>
+      </div>
+
+      <!-- Genres Cards Grid -->
+      ${filtered.length === 0 ? `
+        <div class="text-center py-24 glass-card rounded-2xl max-w-lg mx-auto p-8 space-y-3">
+          <div class="text-4xl">🔍</div>
+          <h3 class="font-heading font-bold text-base text-white">No genres matched "${escapeHtml(query)}"</h3>
+          <p class="text-xs text-zinc-400">Try searching for a different keyword or reset your filter.</p>
+          <button onclick="handleGenreSearchInput('')" class="btn-crimson px-5 py-2 rounded-xl text-xs font-bold text-white mt-2">
+            Clear Filter
+          </button>
+        </div>
+      ` : `
+        <div id="genres-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
+          ${filtered.map(g => renderGenreCard(g)).join('')}
+        </div>
+      `}
+
+    </div>
+  `;
+}
+
+function renderGenreCard(genre) {
+  const count = Number(genre.count) || 0;
+  const thumb = genre.thumbnail || '';
+  const termId = genre.term_id;
+  const name = genre.name || 'Untitled';
+
+  return `
+    <div onclick="navigateTo('#/genre/${termId}')"
+         class="group relative aspect-[16/11] rounded-xl overflow-hidden bg-carbon-850 border border-white/10 hover:border-brand-red/60 cursor-pointer shadow-lg transition-all duration-300 hover:shadow-[0_10px_30px_rgba(229,9,20,0.35)] hover:-translate-y-1.5 select-none flex flex-col justify-end p-3 sm:p-4">
+      
+      <!-- Background Thumbnail Image with Zoom on Hover -->
+      <img src="${escapeHtml(thumb || POSTER_UNAVAILABLE_SVG)}"
+           alt="${escapeHtml(name)}"
+           class="card-img absolute inset-0 w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-110 filter brightness-[0.78] group-hover:brightness-[0.9]"
+           loading="lazy"
+           onerror="handlePosterError(this, false)">
+
+      <!-- Dark Vignette Overlay -->
+      <div class="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent pointer-events-none"></div>
+      <div class="absolute inset-0 bg-brand-red/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
+
+      <!-- Top Count Badge -->
+      <div class="absolute top-2.5 right-2.5 z-10">
+        <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-black/80 backdrop-blur-md text-zinc-200 border border-white/15 shadow-sm group-hover:bg-brand-red group-hover:text-white group-hover:border-transparent transition-all">
+          ${count} Titles
+        </span>
+      </div>
+
+      <!-- Card Content -->
+      <div class="relative z-10 space-y-0.5">
+        <h3 class="font-heading font-black text-sm sm:text-base text-white group-hover:text-brand-red transition-colors duration-200 line-clamp-1 drop-shadow-md">
+          ${escapeHtml(name)}
+        </h3>
+        <div class="flex items-center justify-between text-[11px] text-zinc-400 group-hover:text-zinc-200 transition-colors">
+          <span class="text-[10px] tracking-wider uppercase font-semibold text-zinc-400">Explore Collection</span>
+          <span class="transform group-hover:translate-x-1 transition-transform text-brand-red font-bold">›</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function handleGenreSearchInput(query) {
+  state.genres.searchQuery = query;
+  renderGenresDirectoryView();
+  const input = document.getElementById('genre-search-input');
+  if (input) {
+    input.focus();
+    input.setSelectionRange(input.value.length, input.value.length);
+  }
+}
+
+function handleGenreSortChange(sort) {
+  state.genres.sort = sort;
+  renderGenresDirectoryView();
+}
+
+// ==================== SPECIFIC GENRE DETAIL PAGE ====================
+
+async function showGenreDetailPage(termId, page = 1) {
+  updateNavHighlight('genres');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  // Load genres list in parallel if not already loaded (for header pill switcher)
+  if (!state.genres.list || state.genres.list.length === 0) {
+    API.getGenres().then(res => {
+      state.genres.list = Array.isArray(res?.data) ? res.data : [];
+    }).catch(e => console.warn('Genres prefetch warning:', e));
+  }
+
+  // Show skeleton shimmer on initial page load
+  app.innerHTML = `
+    <div class="space-y-6 fade-enter max-w-[1720px] mx-auto px-1 sm:px-2">
+      <div class="flex items-center gap-3">
+        <div class="h-8 w-48 bg-carbon-800 rounded-lg shimmer"></div>
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
+        ${Array.from({ length: 18 }).map(() => `<div class="aspect-[2/3] bg-carbon-800 rounded-xl shimmer"></div>`).join('')}
+      </div>
+    </div>
+  `;
+
+  try {
+    const res = await API.getGenreTitles(termId, page);
+    const data = res?.data || {};
+    const term = data.term || (state.genres.list.find(g => String(g.term_id) === String(termId)) || { term_id: termId, name: 'Genre', count: 0 });
+    const hentais = Array.isArray(data.hentais) ? data.hentais : [];
+
+    state.genres.currentTermId = termId;
+    state.genres.currentGenre = term;
+    state.genres.items = hentais;
+    state.genres.page = page;
+    state.genres.hasMore = hentais.length >= 20;
+
+    renderGenreDetailView();
+  } catch (err) {
+    renderErrorView('Failed to load genre collection', err, () => showGenreDetailPage(termId, page));
+  }
+}
+
+function renderGenreDetailView() {
+  const term = state.genres.currentGenre || { name: 'Genre', count: 0, term_id: state.genres.currentTermId };
+  const items = state.genres.items || [];
+  const allGenres = state.genres.list || [];
+  const termName = term.name || 'Category';
+  const termCount = term.count || items.length;
+
+  app.innerHTML = `
+    <div class="space-y-6 sm:space-y-8 fade-enter max-w-[1720px] mx-auto px-1 sm:px-2">
+
+      <!-- Breadcrumbs & Header Strip -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
+        <div>
+          <button onclick="navigateTo('#/genres')" 
+                  class="inline-flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition mb-2 group">
+            <svg class="w-4 h-4 transform group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+            </svg>
+            <span>Back to All Genres</span>
+          </button>
+
+          <h1 class="font-display text-3xl sm:text-4xl uppercase text-white tracking-wide font-extrabold flex items-center gap-3">
+            <span class="w-2 h-7 sm:h-8 rounded-full bg-brand-red shadow-[0_0_10px_rgba(229,9,20,0.8)]"></span>
+            ${escapeHtml(termName)}
+          </h1>
+          <p class="text-xs text-zinc-400 mt-1">
+            Browse all releases categorized under <span class="text-zinc-200 font-bold">${escapeHtml(termName)}</span>.
+          </p>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <span class="px-3 py-1.5 rounded-full text-xs font-bold bg-carbon-800 text-zinc-200 border border-white/10 shadow-sm">
+            ${termCount} Titles in Genre
+          </span>
+          <button onclick="navigateTo('#/genres')" class="btn-crimson px-4 py-1.5 rounded-full text-xs font-bold text-white shadow-md">
+            All Genres
+          </button>
+        </div>
+      </div>
+
+      <!-- Quick Switcher Horizontal Shelf of Other Genres -->
+      ${allGenres.length > 0 ? `
+        <div class="space-y-2">
+          <span class="text-[11px] font-bold uppercase tracking-wider text-zinc-500 block px-1">Quick Switch Genre:</span>
+          <div class="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar px-1">
+            ${allGenres.map(g => {
+              const isCurrent = String(g.term_id) === String(state.genres.currentTermId);
+              return `
+                <button onclick="navigateTo('#/genre/${g.term_id}')"
+                        class="px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all border ${isCurrent ? 'bg-gradient-to-r from-brand-red to-rose-700 text-white font-bold border-transparent shadow-[0_0_12px_rgba(229,9,20,0.5)]' : 'bg-carbon-800/90 text-zinc-300 border-white/10 hover:border-white/30 hover:bg-carbon-700'}">
+                  ${escapeHtml(g.name)} <span class="text-[10px] opacity-75">(${g.count})</span>
+                </button>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      ` : ''}
+
+      <!-- Titles Grid -->
+      ${items.length === 0 ? `
+        <div class="text-center py-24 glass-card rounded-2xl max-w-md mx-auto p-8 space-y-3">
+          <div class="text-4xl">📭</div>
+          <h3 class="font-heading font-bold text-base text-white">No titles found in ${escapeHtml(termName)}</h3>
+          <p class="text-xs text-zinc-400">There are currently no series listed in this category.</p>
+          <button onclick="navigateTo('#/genres')" class="btn-crimson px-5 py-2 rounded-xl text-xs font-bold text-white mt-2">
+            Browse Other Genres
+          </button>
+        </div>
+      ` : `
+        <div id="genre-titles-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 px-1">
+          ${items.map(it => renderFlowCard(it, { width: 'w-full' })).join('')}
+        </div>
+      `}
+
+      <!-- Load More Button -->
+      ${state.genres.hasMore ? `
+        <div class="text-center pt-8 pb-12">
+          <button id="btn-genre-load-more" onclick="loadMoreGenreTitles()"
+                  class="btn-crimson px-9 py-3.5 rounded-xl text-white font-bold text-xs uppercase tracking-wider transition-all shadow-xl active:scale-95">
+            Load More Titles
+          </button>
+        </div>
+      ` : ''}
+
+    </div>
+  `;
+}
+
+async function loadMoreGenreTitles() {
+  const btn = document.getElementById('btn-genre-load-more');
+  const grid = document.getElementById('genre-titles-grid');
+  if (!btn || !grid) return;
+
+  btn.disabled = true;
+  btn.innerHTML = `<span class="inline-block animate-spin mr-2">⟳</span> Loading More...`;
+
+  try {
+    const nextPage = (state.genres.page || 1) + 1;
+    const res = await API.getGenreTitles(state.genres.currentTermId, nextPage);
+    const newItems = Array.isArray(res?.data?.hentais) ? res.data.hentais : [];
+
+    if (newItems.length === 0) {
+      btn.innerText = 'All Titles Loaded';
+      btn.disabled = true;
+      state.genres.hasMore = false;
+    } else {
+      state.genres.page = nextPage;
+      state.genres.items.push(...newItems);
+      newItems.forEach(item => {
+        grid.insertAdjacentHTML('beforeend', renderFlowCard(item, { width: 'w-full' }));
+      });
+      btn.disabled = false;
+      btn.innerText = 'Load More Titles';
+      state.genres.hasMore = newItems.length >= 20;
+    }
+  } catch (err) {
+    btn.disabled = false;
+    btn.innerText = 'Load More Titles';
+    showToast('Failed to load more titles: ' + err.message, 'error');
+  }
+}
+
 // ==================== SEARCH ====================
 function handleSearchInput(e) {
   const query = e.target.value.trim();
@@ -3241,6 +3613,11 @@ function handleRoute() {
     const seriesId = parts[0];
     const chapterId = parts[1] || null;
     showWatchPage(seriesId, chapterId);
+  } else if (hash.startsWith('#/genres')) {
+    showGenresPage();
+  } else if (hash.startsWith('#/genre/')) {
+    const termId = hash.replace('#/genre/', '').split('?')[0].split('/')[0];
+    showGenreDetailPage(termId);
   } else if (hash.startsWith('#/browse/')) {
     const cat = decodeURIComponent(hash.replace('#/browse/', '').split('?')[0]);
     showBrowse(cat);

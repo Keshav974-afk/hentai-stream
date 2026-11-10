@@ -675,6 +675,7 @@
         <!-- Desktop Navigation Links (Pill Tabs) -->
         <nav class="hidden md:flex items-center gap-1.5 text-xs font-medium">
           <button onclick="showHome()" id="nav-home" class="nav-pill active">Home</button>
+          <button onclick="navigateTo('#/genres')" id="nav-genres" class="nav-pill">Genres</button>
           <button onclick="showBrowse('series')" id="nav-series" class="nav-pill">Series</button>
           <button onclick="showBrowse('trending')" id="nav-trending" class="nav-pill">New &amp; Popular</button>
           <button onclick="showBrowse('uncensored')" id="nav-uncensored" class="nav-pill">Uncensored</button>
@@ -781,20 +782,24 @@
   </div>
 
   <!-- ==================== MOBILE BOTTOM TAB BAR ==================== -->
-  <nav id="mobile-bottom-nav" class="md:hidden fixed bottom-0 left-0 right-0 z-40 glass-nav border-t border-white/10 px-3 py-2 flex items-center justify-around pb-[calc(0.6rem+env(safe-area-inset-bottom))] shadow-[0_-10px_25px_rgba(0,0,0,0.7)]">
-    <button onclick="navigateTo('#/')" id="mobile-nav-home" class="flex flex-col items-center gap-1 text-white font-bold transition py-1 px-3 rounded-xl active:scale-95">
+  <nav id="mobile-bottom-nav" class="md:hidden fixed bottom-0 left-0 right-0 z-40 glass-nav border-t border-white/10 px-2 py-2 flex items-center justify-around pb-[calc(0.6rem+env(safe-area-inset-bottom))] shadow-[0_-10px_25px_rgba(0,0,0,0.7)]">
+    <button onclick="navigateTo('#/')" id="mobile-nav-home" class="flex flex-col items-center gap-1 text-white font-bold transition py-1 px-2.5 rounded-xl active:scale-95">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
       <span class="text-[10px] tracking-tight">Home</span>
     </button>
-    <button onclick="navigateTo('#/browse/trending')" id="mobile-nav-trending" class="flex flex-col items-center gap-1 text-zinc-400 hover:text-white transition py-1 px-3 rounded-xl active:scale-95">
+    <button onclick="navigateTo('#/genres')" id="mobile-nav-genres" class="flex flex-col items-center gap-1 text-zinc-400 hover:text-white transition py-1 px-2.5 rounded-xl active:scale-95">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+      <span class="text-[10px] tracking-tight">Genres</span>
+    </button>
+    <button onclick="navigateTo('#/browse/trending')" id="mobile-nav-trending" class="flex flex-col items-center gap-1 text-zinc-400 hover:text-white transition py-1 px-2.5 rounded-xl active:scale-95">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
       <span class="text-[10px] tracking-tight">Trending</span>
     </button>
-    <button onclick="navigateTo('#/browse/all')" id="mobile-nav-browse" class="flex flex-col items-center gap-1 text-zinc-400 hover:text-white transition py-1 px-3 rounded-xl active:scale-95">
+    <button onclick="navigateTo('#/browse/all')" id="mobile-nav-browse" class="flex flex-col items-center gap-1 text-zinc-400 hover:text-white transition py-1 px-2.5 rounded-xl active:scale-95">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
       <span class="text-[10px] tracking-tight">Catalogue</span>
     </button>
-    <button onclick="navigateTo('#/watchlist')" id="mobile-nav-watchlist" class="flex flex-col items-center gap-1 text-zinc-400 hover:text-white transition py-1 px-3 rounded-xl active:scale-95">
+    <button onclick="navigateTo('#/watchlist')" id="mobile-nav-watchlist" class="flex flex-col items-center gap-1 text-zinc-400 hover:text-white transition py-1 px-2.5 rounded-xl active:scale-95">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
       <span class="text-[10px] tracking-tight">My List</span>
     </button>
