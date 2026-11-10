@@ -207,9 +207,9 @@ function updateNavHighlight(route) {
     const el = document.getElementById(`nav-${r}`);
     if (el) {
       if (r === route) {
-        el.className = 'text-white font-bold py-1 transition';
+        el.className = 'nav-pill active';
       } else {
-        el.className = 'text-gray-400 hover:text-white py-1 transition';
+        el.className = 'nav-pill';
       }
     }
   });
@@ -229,9 +229,9 @@ function updateNavHighlight(route) {
     if (mobEl) {
       const isActive = (r === route) || (r === 'browse' && (route === 'series' || route === 'uncensored'));
       if (isActive) {
-        mobEl.className = 'flex flex-col items-center gap-1 text-brand-red font-bold transition';
+        mobEl.className = 'flex flex-col items-center gap-1 text-brand-red font-bold transition py-1 px-3 rounded-xl bg-brand-red/10 border border-brand-red/20 shadow-sm';
       } else {
-        mobEl.className = 'flex flex-col items-center gap-1 text-gray-400 hover:text-white transition';
+        mobEl.className = 'flex flex-col items-center gap-1 text-zinc-400 hover:text-white transition py-1 px-3 rounded-xl';
       }
     }
   });
@@ -370,7 +370,7 @@ function renderFlowCard(item, options = {}) {
   const clickAction = isEpisode ? `navigateTo('#/watch/${id}/${chapterId}')` : `navigateTo('#/series/${id}')`;
 
   return `
-    <div class="group relative flex-shrink-0 ${cardWidth} rounded-md overflow-hidden bg-carbon-800 border border-white/[0.08] hover:border-white/30 transition-all duration-300 hover:scale-105 active:scale-95 hover:z-20 cursor-pointer shadow-lg"
+    <div class="group cinema-card relative flex-shrink-0 ${cardWidth} rounded-xl overflow-hidden bg-carbon-800/90 border border-white/[0.08] hover:border-brand-red/50 cursor-pointer shadow-xl flex flex-col"
          onclick="${clickAction}"
          onmouseenter="handleCardMouseEnter(this, '${escapeHtml(previewUrl)}')"
          onmouseleave="handleCardMouseLeave(this)">
@@ -379,7 +379,7 @@ function renderFlowCard(item, options = {}) {
       <div class="relative aspect-[2/3] bg-carbon-850 overflow-hidden">
         <img src="${escapeHtml(thumb || POSTER_UNAVAILABLE_SVG)}"
              data-fallback="${escapeHtml(thumb)}"
-             class="card-img w-full h-full object-cover transition-transform duration-500"
+             class="card-img w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
              loading="lazy"
              onerror="handlePosterError(this, false)">
 
@@ -388,39 +388,42 @@ function renderFlowCard(item, options = {}) {
 
         <!-- Top Badges -->
         <div class="absolute top-2 left-2 flex items-center gap-1 z-10 pointer-events-none">
-          <span class="px-1.5 py-0.5 rounded bg-black/80 backdrop-blur text-[9px] font-bold text-gray-200 border border-white/10 uppercase">HD</span>
-          ${isEpisode ? `<span class="px-1.5 py-0.5 rounded bg-brand-red text-white text-[9px] font-bold">${escapeHtml(chapterName)}</span>` : ''}
+          <span class="px-1.5 py-0.5 rounded-md bg-black/75 backdrop-blur-md text-[9px] font-extrabold text-zinc-200 border border-white/10 uppercase tracking-wider">FHD</span>
+          ${isEpisode ? `<span class="px-1.5 py-0.5 rounded-md bg-brand-red text-white text-[9px] font-bold shadow-md">${escapeHtml(chapterName)}</span>` : ''}
         </div>
 
         <!-- Watchlist Quick Toggle Button -->
         <button onclick="toggleWatchlist({ id: ${id}, title: '${escapeHtml(title).replace(/'/g, "\\'")}', thumbnail: '${escapeHtml(thumb)}' }, event)"
                 title="${inList ? 'Remove from My List' : 'Add to My List'}"
                 data-watchlist-id="${id}"
-                class="btn-compact absolute top-2 right-2 z-20 w-7 h-7 rounded-full bg-black/70 hover:bg-black/95 backdrop-blur border border-white/15 flex items-center justify-center transition">
+                class="btn-compact absolute top-2 right-2 z-20 w-7 h-7 rounded-full bg-black/60 hover:bg-black/90 backdrop-blur-md border border-white/15 flex items-center justify-center transition active:scale-90 shadow-md">
           ${inList
-            ? `<svg class="w-3.5 h-3.5 text-brand-red fill-current" viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>`
-            : `<svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>`}
+            ? `<svg class="w-3.5 h-3.5 text-brand-red fill-current" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>`
+            : `<svg class="w-3.5 h-3.5 text-zinc-300 group-hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>`}
         </button>
 
         <!-- Bottom Scrim Gradient -->
-        <div class="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-carbon-900 via-carbon-900/60 to-transparent pointer-events-none"></div>
+        <div class="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-carbon-900 via-carbon-900/60 to-transparent pointer-events-none"></div>
 
-        <!-- Center Quick Play Button on Hover -->
-        <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-          <div class="w-10 h-10 rounded-full bg-white text-black flex items-center justify-center shadow-2xl transform scale-90 group-hover:scale-100 transition-transform">
+        <!-- Center Glowing Crimson Quick Play Button on Hover -->
+        <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+          <div class="w-11 h-11 rounded-full btn-crimson text-white flex items-center justify-center shadow-[0_0_20px_rgba(229,9,20,0.6)] transform scale-80 group-hover:scale-100 transition-transform duration-300">
             <svg class="w-5 h-5 fill-current ml-0.5" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
           </div>
         </div>
       </div>
 
       <!-- Card Title & Metadata Bar -->
-      <div class="p-2 sm:p-2.5 bg-carbon-800">
-        <h4 class="font-heading font-semibold text-xs text-white truncate group-hover:text-gray-200" title="${escapeHtml(title)}">
+      <div class="p-2 sm:p-2.5 bg-carbon-800/90 flex-1 flex flex-col justify-between">
+        <h4 class="font-heading font-semibold text-xs sm:text-[13px] text-zinc-100 group-hover:text-white line-clamp-2 leading-snug" title="${escapeHtml(title)}">
           ${escapeHtml(title)}
         </h4>
-        <div class="flex items-center justify-between text-[11px] text-gray-400 mt-1">
-          <span class="text-emerald-400 font-bold">98% Match</span>
-          <span>${views ? formatViews(views) : '18+'}</span>
+        <div class="flex items-center justify-between text-[11px] text-zinc-400 mt-1.5 pt-1 border-t border-white/[0.04]">
+          <span class="text-emerald-400 font-bold flex items-center gap-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+            98% Match
+          </span>
+          <span class="text-zinc-400 font-medium">${views ? formatViews(views) : '18+'}</span>
         </div>
       </div>
 
@@ -469,17 +472,17 @@ function scrollToShelfOrBrowse(shelfId, category) {
 
 function renderMobileCategoryChips() {
   const chips = [
-    { label: 'All Titles', onclick: "showHome()" },
+    { label: '🔥 All Titles', onclick: "showHome()" },
     { label: '⚡ New Episodes', onclick: "scrollToShelfOrBrowse('row-episodes', 'recent')" },
     { label: '🏆 Top 10', onclick: "scrollToShelfOrBrowse('row-top10', 'trending')" },
     { label: '🔥 Trending', onclick: "scrollToShelfOrBrowse('row-trending', 'trending')" },
     { label: '💎 Uncensored', onclick: "scrollToShelfOrBrowse('row-uncensored', 'uncensored')" },
     { label: '⭐ Fan Favorites', onclick: "scrollToShelfOrBrowse('row-favorites', 'trending')" },
-    { label: '❤️ Taboo & Incest', onclick: "scrollToShelfOrBrowse('row-incest', 'incest')" },
+    { label: '👑 Harem', onclick: "scrollToShelfOrBrowse('row-harem', 'harem')" },
+    { label: '❤️ Taboo & Family', onclick: "scrollToShelfOrBrowse('row-incest', 'incest')" },
     { label: '🐙 Tentacle', onclick: "scrollToShelfOrBrowse('row-tentacle', 'tentacle')" },
     { label: '🌸 Yuri', onclick: "scrollToShelfOrBrowse('row-yuri', 'yuri')" },
     { label: '✨ Ecchi', onclick: "scrollToShelfOrBrowse('row-ecchi', 'ecchi')" },
-    { label: '👑 Harem', onclick: "scrollToShelfOrBrowse('row-harem', 'harem')" },
     { label: '🎀 Maid', onclick: "scrollToShelfOrBrowse('row-maid', 'maid')" },
     { label: '😈 Succubus', onclick: "scrollToShelfOrBrowse('row-succubus', 'succubus')" },
     { label: '🕒 Recent Series', onclick: "scrollToShelfOrBrowse('row-recent', 'series')" },
@@ -488,10 +491,10 @@ function renderMobileCategoryChips() {
   ];
 
   return `
-    <div class="flex gap-2 overflow-x-auto no-scrollbar py-1 px-1 -mx-1 mb-3 sm:mb-4">
+    <div class="flex gap-2 overflow-x-auto no-scrollbar py-2 px-1 -mx-1 mb-3 sm:mb-4">
       ${chips.map((c, i) => `
         <button onclick="${c.onclick}" 
-                class="shrink-0 rounded-full border border-white/20 bg-carbon-800/80 px-3.5 py-1 text-xs font-semibold text-gray-200 active:scale-95 transition hover:border-white/40 ${i === 0 ? 'bg-white text-black font-bold' : ''}">
+                class="shrink-0 rounded-full border border-white/10 bg-carbon-800/90 hover:bg-carbon-700/90 px-4 py-1.5 text-xs font-semibold text-zinc-200 active:scale-95 transition-all shadow-sm ${i === 0 ? 'bg-gradient-to-r from-brand-red to-rose-700 text-white font-bold border-transparent shadow-[0_0_15px_rgba(229,9,20,0.4)]' : 'hover:border-white/30'}">
           ${escapeHtml(c.label)}
         </button>
       `).join('')}
@@ -510,33 +513,39 @@ function renderVoidflixHero(items) {
   const inList = isWatchlisted(id);
 
   return `
-    <!-- Mobile FlowFlix Hero (< 1024px) -->
-    <section class="lg:hidden px-1 pt-1 pb-3">
-      <div class="relative mx-auto aspect-[2/3] w-full max-w-[290px] sm:max-w-xs overflow-hidden rounded-2xl bg-carbon-850 shadow-2xl border border-white/10 select-none">
-        <img src="${escapeHtml(thumb || POSTER_UNAVAILABLE_SVG)}" class="absolute inset-0 w-full h-full object-cover" loading="eager" onerror="handlePosterError(this, false)">
-        <div class="absolute inset-0 bg-gradient-to-t from-carbon-950 via-carbon-950/40 to-transparent"></div>
+    <!-- Mobile Cinema Hero (< 1024px) -->
+    <section class="lg:hidden px-1 pt-1 pb-4">
+      <div class="relative mx-auto aspect-[2/3] w-full max-w-[310px] sm:max-w-xs overflow-hidden rounded-2xl bg-carbon-850 shadow-2xl border border-white/10 select-none">
         
-        <div class="absolute inset-x-0 bottom-0 p-4 space-y-3">
-          <h2 class="font-display text-2xl sm:text-3xl text-white text-center tracking-wide leading-tight drop-shadow-md line-clamp-2">${escapeHtml(title)}</h2>
-          
-          <div class="flex items-center justify-center gap-2 text-[11px] font-semibold text-gray-300">
-            <span class="text-brand-red font-bold">18+ Mature</span>
-            <span class="text-white/40">•</span>
-            <span class="text-emerald-400 font-bold">98% Match</span>
-            <span class="text-white/40">•</span>
-            <span class="text-gray-300">1080p FHD</span>
+        <!-- Ambient Back Glow -->
+        <div class="absolute inset-0 bg-cover bg-center filter blur-xl opacity-30 transform scale-110 pointer-events-none" style="background-image: url('${escapeHtml(thumb || POSTER_UNAVAILABLE_SVG)}');"></div>
+
+        <img src="${escapeHtml(thumb || POSTER_UNAVAILABLE_SVG)}" class="absolute inset-0 w-full h-full object-cover z-0" loading="eager" onerror="handlePosterError(this, false)">
+        
+        <!-- Dark gradient scrims -->
+        <div class="absolute inset-0 bg-gradient-to-t from-carbon-950 via-carbon-950/60 to-transparent z-10"></div>
+        <div class="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-transparent z-10"></div>
+
+        <!-- Hero Content Overlay -->
+        <div class="absolute inset-x-0 bottom-0 p-4 space-y-3 z-20">
+          <div class="flex items-center justify-center gap-2">
+            <span class="px-2 py-0.5 rounded-md bg-brand-red text-white text-[10px] font-extrabold uppercase tracking-wider shadow-lg">18+ MATURE</span>
+            <span class="px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-md text-emerald-400 border border-emerald-500/30 text-[10px] font-bold">98% MATCH</span>
+            <span class="px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-md text-zinc-300 border border-white/10 text-[10px] font-semibold">1080p FHD</span>
           </div>
+
+          <h2 class="font-display text-2xl sm:text-3xl text-white text-center tracking-wide leading-tight drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)] line-clamp-2">${escapeHtml(title)}</h2>
 
           <div class="flex gap-2 pt-1">
             <button onclick="navigateTo('#/series/${id}')" 
-                    class="flex-1 py-2.5 px-3 rounded-md bg-white hover:bg-gray-200 text-black font-bold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition shadow-xl">
-              <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg> Play
+                    class="flex-1 py-2.5 px-3 rounded-xl btn-crimson text-white font-bold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition shadow-xl">
+              <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg> Watch Now
             </button>
             <button onclick="toggleWatchlist({ id: ${id}, title: '${escapeHtml(title).replace(/'/g, "\\'")}', thumbnail: '${escapeHtml(thumb)}' }, event)" 
                     data-watchlist-id="${id}" 
-                    class="flex-1 py-2.5 px-3 rounded-md bg-white/20 hover:bg-white/30 backdrop-blur text-white font-bold text-xs flex items-center justify-center gap-1.5 border border-white/15 active:scale-95 transition">
+                    class="flex-1 py-2.5 px-3 rounded-xl glass-btn text-white font-bold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition">
               ${inList 
-                ? `<svg class="w-4 h-4 text-brand-red fill-current" viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg> In List` 
+                ? `<svg class="w-4 h-4 text-brand-red fill-current" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg> In List` 
                 : `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg> My List`}
             </button>
           </div>
@@ -547,14 +556,18 @@ function renderVoidflixHero(items) {
       <div class="mt-3 flex items-center justify-center gap-1.5">
         ${items.slice(0, 5).map((_, idx) => `
           <button onclick="setHeroSlide(${idx})" class="p-1">
-            <span class="block h-1 rounded-full transition-all duration-300 ${idx === (state.heroIndex % items.length) ? 'w-6 bg-brand-red' : 'w-2.5 bg-white/30'}"></span>
+            <span class="block h-1.5 rounded-full transition-all duration-300 ${idx === (state.heroIndex % items.length) ? 'w-7 bg-brand-red shadow-[0_0_8px_rgba(229,9,20,0.8)]' : 'w-2 bg-white/20 hover:bg-white/40'}"></span>
           </button>
         `).join('')}
       </div>
     </section>
 
-    <!-- Desktop FlowFlix Hero (>= 1024px) -->
+    <!-- Desktop Cinema Hero (>= 1024px) -->
     <section class="hidden lg:block relative w-full aspect-[21/9] max-h-[580px] rounded-2xl overflow-hidden bg-carbon-850 shadow-2xl border border-white/[0.08] group select-none">
+      
+      <!-- Ambient Backlight Blur -->
+      <div class="absolute inset-0 bg-cover bg-center filter blur-3xl opacity-20 transform scale-110 pointer-events-none" style="background-image: url('${escapeHtml(thumb || THUMB_UNAVAILABLE_SVG)}');"></div>
+
       <img src="${escapeHtml(thumb || THUMB_UNAVAILABLE_SVG)}"
            class="absolute inset-0 w-full h-full object-cover filter brightness-[0.72] group-hover:scale-105 transition-transform duration-700 ease-out"
            loading="eager"
@@ -565,51 +578,52 @@ function renderVoidflixHero(items) {
 
       <div class="relative z-10 p-12 max-w-3xl space-y-4">
         <div class="flex items-center gap-2.5 text-xs">
-          <span class="px-2 py-0.5 rounded bg-brand-red text-white font-bold tracking-wider uppercase text-[10px]">
-            18+ Mature
+          <span class="px-2.5 py-0.5 rounded-md bg-brand-red text-white font-extrabold tracking-wider uppercase text-[10px] shadow-lg shadow-brand-red/30">
+            18+ MATURE
           </span>
-          <span class="text-emerald-400 font-bold">98% Match</span>
-          <span class="text-gray-300 font-semibold">2026</span>
-          <span class="px-1.5 py-0.2 rounded bg-carbon-800 text-gray-300 border border-white/15 text-[10px] font-bold">Ultra HD</span>
-          ${views ? `<span class="text-gray-400 text-xs">${formatViews(views)} Views</span>` : ''}
+          <span class="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30 text-[10px]">98% MATCH</span>
+          <span class="text-zinc-300 font-semibold">2026</span>
+          <span class="px-2 py-0.5 rounded-md bg-white/10 text-zinc-200 border border-white/15 text-[10px] font-bold">4K ULTRA HD</span>
+          <span class="text-amber-400 font-semibold flex items-center gap-1">★ 4.9</span>
+          ${views ? `<span class="text-zinc-400 text-xs">${formatViews(views)} Views</span>` : ''}
         </div>
 
-        <h1 class="font-display text-6xl xl:text-7xl text-white tracking-wide uppercase leading-none drop-shadow-md line-clamp-2">
+        <h1 class="font-display text-6xl xl:text-7xl text-white tracking-wide uppercase leading-none drop-shadow-[0_4px_24px_rgba(0,0,0,0.9)] line-clamp-2">
           ${escapeHtml(title)}
         </h1>
 
-        <p class="text-gray-300 text-sm leading-relaxed line-clamp-3 max-w-xl drop-shadow">
-          Stream the complete episodes in 1080p Full HD with VoidFlix. Featuring responsive cinema playback, chapter navigation, and adaptive quality.
+        <p class="text-zinc-300 text-sm leading-relaxed line-clamp-3 max-w-xl drop-shadow">
+          Stream the complete episodes in 1080p Full HD with VoidFlix Cinema Engine. Featuring high-speed adaptive bitrate playback, chapter navigation, and studio-grade sound.
         </p>
 
-        <div class="flex items-center gap-3 pt-2">
+        <div class="flex items-center gap-3.5 pt-2">
           <button onclick="navigateTo('#/series/${id}')" 
-                  class="px-8 py-3 rounded-md bg-white hover:bg-gray-200 text-black font-bold text-base flex items-center gap-2 transition active:scale-95 shadow-xl">
+                  class="btn-crimson px-8 py-3.5 rounded-xl text-white font-bold text-base flex items-center gap-2.5 transition active:scale-95 shadow-xl">
             <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-            Watch Now
+            <span>Watch Now</span>
           </button>
 
           <button onclick="toggleWatchlist({ id: ${id}, title: '${escapeHtml(title).replace(/'/g, "\\'")}', thumbnail: '${escapeHtml(thumb)}' }, event)"
                   data-watchlist-id="${id}"
-                  class="glass-btn px-6 py-3 rounded-md text-white font-semibold text-sm flex items-center gap-2 transition active:scale-95">
+                  class="glass-btn px-6 py-3.5 rounded-xl text-white font-semibold text-sm flex items-center gap-2 transition active:scale-95">
             ${inList
-              ? `<svg class="w-4 h-4 text-brand-red fill-current" viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg> <span>Added to My List</span>`
+              ? `<svg class="w-4 h-4 text-brand-red fill-current" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg> <span>Added to My List</span>`
               : `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg> <span>Add to My List</span>`}
           </button>
         </div>
       </div>
 
-      <!-- Desktop Slide Indicators -->
-      <div class="absolute bottom-10 right-10 z-20 flex items-center gap-2">
-        <button onclick="prevHeroSlide()" class="p-2 rounded-md bg-black/60 hover:bg-black/80 backdrop-blur border border-white/10 text-white transition">
+      <!-- Desktop Slide Navigation & Timer Progress -->
+      <div class="absolute bottom-10 right-10 z-20 flex items-center gap-3">
+        <button onclick="prevHeroSlide()" class="p-2.5 rounded-xl bg-black/60 hover:bg-black/90 backdrop-blur-md border border-white/15 text-white transition active:scale-95 shadow-lg">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
         </button>
         <div class="flex items-center gap-1.5 px-1">
           ${items.slice(0, 5).map((_, idx) => `
-            <button onclick="setHeroSlide(${idx})" class="h-1 rounded-sm transition-all duration-300 ${idx === (state.heroIndex % items.length) ? 'w-8 bg-brand-red' : 'w-3 bg-white/30 hover:bg-white/60'}"></button>
+            <button onclick="setHeroSlide(${idx})" class="h-1.5 rounded-full transition-all duration-300 ${idx === (state.heroIndex % items.length) ? 'w-10 bg-brand-red shadow-[0_0_10px_rgba(229,9,20,0.8)]' : 'w-3 bg-white/30 hover:bg-white/60'}"></button>
           `).join('')}
         </div>
-        <button onclick="nextHeroSlide()" class="p-2 rounded-md bg-black/60 hover:bg-black/80 backdrop-blur border border-white/10 text-white transition">
+        <button onclick="nextHeroSlide()" class="p-2.5 rounded-xl bg-black/60 hover:bg-black/90 backdrop-blur-md border border-white/15 text-white transition active:scale-95 shadow-lg">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
         </button>
       </div>
@@ -651,51 +665,52 @@ function renderVoidflixContinueWatching() {
 
   return `
     <section class="mb-10 relative group">
-      <div class="flex items-center justify-between mb-3 px-1">
-        <h2 class="font-heading font-bold text-lg sm:text-xl text-white">
+      <div class="flex items-center justify-between mb-3.5 px-1">
+        <h2 class="font-heading font-bold text-lg sm:text-xl text-white flex items-center">
+          <span class="w-1.5 h-5 rounded-full bg-brand-red inline-block mr-2.5 shadow-[0_0_8px_rgba(229,9,20,0.8)]"></span>
           Continue Watching for You
         </h2>
-        <span class="text-xs text-gray-400">${state.continueWatching.length} in progress</span>
+        <span class="text-xs text-zinc-400">${state.continueWatching.length} in progress</span>
       </div>
 
       <div class="relative">
-        <button onclick="scrollRow('row-continue', -1)" class="absolute -left-3 top-1/2 -translate-y-1/2 z-30 w-9 h-9 rounded-full bg-black/80 hover:bg-black border border-white/20 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow-2xl">
+        <button onclick="scrollRow('row-continue', -1)" class="absolute -left-3 top-1/2 -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-black/80 hover:bg-brand-red hover:border-brand-red border border-white/20 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow-2xl backdrop-blur-md">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
         </button>
-        <button onclick="scrollRow('row-continue', 1)" class="absolute -right-3 top-1/2 -translate-y-1/2 z-30 w-9 h-9 rounded-full bg-black/80 hover:bg-black border border-white/20 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow-2xl">
+        <button onclick="scrollRow('row-continue', 1)" class="absolute -right-3 top-1/2 -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-black/80 hover:bg-brand-red hover:border-brand-red border border-white/20 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow-2xl backdrop-blur-md">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
         </button>
 
         <div id="row-continue" class="flex gap-4 overflow-x-auto pb-4 no-scrollbar scroll-smooth">
           ${state.continueWatching.map(item => `
-            <div class="flex-shrink-0 w-56 sm:w-64 rounded-md overflow-hidden bg-carbon-800 border border-white/10 shadow-lg group/item cursor-pointer"
+            <div class="flex-shrink-0 w-60 sm:w-72 rounded-xl overflow-hidden bg-carbon-800/90 border border-white/10 hover:border-brand-red/50 shadow-xl group/item cursor-pointer cinema-card"
                  onclick="navigateTo('#/watch/${item.seriesId}/${item.chapterId}')">
               
               <div class="relative aspect-video bg-carbon-850 overflow-hidden">
-                <img src="${escapeHtml(item.thumbnail)}" class="w-full h-full object-cover group-hover/item:scale-105 transition duration-300">
-                <div class="absolute inset-0 bg-black/30"></div>
+                <img src="${escapeHtml(item.thumbnail)}" class="w-full h-full object-cover group-hover/item:scale-105 transition duration-500">
+                <div class="absolute inset-0 bg-black/35"></div>
 
                 <div class="absolute inset-0 flex items-center justify-center">
-                  <div class="w-10 h-10 rounded-full bg-black/60 backdrop-blur border border-white/40 flex items-center justify-center text-white shadow-xl group-hover/item:scale-110 transition">
+                  <div class="w-11 h-11 rounded-full btn-crimson text-white flex items-center justify-center shadow-2xl group-hover/item:scale-110 transition duration-300">
                     <svg class="w-5 h-5 fill-current ml-0.5" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                   </div>
                 </div>
 
-                <div class="absolute inset-x-0 bottom-0 h-1 bg-white/20">
-                  <div class="h-full bg-brand-red" style="width: ${item.progressPercent}%"></div>
+                <div class="absolute inset-x-0 bottom-0 h-1.5 bg-white/20">
+                  <div class="h-full bg-gradient-to-r from-red-600 to-brand-red shadow-[0_0_8px_rgba(229,9,20,0.8)]" style="width: ${item.progressPercent}%"></div>
                 </div>
               </div>
 
-              <div class="p-2.5 flex items-center justify-between text-xs bg-carbon-750">
+              <div class="p-3 flex items-center justify-between text-xs bg-carbon-800">
                 <div class="min-w-0 pr-2">
-                  <h4 class="font-heading font-semibold text-white truncate text-xs">${escapeHtml(item.title)}</h4>
-                  <p class="text-[11px] text-gray-400 truncate">${escapeHtml(item.chapterName || 'Episode')} • ${formatTime(item.currentTime)}</p>
+                  <h4 class="font-heading font-semibold text-white truncate text-xs sm:text-sm">${escapeHtml(item.title)}</h4>
+                  <p class="text-[11px] text-zinc-400 truncate mt-0.5">${escapeHtml(item.chapterName || 'Episode')} • ${formatTime(item.currentTime)}</p>
                 </div>
-                <div class="flex items-center gap-1">
-                  <button onclick="navigateTo('#/series/${item.seriesId}'); event.stopPropagation();" title="Details" class="p-1 text-gray-400 hover:text-white rounded">
+                <div class="flex items-center gap-1 flex-shrink-0">
+                  <button onclick="navigateTo('#/series/${item.seriesId}'); event.stopPropagation();" title="Details" class="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-white/10 transition">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                   </button>
-                  <button onclick="removeContinueWatching(${item.chapterId}, event)" title="Remove" class="p-1 text-gray-400 hover:text-white rounded">
+                  <button onclick="removeContinueWatching(${item.chapterId}, event)" title="Remove" class="p-1.5 text-zinc-400 hover:text-red-400 rounded-lg hover:bg-white/10 transition">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                   </button>
                 </div>
@@ -716,34 +731,44 @@ function renderTop10Row(items) {
 
   return `
     <section class="mb-10 relative group">
-      <div class="flex items-center justify-between mb-3 px-1">
-        <h2 class="font-heading font-bold text-lg sm:text-xl text-white flex items-center gap-2">
+      <div class="flex items-center justify-between mb-3.5 px-1">
+        <h2 class="font-heading font-bold text-lg sm:text-xl text-white flex items-center">
+          <span class="w-1.5 h-5 rounded-full bg-brand-red inline-block mr-2.5 shadow-[0_0_8px_rgba(229,9,20,0.8)]"></span>
           Top 10 Series Today
         </h2>
+        <span class="text-xs text-zinc-400">Updated Daily</span>
       </div>
 
       <div class="relative">
-        <button onclick="scrollRow('row-top10', -1)" class="absolute -left-3 top-1/2 -translate-y-1/2 z-30 w-9 h-9 rounded-full bg-black/80 hover:bg-black border border-white/20 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow-2xl">
+        <button onclick="scrollRow('row-top10', -1)" class="absolute -left-3 top-1/2 -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-black/80 hover:bg-brand-red hover:border-brand-red border border-white/20 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow-2xl backdrop-blur-md">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
         </button>
-        <button onclick="scrollRow('row-top10', 1)" class="absolute -right-3 top-1/2 -translate-y-1/2 z-30 w-9 h-9 rounded-full bg-black/80 hover:bg-black border border-white/20 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow-2xl">
+        <button onclick="scrollRow('row-top10', 1)" class="absolute -right-3 top-1/2 -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-black/80 hover:bg-brand-red hover:border-brand-red border border-white/20 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow-2xl backdrop-blur-md">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
         </button>
 
-        <div id="row-top10" class="flex gap-2 sm:gap-4 overflow-x-auto pb-4 no-scrollbar scroll-smooth">
+        <div id="row-top10" class="flex gap-2 sm:gap-4 overflow-x-auto pb-4 no-scrollbar scroll-smooth items-end">
           ${top10.map((item, idx) => {
             const id = item.post_ID || item.id;
             const title = item.post_title || item.title || 'Untitled';
             const thumb = item.post_thumbnail || item.thumbnail || '';
             const rank = idx + 1;
+            const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : 'rank-other';
 
             return `
-              <div class="flex-shrink-0 flex items-center cursor-pointer group/rank active:scale-95 transition" onclick="navigateTo('#/series/${id}')">
-                <span class="rank-number -mr-3 sm:-mr-5 z-10 font-bold group-hover/rank:scale-110 transition-transform duration-300 text-5xl sm:text-7xl">${rank}</span>
-                <div class="w-24 sm:w-32 md:w-36 aspect-[2/3] rounded-md overflow-hidden bg-carbon-800 border border-white/10 group-hover/rank:border-white/40 transition shadow-xl relative">
-                  <img src="${escapeHtml(thumb || POSTER_UNAVAILABLE_SVG)}" class="w-full h-full object-cover" onerror="handlePosterError(this, false)">
-                  <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-2">
-                    <p class="font-heading font-semibold text-[10px] sm:text-[11px] text-white truncate">${escapeHtml(title)}</p>
+              <div class="flex-shrink-0 flex items-end cursor-pointer group/rank active:scale-95 transition" onclick="navigateTo('#/series/${id}')">
+                <span class="rank-number ${rankClass} -mr-3 sm:-mr-5 z-10 font-bold group-hover/rank:scale-110 transition-transform duration-300 text-6xl sm:text-8xl">${rank}</span>
+                <div class="w-28 sm:w-36 md:w-44 aspect-[2/3] rounded-xl overflow-hidden bg-carbon-800 border border-white/10 group-hover/rank:border-brand-red/60 group-hover/rank:shadow-[0_0_25px_rgba(229,9,20,0.35)] transition duration-300 shadow-xl relative cinema-card">
+                  <img src="${escapeHtml(thumb || POSTER_UNAVAILABLE_SVG)}" class="w-full h-full object-cover group-hover/rank:scale-105 transition-transform duration-500" onerror="handlePosterError(this, false)">
+                  
+                  ${rank === 1 ? `
+                    <div class="absolute top-2 left-2 px-1.5 py-0.5 rounded bg-brand-red text-white text-[9px] font-extrabold uppercase tracking-wider shadow-md">
+                      #1 IN JAPAN
+                    </div>
+                  ` : ''}
+
+                  <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent flex items-end p-2 sm:p-2.5">
+                    <p class="font-heading font-semibold text-[11px] sm:text-xs text-white line-clamp-2 leading-snug drop-shadow">${escapeHtml(title)}</p>
                   </div>
                 </div>
               </div>
@@ -761,22 +786,23 @@ function renderMediaShelf(rowId, title, items, options = {}) {
 
   return `
     <section class="mb-10 relative group">
-      <div class="flex items-center justify-between mb-3 px-1">
-        <h2 class="font-heading font-bold text-lg sm:text-xl text-white">
+      <div class="flex items-center justify-between mb-3.5 px-1">
+        <h2 class="font-heading font-bold text-lg sm:text-xl text-white flex items-center">
+          <span class="w-1.5 h-5 rounded-full bg-brand-red inline-block mr-2.5 shadow-[0_0_8px_rgba(229,9,20,0.8)]"></span>
           ${escapeHtml(title)}
         </h2>
         ${options.viewAllCategory ? `
-          <button onclick="navigateTo('#/browse/${options.viewAllCategory}')" class="text-xs text-gray-400 hover:text-white transition flex items-center gap-1">
-            Explore All <span>›</span>
+          <button onclick="navigateTo('#/browse/${options.viewAllCategory}')" class="text-xs text-zinc-400 hover:text-white transition flex items-center gap-1 px-2.5 py-1 rounded-full hover:bg-white/10">
+            <span>Explore All</span> <span class="text-sm font-bold">›</span>
           </button>
         ` : ''}
       </div>
 
       <div class="relative">
-        <button onclick="scrollRow('${rowId}', -1)" class="absolute -left-3 top-1/2 -translate-y-1/2 z-30 w-9 h-9 rounded-full bg-black/80 hover:bg-black border border-white/20 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow-2xl">
+        <button onclick="scrollRow('${rowId}', -1)" class="absolute -left-3 top-1/2 -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-black/80 hover:bg-brand-red hover:border-brand-red border border-white/20 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow-2xl backdrop-blur-md">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
         </button>
-        <button onclick="scrollRow('${rowId}', 1)" class="absolute -right-3 top-1/2 -translate-y-1/2 z-30 w-9 h-9 rounded-full bg-black/80 hover:bg-black border border-white/20 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow-2xl">
+        <button onclick="scrollRow('${rowId}', 1)" class="absolute -right-3 top-1/2 -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-black/80 hover:bg-brand-red hover:border-brand-red border border-white/20 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow-2xl backdrop-blur-md">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
         </button>
 
@@ -913,13 +939,13 @@ async function showSeriesPage(id) {
   }
 
   app.innerHTML = `
-    <div class="space-y-8 fade-enter max-w-[1400px] mx-auto">
-      <div class="w-full aspect-[21/9] min-h-[320px] bg-carbon-800 rounded-2xl shimmer"></div>
+    <div class="space-y-8 fade-enter max-w-[1440px] mx-auto">
+      <div class="w-full aspect-[21/9] min-h-[320px] bg-carbon-800/80 rounded-2xl shimmer border border-white/10"></div>
       <div class="space-y-4">
-        <div class="h-8 w-72 bg-carbon-800 rounded shimmer"></div>
+        <div class="h-8 w-72 bg-carbon-800 rounded-lg shimmer"></div>
         <div class="h-4 w-96 bg-carbon-800 rounded shimmer"></div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 pt-4">
-          ${Array.from({ length: 6 }).map(() => `<div class="aspect-video bg-carbon-800 rounded-lg shimmer"></div>`).join('')}
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pt-4">
+          ${Array.from({ length: 4 }).map(() => `<div class="aspect-video bg-carbon-800 rounded-xl shimmer border border-white/5"></div>`).join('')}
         </div>
       </div>
     </div>
@@ -934,7 +960,7 @@ async function showSeriesPage(id) {
     const alt = data.post_title_alternative || '';
     const desc = data.post_content || 'No synopsis provided for this series.';
     const thumb = data.post_thumbnail || '';
-    const rating = data.post_rating?.rating || '4.0';
+    const rating = data.post_rating?.rating || '4.8';
     const votes = Number(data.post_rating?.votes || 0);
     const views = Number(data.post_views || 0);
     const genres = Array.isArray(data.post_genres) ? data.post_genres : [];
@@ -950,34 +976,35 @@ async function showSeriesPage(id) {
     const playBtnText = saved ? `Resume (${formatTime(saved.currentTime)})` : 'Play Episode 1';
 
     app.innerHTML = `
-      <div class="space-y-6 sm:space-y-8 fade-enter max-w-[1400px] mx-auto pb-12">
+      <div class="space-y-8 sm:space-y-10 fade-enter max-w-[1440px] mx-auto pb-16">
         
         <!-- Mobile Series View (< 640px) -->
-        <div class="block sm:hidden space-y-3 px-1">
-          <div class="relative w-full aspect-[16/10] rounded-xl overflow-hidden bg-carbon-850 shadow-xl border border-white/10">
+        <div class="block sm:hidden space-y-4 px-1">
+          <div class="relative w-full aspect-[16/10] rounded-2xl overflow-hidden bg-carbon-850 shadow-2xl border border-white/10">
             <img src="${escapeHtml(thumb || THUMB_UNAVAILABLE_SVG)}" class="w-full h-full object-cover" onerror="handlePosterError(this, true)">
-            <div class="absolute inset-0 bg-gradient-to-t from-carbon-900 via-carbon-900/30 to-transparent"></div>
+            <div class="absolute inset-0 bg-gradient-to-t from-carbon-950 via-carbon-950/40 to-transparent"></div>
+            
             <button onclick="window.history.length > 1 ? window.history.back() : navigateTo('#/')" 
-                    class="absolute top-3 left-3 px-3 py-1.5 rounded-md bg-black/75 backdrop-blur border border-white/15 text-white text-xs font-semibold flex items-center gap-1.5 active:scale-95 shadow-lg">
+                    class="absolute top-3 left-3 px-3 py-1.5 rounded-xl bg-black/75 backdrop-blur-md border border-white/15 text-white text-xs font-semibold flex items-center gap-1.5 active:scale-95 shadow-lg">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
               Back
             </button>
           </div>
 
-          <div class="space-y-2.5 pt-1">
-            <h1 class="font-display text-2xl text-white uppercase tracking-wide leading-tight">${escapeHtml(title)}</h1>
-            ${alt ? `<p class="text-xs text-gray-400 italic">${escapeHtml(alt)}</p>` : ''}
+          <div class="space-y-3 pt-1">
+            <h1 class="font-display text-2xl sm:text-3xl text-white uppercase tracking-wide leading-tight">${escapeHtml(title)}</h1>
+            ${alt ? `<p class="text-xs text-zinc-400 italic">${escapeHtml(alt)}</p>` : ''}
 
-            <div class="flex flex-wrap items-center gap-1.5 text-[10px]">
-              <span class="px-1.5 py-0.5 rounded bg-brand-red text-white font-bold uppercase">18+ Mature</span>
-              <span class="text-emerald-400 font-bold">98% Match</span>
-              <span class="text-amber-400 font-medium">★ ${rating}</span>
-              <span class="text-gray-400">• ${episodes.length} Episodes</span>
+            <div class="flex flex-wrap items-center gap-2 text-[11px]">
+              <span class="px-2 py-0.5 rounded-md bg-brand-red text-white font-extrabold uppercase tracking-wider text-[10px]">18+ MATURE</span>
+              <span class="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30 text-[10px]">98% MATCH</span>
+              <span class="text-amber-400 font-semibold flex items-center gap-1">★ ${rating}</span>
+              <span class="text-zinc-400">• ${episodes.length} Episodes</span>
             </div>
 
             ${episodes.length > 0 ? `
               <button onclick="navigateTo('#/watch/${id}/${playTargetId}')"
-                      class="w-full py-3 rounded-lg bg-white hover:bg-gray-200 text-black font-bold text-sm flex items-center justify-center gap-2 shadow-xl active:scale-95 transition">
+                      class="w-full py-3.5 rounded-xl btn-crimson text-white font-bold text-sm flex items-center justify-center gap-2 shadow-2xl active:scale-95 transition">
                 <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                 ${playBtnText}
               </button>
@@ -986,63 +1013,68 @@ async function showSeriesPage(id) {
             <div class="grid grid-cols-3 gap-2 pt-1">
               <button onclick="toggleWatchlist({ id: ${id}, title: '${escapeHtml(title).replace(/'/g, "\\'")}', thumbnail: '${escapeHtml(thumb)}' }, event)"
                       data-watchlist-id="${id}"
-                      class="glass-btn py-2 px-2 rounded-lg text-white font-semibold text-xs flex flex-col items-center justify-center gap-1 active:scale-95 transition">
+                      class="glass-btn py-2.5 px-2 rounded-xl text-white font-semibold text-xs flex flex-col items-center justify-center gap-1 active:scale-95 transition shadow-sm">
                 ${inList
-                  ? `<svg class="w-4 h-4 text-brand-red fill-current" viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg><span class="text-[10px]">Saved</span>`
+                  ? `<svg class="w-4 h-4 text-brand-red fill-current" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg><span class="text-[10px]">Saved</span>`
                   : `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg><span class="text-[10px]">My List</span>`}
               </button>
               ${firstEpId ? `
                 <button onclick="openDownloadModal('${escapeHtml(title).replace(/'/g, "\\'")}', 'Episode 1', '${escapeHtml(episodes[0].chapter_content || '')}', '${escapeHtml(episodes[0].chapter_thumbnail || thumb)}')"
-                        class="glass-btn py-2 px-2 rounded-lg text-white font-semibold text-xs flex flex-col items-center justify-center gap-1 active:scale-95 transition">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                        class="glass-btn py-2.5 px-2 rounded-xl text-white font-semibold text-xs flex flex-col items-center justify-center gap-1 active:scale-95 transition shadow-sm">
+                  <svg class="w-4 h-4 text-zinc-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
                   <span class="text-[10px]">Download</span>
                 </button>
               ` : ''}
               <button onclick="copyToClipboard(window.location.href, 'Series link copied to clipboard!')"
-                      class="glass-btn py-2 px-2 rounded-lg text-white font-semibold text-xs flex flex-col items-center justify-center gap-1 active:scale-95 transition">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
+                      class="glass-btn py-2.5 px-2 rounded-xl text-white font-semibold text-xs flex flex-col items-center justify-center gap-1 active:scale-95 transition shadow-sm">
+                <svg class="w-4 h-4 text-zinc-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
                 <span class="text-[10px]">Share</span>
               </button>
             </div>
           </div>
         </div>
 
-        <!-- Desktop Series Banner (>= 640px) -->
-        <div class="hidden sm:block relative w-full aspect-[21/9] min-h-[360px] max-h-[500px] rounded-2xl overflow-hidden bg-carbon-850 shadow-2xl border border-white/10 group">
-          <img src="${escapeHtml(thumb || THUMB_UNAVAILABLE_SVG)}" class="w-full h-full object-cover filter brightness-[0.7] transform group-hover:scale-105 transition-transform duration-700" onerror="handlePosterError(this, true)">
-          <div class="absolute inset-0 bg-gradient-to-t from-carbon-900 via-carbon-900/60 to-transparent"></div>
-          <div class="absolute inset-0 bg-gradient-to-r from-carbon-900/90 via-carbon-900/40 to-transparent"></div>
+        <!-- Desktop Cinema Series Split Banner (>= 640px) -->
+        <div class="hidden sm:block relative w-full aspect-[21/9] min-h-[380px] max-h-[520px] rounded-2xl overflow-hidden bg-carbon-850 shadow-2xl border border-white/10 group">
+          
+          <!-- Ambient Backlight -->
+          <div class="absolute inset-0 bg-cover bg-center filter blur-3xl opacity-25 transform scale-110 pointer-events-none" style="background-image: url('${escapeHtml(thumb || THUMB_UNAVAILABLE_SVG)}');"></div>
+
+          <img src="${escapeHtml(thumb || THUMB_UNAVAILABLE_SVG)}" class="w-full h-full object-cover filter brightness-[0.68] transform group-hover:scale-105 transition-transform duration-700 ease-out" onerror="handlePosterError(this, true)">
+          
+          <div class="absolute inset-0 bg-gradient-to-t from-carbon-950 via-carbon-900/60 to-transparent"></div>
+          <div class="absolute inset-0 bg-gradient-to-r from-carbon-950/95 via-carbon-900/50 to-transparent"></div>
 
           <!-- Top Back Button -->
           <div class="absolute top-4 left-4 sm:top-6 sm:left-6 z-20">
             <button onclick="window.history.length > 1 ? window.history.back() : navigateTo('#/')" 
-                    class="px-3.5 py-2 rounded-md bg-black/60 hover:bg-black/90 backdrop-blur border border-white/15 text-white text-xs font-semibold flex items-center gap-2 transition active:scale-95">
+                    class="px-4 py-2 rounded-xl bg-black/60 hover:bg-black/90 backdrop-blur-md border border-white/15 text-white text-xs font-semibold flex items-center gap-2 transition active:scale-95 shadow-md">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
               Back
             </button>
           </div>
 
           <!-- Banner Bottom Content -->
-          <div class="absolute bottom-6 left-6 right-6 sm:bottom-10 sm:left-10 sm:right-10 z-20 space-y-3 sm:space-y-4 max-w-3xl">
-            <div class="flex flex-wrap items-center gap-2 text-xs">
-              <span class="px-2 py-0.5 rounded bg-brand-red text-white text-[10px] font-bold uppercase tracking-wider">18+ Mature</span>
-              <span class="text-emerald-400 font-bold">98% Match</span>
-              <span class="px-1.5 py-0.2 rounded bg-white/20 text-white font-mono text-[10px] font-bold">Ultra HD</span>
-              <span class="text-amber-400 font-medium">★ ${rating} <span class="text-gray-400 font-normal">(${votes.toLocaleString()} votes)</span></span>
-              <span class="text-gray-300 font-medium">${formatViews(views)} Views</span>
-              <span class="text-gray-400">${episodes.length} Episodes</span>
+          <div class="absolute bottom-6 left-6 right-6 sm:bottom-10 sm:left-10 sm:right-10 z-20 space-y-4 max-w-3xl">
+            <div class="flex flex-wrap items-center gap-2.5 text-xs">
+              <span class="px-2.5 py-0.5 rounded-md bg-brand-red text-white text-[10px] font-extrabold uppercase tracking-wider shadow-lg">18+ MATURE</span>
+              <span class="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30 text-[10px]">98% MATCH</span>
+              <span class="px-2 py-0.5 rounded-md bg-white/10 text-white font-mono text-[10px] font-bold border border-white/15">4K ULTRA HD</span>
+              <span class="text-amber-400 font-semibold flex items-center gap-1">★ ${rating} <span class="text-zinc-400 font-normal">(${votes.toLocaleString()} votes)</span></span>
+              <span class="text-zinc-300 font-medium">${formatViews(views)} Views</span>
+              <span class="text-zinc-400">${episodes.length} Episodes</span>
             </div>
 
-            <h1 class="font-display text-3xl sm:text-5xl lg:text-6xl text-white uppercase tracking-wide leading-tight drop-shadow-md">
+            <h1 class="font-display text-4xl sm:text-5xl lg:text-6xl text-white uppercase tracking-wide leading-tight drop-shadow-[0_4px_24px_rgba(0,0,0,0.9)]">
               ${escapeHtml(title)}
             </h1>
 
-            ${alt ? `<p class="text-xs sm:text-sm text-gray-300 italic max-w-2xl drop-shadow">${escapeHtml(alt)}</p>` : ''}
+            ${alt ? `<p class="text-xs sm:text-sm text-zinc-300 italic max-w-2xl drop-shadow">${escapeHtml(alt)}</p>` : ''}
 
-            <div class="flex flex-wrap items-center gap-3 pt-2">
+            <div class="flex flex-wrap items-center gap-3.5 pt-2">
               ${episodes.length > 0 ? `
                 <button onclick="navigateTo('#/watch/${id}/${playTargetId}')"
-                        class="px-6 sm:px-8 py-2.5 sm:py-3 rounded-md bg-white hover:bg-gray-200 text-black font-bold text-sm sm:text-base flex items-center gap-2 shadow-2xl transition active:scale-95">
+                        class="btn-crimson px-7 sm:px-9 py-3 sm:py-3.5 rounded-xl text-white font-bold text-sm sm:text-base flex items-center gap-2.5 shadow-2xl transition active:scale-95">
                   <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                   ${playBtnText}
                 </button>
@@ -1050,41 +1082,44 @@ async function showSeriesPage(id) {
 
               <button onclick="toggleWatchlist({ id: ${id}, title: '${escapeHtml(title).replace(/'/g, "\\'")}', thumbnail: '${escapeHtml(thumb)}' }, event)"
                       data-watchlist-id="${id}"
-                      class="glass-btn px-5 py-2.5 sm:py-3 rounded-md text-white font-semibold text-xs sm:text-sm flex items-center gap-2 transition active:scale-95">
+                      class="glass-btn px-5 sm:px-6 py-3 sm:py-3.5 rounded-xl text-white font-semibold text-xs sm:text-sm flex items-center gap-2 transition active:scale-95 shadow-md">
                 ${inList
-                  ? `<svg class="w-4 h-4 text-brand-red fill-current" viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg> <span>Added to My List</span>`
+                  ? `<svg class="w-4 h-4 text-brand-red fill-current" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg> <span>Added to My List</span>`
                   : `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg> <span>Add to My List</span>`}
               </button>
 
               ${firstEpId ? `
                 <button onclick="openDownloadModal('${escapeHtml(title).replace(/'/g, "\\'")}', 'Episode 1', '${escapeHtml(episodes[0].chapter_content || '')}', '${escapeHtml(episodes[0].chapter_thumbnail || thumb)}')"
-                        class="glass-btn p-2.5 sm:p-3 rounded-md text-white transition hover:text-brand-red" title="Download Options">
+                        class="glass-btn p-3 sm:p-3.5 rounded-xl text-white transition hover:text-brand-red shadow-md" title="Download Options">
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
                 </button>
               ` : ''}
 
               <button onclick="copyToClipboard(window.location.href, 'Series link copied to clipboard!')" 
-                      class="glass-btn p-2.5 sm:p-3 rounded-md text-white transition hover:text-gray-200" title="Share Series Link">
+                      class="glass-btn p-3 sm:p-3.5 rounded-xl text-white transition hover:text-zinc-200 shadow-md" title="Share Series Link">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
               </button>
             </div>
           </div>
         </div>
 
-        <!-- Series Synopsis & Metadata Breakdown -->
-        <div class="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-8 bg-carbon-850 p-6 sm:p-8 rounded-xl border border-white/10">
+        <!-- Series Synopsis & Metadata Breakdown Card -->
+        <div class="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-8 bg-carbon-850/90 p-6 sm:p-8 rounded-2xl border border-white/10 shadow-xl">
           <div class="space-y-4">
-            <h3 class="font-heading font-bold text-base text-white uppercase tracking-wider">Synopsis & Details</h3>
-            <p class="text-gray-300 text-sm sm:text-base leading-relaxed whitespace-pre-line">${escapeHtml(desc)}</p>
+            <h3 class="font-heading font-bold text-base text-white uppercase tracking-wider flex items-center">
+              <span class="w-1.5 h-4.5 rounded-full bg-brand-red inline-block mr-2.5 shadow-[0_0_8px_rgba(229,9,20,0.8)]"></span>
+              Synopsis &amp; Details
+            </h3>
+            <p class="text-zinc-300 text-sm sm:text-base leading-relaxed whitespace-pre-line">${escapeHtml(desc)}</p>
           </div>
 
           <div class="space-y-4 border-t lg:border-t-0 lg:border-l border-white/10 lg:pl-8 pt-4 lg:pt-0 text-xs">
             <div>
-              <span class="text-gray-500 font-bold block mb-1.5 uppercase tracking-wider text-[11px]">Genres</span>
+              <span class="text-zinc-500 font-bold block mb-2 uppercase tracking-wider text-[11px]">Genres</span>
               <div class="flex flex-wrap gap-1.5">
                 ${genres.map(g => `
                   <button onclick="navigateTo('#/browse/${encodeURIComponent(g.name.toLowerCase())}')" 
-                          class="px-2.5 py-1 rounded bg-carbon-800 hover:bg-carbon-700 text-gray-300 hover:text-white border border-white/10 text-xs transition">
+                          class="px-3 py-1.5 rounded-full bg-carbon-800 hover:bg-brand-red/20 hover:border-brand-red/40 text-zinc-300 hover:text-white border border-white/10 text-xs transition shadow-sm">
                     ${escapeHtml(g.name)}
                   </button>
                 `).join('')}
@@ -1093,32 +1128,35 @@ async function showSeriesPage(id) {
 
             ${tags.length > 0 ? `
               <div>
-                <span class="text-gray-500 font-bold block mb-1.5 uppercase tracking-wider text-[11px]">Category Tags</span>
+                <span class="text-zinc-500 font-bold block mb-2 uppercase tracking-wider text-[11px]">Category Tags</span>
                 <div class="flex flex-wrap gap-1.5">
                   ${tags.slice(0, 12).map(t => `
                     <button onclick="navigateTo('#/browse/${encodeURIComponent(t.name.toLowerCase())}')" 
-                            class="px-2 py-0.5 rounded bg-carbon-800 hover:bg-carbon-700 text-gray-400 hover:text-white border border-white/5 text-[11px] transition">
-                      ${escapeHtml(t.name)}
+                            class="px-2.5 py-1 rounded-md bg-carbon-800 hover:bg-carbon-700 text-zinc-400 hover:text-white border border-white/5 text-[11px] transition">
+                      #${escapeHtml(t.name)}
                     </button>
                   `).join('')}
                 </div>
               </div>
             ` : ''}
 
-            <div class="pt-2 text-gray-400 space-y-1 text-xs">
-              <p><span class="text-gray-500 font-semibold">Total Chapters:</span> ${episodes.length}</p>
-              <p><span class="text-gray-500 font-semibold">Quality:</span> 1080p FHD, 720p HD</p>
-              <p><span class="text-gray-500 font-semibold">Audio:</span> Japanese Original</p>
-              <p><span class="text-gray-500 font-semibold">Subtitles:</span> English (Hardsubbed / Embedded)</p>
+            <div class="pt-2 text-zinc-400 space-y-1.5 text-xs">
+              <p><span class="text-zinc-500 font-semibold">Total Chapters:</span> ${episodes.length}</p>
+              <p><span class="text-zinc-500 font-semibold">Resolution:</span> 1080p FHD, 720p HD</p>
+              <p><span class="text-zinc-500 font-semibold">Audio:</span> Original Japanese (Stereo)</p>
+              <p><span class="text-zinc-500 font-semibold">Subtitles:</span> English (Hardsubbed / Embedded)</p>
             </div>
           </div>
         </div>
 
         <!-- Episodes Selector Grid -->
         <div class="space-y-4">
-          <div class="flex items-center justify-between pb-2 border-b border-white/10">
-            <h2 class="font-heading font-bold text-xl text-white">Episodes (${episodes.length})</h2>
-            <span class="text-xs text-gray-400">Select an episode to watch</span>
+          <div class="flex items-center justify-between pb-3 border-b border-white/10 px-1">
+            <h2 class="font-heading font-bold text-xl text-white flex items-center">
+              <span class="w-1.5 h-5 rounded-full bg-brand-red inline-block mr-2.5 shadow-[0_0_8px_rgba(229,9,20,0.8)]"></span>
+              Episodes (${episodes.length})
+            </h2>
+            <span class="text-xs text-zinc-400">Select an episode to start cinema stream</span>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -1128,25 +1166,43 @@ async function showSeriesPage(id) {
               const epThumb = ep.chapter_thumbnail || thumb;
               const epDate = ep.chapter_date ? ep.chapter_date.split(' ')[0] : 'HD';
 
+              // Check if episode has watch progress
+              const epSaved = state.continueWatching.find(c => String(c.chapterId) === String(ep.chapter_id));
+              const epProgress = epSaved ? epSaved.progressPercent : 0;
+
               return `
-                <div class="group/ep bg-carbon-800 rounded-lg overflow-hidden border border-white/10 hover:border-white/30 transition shadow-lg flex flex-row sm:flex-col cursor-pointer active:scale-[0.98]"
+                <div class="group/ep cinema-card bg-carbon-800/90 rounded-xl overflow-hidden border border-white/10 hover:border-brand-red/50 transition shadow-xl flex flex-row sm:flex-col cursor-pointer active:scale-[0.98]"
                      onclick="navigateTo('#/watch/${id}/${ep.chapter_id}')">
                   
-                  <div class="relative w-28 sm:w-full aspect-video bg-carbon-850 overflow-hidden flex-shrink-0">
-                    <img src="${escapeHtml(epThumb)}" class="w-full h-full object-cover group-hover/ep:scale-105 transition-transform duration-300" loading="lazy">
+                  <div class="relative w-32 sm:w-full aspect-video bg-carbon-850 overflow-hidden flex-shrink-0">
+                    <img src="${escapeHtml(epThumb)}" class="w-full h-full object-cover group-hover/ep:scale-105 transition-transform duration-500" loading="lazy" onerror="handlePosterError(this, true)">
                     <div class="absolute inset-0 bg-black/30 group-hover/ep:bg-black/10 transition"></div>
-                    <span class="absolute bottom-1 left-1 sm:bottom-2 sm:left-2 text-[9px] sm:text-[10px] bg-black/80 px-1.5 py-0.5 rounded font-bold text-white uppercase tracking-wider">EP ${epNum}</span>
+                    
+                    <span class="absolute bottom-1.5 left-1.5 sm:bottom-2 sm:left-2 text-[9px] sm:text-[10px] bg-black/80 backdrop-blur-md px-2 py-0.5 rounded-md font-extrabold text-white uppercase tracking-wider border border-white/10">EP ${epNum}</span>
+                    
+                    <!-- Center Play Hover Pulse -->
+                    <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover/ep:opacity-100 transition duration-300">
+                      <div class="w-10 h-10 rounded-full btn-crimson text-white flex items-center justify-center shadow-lg">
+                        <svg class="w-4 h-4 fill-current ml-0.5" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                      </div>
+                    </div>
+
+                    ${epProgress > 0 ? `
+                      <div class="absolute inset-x-0 bottom-0 h-1 bg-white/20">
+                        <div class="h-full bg-brand-red" style="width: ${epProgress}%;"></div>
+                      </div>
+                    ` : ''}
                   </div>
 
-                  <div class="p-2 sm:p-3 flex items-center justify-between gap-2 flex-1 bg-carbon-750 min-w-0">
+                  <div class="p-2.5 sm:p-3 flex items-center justify-between gap-2 flex-1 bg-carbon-800 min-w-0">
                     <div class="min-w-0 flex-1">
                       <h4 class="font-heading font-semibold text-xs sm:text-sm text-white truncate group-hover/ep:text-brand-red transition">${escapeHtml(epName)}</h4>
-                      <p class="text-[10px] sm:text-[11px] text-gray-400 mt-0.5 truncate">${escapeHtml(epDate)} • 1080p HD</p>
+                      <p class="text-[10px] sm:text-[11px] text-zinc-400 mt-0.5 truncate">${escapeHtml(epDate)} • 1080p FHD</p>
                     </div>
                     
                     <button onclick="event.stopPropagation(); openDownloadModal('${escapeHtml(title).replace(/'/g, "\\'")}', '${escapeHtml(epName).replace(/'/g, "\\'")}', '${escapeHtml(ep.chapter_content || '')}', '${escapeHtml(epThumb)}');"
                             title="Download Episode"
-                            class="p-1.5 sm:p-2 rounded hover:bg-carbon-600 text-gray-400 hover:text-white transition flex-shrink-0">
+                            class="p-2 rounded-lg hover:bg-white/10 text-zinc-400 hover:text-white transition flex-shrink-0 active:scale-90">
                       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
                     </button>
                   </div>
@@ -1159,8 +1215,11 @@ async function showSeriesPage(id) {
 
         <!-- Related Recommendations -->
         ${related.length > 0 ? `
-          <div class="space-y-4 pt-6 border-t border-white/10">
-            <h2 class="font-heading font-bold text-xl text-white">More Like This</h2>
+          <div class="space-y-4 pt-6 border-t border-white/10 px-1">
+            <h2 class="font-heading font-bold text-xl text-white flex items-center">
+              <span class="w-1.5 h-5 rounded-full bg-brand-red inline-block mr-2.5 shadow-[0_0_8px_rgba(229,9,20,0.8)]"></span>
+              More Like This
+            </h2>
             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
               ${related.map(it => renderFlowCard(it, { width: 'w-full' })).join('')}
             </div>
@@ -1277,8 +1336,11 @@ async function showWatchPage(seriesId, chapterId) {
         </div>
 
         <!-- ============ VOIDFLIX NATIVE PLAYER ============ -->
-        <div class="-mx-3 -mt-3 sm:mx-0 sm:mt-0">
-          <div id="video-frame" class="vf-frame relative w-full aspect-video bg-black sm:rounded-xl overflow-hidden select-none sm:border sm:border-white/10 shadow-2xl">
+        <div class="-mx-3 -mt-3 sm:mx-0 sm:mt-0 relative">
+          <!-- Cinema Ambient Backglow -->
+          <div class="cinema-ambient-glow hidden sm:block"></div>
+
+          <div id="video-frame" class="vf-frame relative w-full aspect-video bg-black sm:rounded-2xl overflow-hidden select-none sm:border sm:border-white/10 shadow-2xl">
 
             <video id="video-player" class="absolute inset-0 w-full h-full object-contain bg-black" playsinline webkit-playsinline preload="auto"
                    poster="${escapeHtml(thumbForDl || THUMB_UNAVAILABLE_SVG)}"></video>
@@ -1318,7 +1380,7 @@ async function showWatchPage(seriesId, chapterId) {
                   </svg>
                 </button>
                 <button onclick="togglePlayPause(event)" id="center-play-btn" class="vf-transport-clean pointer-events-auto" title="Play / Pause">
-                  <svg id="center-play-icon" class="w-12 h-12 sm:w-16 sm:h-16 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                  <svg id="center-play-icon" class="w-12 h-12 sm:w-16 sm:h-16 fill-current text-white hover:text-brand-red transition-colors" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                 </button>
                 <button onclick="event.stopPropagation(); seekRelative(10); flashSeek('right');" class="vf-transport-clean pointer-events-auto" title="Forward 10s">
                   <svg class="w-9 h-9 sm:w-12 sm:h-12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -1450,14 +1512,14 @@ async function showWatchPage(seriesId, chapterId) {
               <div class="flex-1 overflow-y-auto p-2.5 space-y-2 no-scrollbar">
                 ${episodes.map((e, i) => `
                   <button onclick="navigateTo('#/watch/${seriesId}/${e.chapter_id}')"
-                          class="w-full text-left flex items-center gap-3 p-2 rounded-lg transition ${i === epIndex ? 'bg-white/10 ring-1 ring-brand-red' : 'hover:bg-white/5'}">
-                    <div class="relative w-24 aspect-video rounded-md overflow-hidden bg-carbon-800 flex-shrink-0">
+                          class="w-full text-left flex items-center gap-3 p-2 rounded-xl transition ${i === epIndex ? 'bg-brand-red/15 ring-1 ring-brand-red text-white' : 'hover:bg-white/5 text-zinc-300'}">
+                    <div class="relative w-24 aspect-video rounded-lg overflow-hidden bg-carbon-800 flex-shrink-0">
                       <img src="${escapeHtml(e.chapter_thumbnail || data.post_thumbnail || THUMB_UNAVAILABLE_SVG)}" data-fallback="${escapeHtml(data.post_thumbnail || '')}" class="w-full h-full object-cover" loading="lazy" onerror="handlePosterError(this, true)">
-                      ${i === epIndex ? '<span class="absolute inset-0 flex items-center justify-center bg-black/50 text-[10px] font-bold text-white uppercase tracking-wider">Playing</span>' : ''}
+                      ${i === epIndex ? '<span class="absolute inset-0 flex items-center justify-center bg-black/60 text-[10px] font-extrabold text-brand-red uppercase tracking-wider">Playing</span>' : ''}
                     </div>
                     <div class="min-w-0 flex-1">
-                      <p class="font-semibold text-xs truncate ${i === epIndex ? 'text-brand-red' : 'text-white'}">${escapeHtml(e.chapter_name || `Episode ${i + 1}`)}</p>
-                      <span class="text-[10px] text-gray-500">${e.chapter_date ? e.chapter_date.split(' ')[0] : 'HD'}</span>
+                      <p class="font-semibold text-xs truncate ${i === epIndex ? 'text-brand-red font-bold' : 'text-white'}">${escapeHtml(e.chapter_name || `Episode ${i + 1}`)}</p>
+                      <span class="text-[10px] text-zinc-500">${e.chapter_date ? e.chapter_date.split(' ')[0] : 'HD'} • 1080p</span>
                     </div>
                   </button>
                 `).join('')}
@@ -1468,10 +1530,10 @@ async function showWatchPage(seriesId, chapterId) {
             <div id="next-countdown-overlay" class="hidden absolute inset-0 z-50 bg-black/85 backdrop-blur-md flex flex-col items-center justify-center gap-2 sm:gap-4 px-4 text-center">
               <span class="text-[10px] sm:text-xs font-bold text-brand-red uppercase tracking-widest">Up Next</span>
               <h3 class="font-display text-2xl sm:text-4xl text-white max-w-lg leading-tight">${nextEp ? escapeHtml(nextEp.chapter_name || `Episode ${epIndex + 2}`) : 'End of Series'}</h3>
-              <p class="text-[11px] sm:text-xs text-gray-400">Playing in <span id="countdown-number" class="text-white font-bold font-mono">5</span>s</p>
+              <p class="text-[11px] sm:text-xs text-zinc-400">Playing next episode in <span id="countdown-number" class="text-white font-bold font-mono">5</span>s</p>
               <div class="flex items-center gap-2 sm:gap-3 pt-1">
-                <button onclick="executePlayNextNow(${seriesId}, ${epIndex + 1})" class="px-5 py-2 rounded bg-white text-black font-bold text-xs hover:bg-gray-200 transition">Play Now</button>
-                <button onclick="cancelNextCountdown()" class="px-4 py-2 rounded bg-white/10 text-gray-200 text-xs hover:bg-white/20 border border-white/10 transition">Cancel</button>
+                <button onclick="executePlayNextNow(${seriesId}, ${epIndex + 1})" class="btn-crimson px-6 py-2.5 rounded-xl text-white font-bold text-xs shadow-xl active:scale-95 transition">Play Now</button>
+                <button onclick="cancelNextCountdown()" class="glass-btn px-5 py-2.5 rounded-xl text-zinc-200 text-xs hover:text-white transition active:scale-95">Cancel</button>
               </div>
             </div>
 
@@ -1479,19 +1541,19 @@ async function showWatchPage(seriesId, chapterId) {
         </div>
 
         <!-- ============ BELOW PLAYER: INFO ============ -->
-        <div class="bg-carbon-850 rounded-xl border border-white/10 p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-4 sm:gap-6">
-          <div class="space-y-2.5 min-w-0">
+        <div class="bg-carbon-850/90 rounded-2xl border border-white/10 p-5 sm:p-7 shadow-xl grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-5 sm:gap-7">
+          <div class="space-y-3 min-w-0">
             <div class="flex flex-wrap items-center gap-2 text-[11px]">
-              <span class="px-1.5 py-0.5 rounded bg-brand-red text-white font-bold">18+</span>
-              <span class="text-emerald-400 font-bold">98% Match</span>
-              <span class="text-gray-400">${ep.chapter_date ? ep.chapter_date.split(' ')[0] : 'HD'}</span>
-              <span class="px-1.5 py-0.5 rounded border border-white/20 text-gray-300 font-semibold">HD</span>
+              <span class="px-2 py-0.5 rounded-md bg-brand-red text-white font-extrabold uppercase tracking-wider text-[10px]">18+ MATURE</span>
+              <span class="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30 text-[10px]">98% MATCH</span>
+              <span class="text-zinc-400">${ep.chapter_date ? ep.chapter_date.split(' ')[0] : 'HD'}</span>
+              <span class="px-2 py-0.5 rounded-md bg-white/10 border border-white/15 text-zinc-300 font-semibold text-[10px]">1080p FHD</span>
             </div>
-            <h2 class="font-heading font-bold text-lg sm:text-2xl text-white leading-snug">${escapeHtml(title)} <span class="text-gray-400 font-semibold">· ${escapeHtml(epTitle)}</span></h2>
-            <p id="watch-synopsis" class="text-gray-300 text-xs sm:text-sm leading-relaxed line-clamp-3">${escapeHtml(data.post_content || 'Stream all episodes in high definition with VoidFlix.')}</p>
-            <button onclick="document.getElementById('watch-synopsis').classList.toggle('line-clamp-3'); this.textContent = this.textContent === 'More' ? 'Less' : 'More';" class="text-[11px] font-semibold text-gray-400 hover:text-white">More</button>
+            <h2 class="font-heading font-bold text-lg sm:text-2xl text-white leading-snug">${escapeHtml(title)} <span class="text-brand-red font-semibold">· ${escapeHtml(epTitle)}</span></h2>
+            <p id="watch-synopsis" class="text-zinc-300 text-xs sm:text-sm leading-relaxed line-clamp-3">${escapeHtml(data.post_content || 'Stream all episodes in high definition with VoidFlix Cinema Engine.')}</p>
+            <button onclick="document.getElementById('watch-synopsis').classList.toggle('line-clamp-3'); this.textContent = this.textContent === 'More' ? 'Less' : 'More';" class="text-[11px] font-semibold text-brand-red hover:underline">More synopsis</button>
           </div>
-          <div class="grid grid-cols-3 lg:grid-cols-1 gap-2 lg:border-l lg:border-white/10 lg:pl-6 content-center">
+          <div class="grid grid-cols-3 lg:grid-cols-1 gap-2.5 lg:border-l lg:border-white/10 lg:pl-6 content-center">
             <button onclick="${dlCall}" class="vf-action-btn">${ICON.dl}<span>Download</span></button>
             <button onclick="toggleWatchlist({ id: ${seriesId}, title: '${escapeHtml(title).replace(/'/g, "\\'")}', thumbnail: '${escapeHtml(data.post_thumbnail || '')}' }, event)" data-watchlist-id="${seriesId}" class="vf-action-btn">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg><span>My List</span>
@@ -1503,23 +1565,28 @@ async function showWatchPage(seriesId, chapterId) {
         </div>
 
         <!-- ============ EPISODE LIST ============ -->
-        <div class="space-y-3 pb-6">
-          <div class="flex items-center justify-between pb-2 border-b border-white/10">
-            <h3 class="font-heading font-bold text-base text-white">Episodes <span class="text-gray-500 font-semibold">(${episodes.length})</span></h3>
-            <button onclick="navigateTo('#/series/${seriesId}')" class="text-xs text-gray-400 hover:text-white font-semibold">Series details ›</button>
+        <div class="space-y-3.5 pb-8">
+          <div class="flex items-center justify-between pb-3 border-b border-white/10 px-1">
+            <h3 class="font-heading font-bold text-lg text-white flex items-center">
+              <span class="w-1.5 h-5 rounded-full bg-brand-red inline-block mr-2.5 shadow-[0_0_8px_rgba(229,9,20,0.8)]"></span>
+              All Episodes <span class="text-zinc-500 font-semibold ml-1.5">(${episodes.length})</span>
+            </h3>
+            <button onclick="navigateTo('#/series/${seriesId}')" class="text-xs text-zinc-400 hover:text-white font-semibold flex items-center gap-1 px-3 py-1 rounded-full hover:bg-white/10 transition">
+              <span>Series Details</span> <span class="text-sm font-bold">›</span>
+            </button>
           </div>
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
             ${episodes.map((e, idx) => `
               <button onclick="navigateTo('#/watch/${seriesId}/${e.chapter_id}')"
-                      class="text-left flex sm:flex-col gap-3 sm:gap-0 rounded-lg overflow-hidden bg-carbon-800 border transition active:scale-[0.98] ${idx === epIndex ? 'border-brand-red ring-1 ring-brand-red' : 'border-white/10 hover:border-white/30'}">
+                      class="cinema-card text-left flex sm:flex-col gap-3 sm:gap-0 rounded-xl overflow-hidden bg-carbon-800/90 border transition active:scale-[0.98] shadow-lg ${idx === epIndex ? 'border-brand-red ring-2 ring-brand-red/50 shadow-[0_0_20px_rgba(229,9,20,0.4)]' : 'border-white/10 hover:border-brand-red/40'}">
                 <div class="relative w-32 sm:w-full aspect-video bg-carbon-850 flex-shrink-0">
                   <img src="${escapeHtml(e.chapter_thumbnail || data.post_thumbnail || THUMB_UNAVAILABLE_SVG)}" data-fallback="${escapeHtml(data.post_thumbnail || '')}" class="w-full h-full object-cover" loading="lazy" onerror="handlePosterError(this, true)">
-                  <span class="absolute bottom-1 left-1 text-[9px] bg-black/80 px-1.5 py-0.5 rounded font-bold text-white">EP ${idx + 1}</span>
-                  ${idx === epIndex ? '<span class="absolute top-1 left-1 text-[9px] bg-brand-red px-1.5 py-0.5 rounded font-bold text-white uppercase">Now Playing</span>' : ''}
+                  <span class="absolute bottom-1.5 left-1.5 text-[9px] bg-black/80 backdrop-blur-md px-1.5 py-0.5 rounded font-extrabold text-white border border-white/10">EP ${idx + 1}</span>
+                  ${idx === epIndex ? '<span class="absolute top-1.5 left-1.5 text-[9px] bg-brand-red px-2 py-0.5 rounded font-extrabold text-white uppercase shadow-md">Now Playing</span>' : ''}
                 </div>
-                <div class="py-2 pr-3 sm:px-3 min-w-0 flex flex-col justify-center">
-                  <p class="font-semibold text-xs sm:text-sm truncate ${idx === epIndex ? 'text-brand-red' : 'text-white'}">${escapeHtml(e.chapter_name || `Episode ${idx + 1}`)}</p>
-                  <span class="text-[10px] text-gray-500">${e.chapter_date ? e.chapter_date.split(' ')[0] : 'HD'} · 1080p</span>
+                <div class="p-2.5 sm:p-3 min-w-0 flex flex-col justify-center flex-1 bg-carbon-800">
+                  <p class="font-semibold text-xs sm:text-sm truncate ${idx === epIndex ? 'text-brand-red font-bold' : 'text-white'}">${escapeHtml(e.chapter_name || `Episode ${idx + 1}`)}</p>
+                  <span class="text-[10px] text-zinc-400 mt-0.5">${e.chapter_date ? e.chapter_date.split(' ')[0] : 'HD'} · 1080p FHD</span>
                 </div>
               </button>
             `).join('')}
@@ -2583,20 +2650,21 @@ function renderCatalogueView() {
     : (activeLetter !== 'ALL' ? `Showing titles starting with index "${activeLetter}"` : 'Discover all titles alphabetically and by category');
 
   app.innerHTML = `
-    <div class="space-y-6 fade-enter">
+    <div class="space-y-6 fade-enter max-w-[1720px] mx-auto">
       
       <!-- Catalogue Header -->
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10 px-1">
         <div>
-          <h1 class="font-display text-3xl sm:text-4xl uppercase text-white tracking-wide">
+          <h1 class="font-display text-3xl sm:text-4xl uppercase text-white tracking-wide flex items-center">
+            <span class="w-1.5 h-6 rounded-full bg-brand-red inline-block mr-2.5 shadow-[0_0_8px_rgba(229,9,20,0.8)]"></span>
             ${escapeHtml(headingTitle)}
           </h1>
-          <p class="text-xs text-gray-400">${escapeHtml(headingSubtitle)}</p>
+          <p class="text-xs text-zinc-400 mt-1">${escapeHtml(headingSubtitle)}</p>
         </div>
 
         <div class="flex items-center gap-2">
-          <span class="text-xs text-gray-400">Sort:</span>
-          <select onchange="handleSortChange(this.value)" class="bg-carbon-800 border border-white/10 rounded px-3 py-1.5 text-xs text-white focus:outline-none">
+          <span class="text-xs text-zinc-400 font-medium">Sort:</span>
+          <select onchange="handleSortChange(this.value)" class="bg-carbon-800 border border-white/15 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-brand-red transition shadow-sm">
             <option value="views" ${sort === 'views' ? 'selected' : ''}>Most Popular</option>
             <option value="title" ${sort === 'title' ? 'selected' : ''}>Alphabetical (A-Z)</option>
           </select>
@@ -2604,49 +2672,49 @@ function renderCatalogueView() {
       </div>
 
       <!-- Quick Category Pills -->
-      <div class="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar">
+      <div class="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar px-1">
         ${[
           ['all', 'All Titles'],
-          ['trending', 'Trending'],
-          ['uncensored', 'Uncensored'],
-          ['harem', 'Harem'],
-          ['sister', 'Sister'],
-          ['netorare', 'Netorare (NTR)'],
-          ['milf', 'Milf'],
-          ['maid', 'Maid'],
-          ['nurse', 'Nurse'],
-          ['succubus', 'Succubus'],
-          ['isekai', 'Isekai'],
-          ['demon', 'Demon'],
-          ['teacher', 'Teacher'],
-          ['virgin', 'Virgin'],
-          ['cosplay', 'Cosplay'],
-          ['gyaru', 'Gyaru'],
-          ['yuri', 'Yuri'],
-          ['futanari', 'Futanari'],
-          ['fantasy', 'Fantasy'],
-          ['paizuri', 'Paizuri'],
-          ['bondage', 'Bondage'],
-          ['tentacle', 'Tentacle'],
-          ['shota', 'Shota'],
-          ['school', 'School'],
-          ['vanilla', 'Vanilla'],
-          ['ecchi', 'Ecchi'],
-          ['creampie', 'Creampie']
+          ['trending', '🔥 Trending'],
+          ['uncensored', '💎 Uncensored'],
+          ['harem', '👑 Harem'],
+          ['sister', '❤️ Sister'],
+          ['netorare', '💔 Netorare (NTR)'],
+          ['milf', '🌹 Milf'],
+          ['maid', '🎀 Maid'],
+          ['nurse', '💉 Nurse'],
+          ['succubus', '😈 Succubus'],
+          ['isekai', '🌀 Isekai'],
+          ['demon', '🔥 Demon'],
+          ['teacher', '👩‍🏫 Teacher'],
+          ['virgin', '✨ Virgin'],
+          ['cosplay', '🎭 Cosplay'],
+          ['gyaru', '💄 Gyaru'],
+          ['yuri', '🌸 Yuri'],
+          ['futanari', '⚡ Futanari'],
+          ['fantasy', '🔮 Fantasy'],
+          ['paizuri', '🍈 Paizuri'],
+          ['bondage', '⛓️ Bondage'],
+          ['tentacle', '🐙 Tentacle'],
+          ['shota', '👦 Shota'],
+          ['school', '🏫 School'],
+          ['vanilla', '🍦 Vanilla'],
+          ['ecchi', '✨ Ecchi'],
+          ['creampie', '🥛 Creampie']
         ].map(([tag, label]) => `
           <button onclick="showBrowse('${tag}', '${sort}', 'ALL', 1)" 
-                  class="px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition border ${activeTag === tag ? 'bg-brand-red text-white border-transparent' : 'bg-carbon-800 text-gray-300 border-white/10 hover:bg-carbon-700'}">
+                  class="px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all border ${activeTag === tag ? 'bg-gradient-to-r from-brand-red to-rose-700 text-white font-bold border-transparent shadow-[0_0_15px_rgba(229,9,20,0.4)]' : 'bg-carbon-800/90 text-zinc-300 border-white/10 hover:border-white/30 hover:bg-carbon-700'}">
             ${label}
           </button>
         `).join('')}
       </div>
 
       <!-- A-Z Alphabet Filter Strip (Exact HentaiHaven Catalogue Feature) -->
-      <div class="flex items-center gap-1.5 overflow-x-auto pb-2 no-scrollbar text-xs font-bold text-gray-300">
-        <span class="text-gray-500 mr-1 text-[11px] uppercase tracking-wider">Index:</span>
+      <div class="flex items-center gap-1.5 overflow-x-auto pb-2 no-scrollbar text-xs font-bold text-zinc-300 px-1">
+        <span class="text-zinc-500 mr-1 text-[11px] uppercase tracking-wider font-semibold">Index:</span>
         ${ALPHABET_KEYS.map(l => `
           <button onclick="showBrowse('${activeTag}', '${sort}', '${l}', 1)"
-                  class="w-7 h-7 rounded flex items-center justify-center transition border ${activeLetter === l ? 'bg-white text-black border-white' : 'bg-carbon-800 hover:bg-carbon-700 border-white/10 text-gray-300'}">
+                  class="w-7 h-7 rounded-lg flex items-center justify-center transition-all border text-xs ${activeLetter === l ? 'bg-white text-black font-extrabold border-white shadow-md' : 'bg-carbon-800 hover:bg-carbon-700 border-white/10 text-zinc-300 hover:text-white'}">
             ${l}
           </button>
         `).join('')}
@@ -2654,17 +2722,17 @@ function renderCatalogueView() {
 
       <!-- Catalogue Titles Grid -->
       ${items.length === 0 ? `
-        <div class="text-center py-24 text-gray-400 text-sm">No titles found for this filter.</div>
+        <div class="text-center py-24 text-zinc-400 text-sm">No titles found for this filter.</div>
       ` : `
-        <div id="catalogue-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
+        <div id="catalogue-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 px-1">
           ${items.map(it => renderFlowCard(it, { width: 'w-full' })).join('')}
         </div>
       `}
 
       <!-- Load More Titles Button (Pagination) -->
-      <div class="text-center pt-6 pb-12">
+      <div class="text-center pt-8 pb-12">
         <button id="btn-load-more" onclick="loadMoreCatalogueTitles()" 
-                class="px-8 py-3 rounded-md bg-carbon-800 hover:bg-carbon-700 border border-white/15 text-white font-bold text-xs uppercase tracking-wider transition">
+                class="btn-crimson px-9 py-3.5 rounded-xl text-white font-bold text-xs uppercase tracking-wider transition-all shadow-xl active:scale-95">
           Load More Titles
         </button>
       </div>
@@ -2806,20 +2874,28 @@ async function submitSearch() {
     const items = Array.isArray(res?.data) ? res.data : [];
 
     app.innerHTML = `
-      <div class="space-y-6 fade-enter">
+      <div class="space-y-6 fade-enter max-w-[1720px] mx-auto px-1">
         <div class="flex items-center justify-between pb-4 border-b border-white/10">
           <div>
-            <h1 class="font-display text-3xl text-white uppercase tracking-wide">Search Results</h1>
-            <p class="text-xs text-gray-400">${items.length} titles matching "${escapeHtml(query)}"</p>
+            <h1 class="font-display text-3xl text-white uppercase tracking-wide flex items-center">
+              <span class="w-1.5 h-6 rounded-full bg-brand-red inline-block mr-2.5 shadow-[0_0_8px_rgba(229,9,20,0.8)]"></span>
+              Search Results
+            </h1>
+            <p class="text-xs text-zinc-400 mt-1">${items.length} titles matching "${escapeHtml(query)}"</p>
           </div>
-          <button onclick="navigateTo('#/')" class="text-xs text-gray-400 hover:text-white transition">← Return Home</button>
+          <button onclick="navigateTo('#/')" class="text-xs text-zinc-400 hover:text-white transition px-3 py-1.5 rounded-full hover:bg-white/10">← Return Home</button>
         </div>
 
         ${items.length === 0 ? `
-          <div class="text-center py-24 text-gray-400 text-sm space-y-3">
-            <p class="font-heading font-bold text-base text-white">No titles found</p>
-            <p class="text-xs text-gray-400 max-w-sm mx-auto">No results matched your search for "${escapeHtml(query)}". Try searching by alternative Japanese title, category tag, or explore the A-Z directory.</p>
-            <button onclick="navigateTo('#/browse/all')" class="px-5 py-2.5 rounded-md bg-brand-red text-white font-bold text-xs hover:bg-brand-darkRed transition">Browse Full Catalogue</button>
+          <div class="text-center py-28 text-zinc-400 text-sm space-y-4 max-w-md mx-auto">
+            <div class="w-16 h-16 rounded-full bg-carbon-800/80 border border-white/10 flex items-center justify-center mx-auto text-zinc-500 shadow-inner">
+              <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            </div>
+            <div class="space-y-1">
+              <p class="font-heading font-bold text-lg text-white">No titles found</p>
+              <p class="text-xs text-zinc-400">No results matched "${escapeHtml(query)}". Try searching by alternative Japanese romanji name, tag, or browse the directory.</p>
+            </div>
+            <button onclick="navigateTo('#/browse/all')" class="btn-crimson px-6 py-2.5 rounded-xl text-white font-bold text-xs shadow-xl transition active:scale-95">Browse Full Catalogue</button>
           </div>
         ` : `
           <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
@@ -2856,25 +2932,33 @@ function showWatchlist() {
   const items = Array.isArray(state.watchlist) ? state.watchlist : [];
 
   app.innerHTML = `
-    <div class="space-y-6 fade-enter">
+    <div class="space-y-6 fade-enter max-w-[1720px] mx-auto px-1">
       <div class="flex items-center justify-between pb-4 border-b border-white/10">
         <div>
-          <h1 class="font-display text-3xl sm:text-4xl uppercase text-white tracking-wide">My List</h1>
-          <p class="text-xs text-gray-400">${items.length} bookmarked titles</p>
+          <h1 class="font-display text-3xl sm:text-4xl uppercase text-white tracking-wide flex items-center">
+            <span class="w-1.5 h-6 rounded-full bg-brand-red inline-block mr-2.5 shadow-[0_0_8px_rgba(229,9,20,0.8)]"></span>
+            My List
+          </h1>
+          <p class="text-xs text-zinc-400 mt-1">${items.length} bookmarked titles in your personal collection</p>
         </div>
         ${items.length > 0 ? `
-          <button onclick="clearWatchlistData()" class="px-3 py-1.5 rounded bg-carbon-800 text-xs text-gray-400 hover:text-white border border-white/10">Clear List</button>
+          <button onclick="clearWatchlistData()" class="px-3.5 py-1.5 rounded-xl bg-carbon-800 text-xs text-zinc-400 hover:text-red-400 border border-white/10 transition active:scale-95">Clear List</button>
         ` : ''}
       </div>
 
       ${items.length === 0 ? `
-        <div class="text-center py-28 space-y-3">
-          <p class="font-heading font-bold text-lg text-white">Your list is empty.</p>
-          <p class="text-xs text-gray-400">Save shows while exploring to watch them anytime.</p>
-          <button onclick="navigateTo('#/')" class="px-5 py-2.5 bg-white text-black font-bold text-xs rounded hover:bg-gray-200 transition">Browse Popular Titles</button>
+        <div class="text-center py-28 space-y-4 max-w-md mx-auto">
+          <div class="w-16 h-16 rounded-full bg-carbon-800/80 border border-white/10 flex items-center justify-center mx-auto text-zinc-500 shadow-inner">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
+          </div>
+          <div class="space-y-1">
+            <p class="font-heading font-bold text-lg text-white">Your list is currently empty</p>
+            <p class="text-xs text-zinc-400">Save shows while exploring so you can easily watch them anytime across your devices.</p>
+          </div>
+          <button onclick="navigateTo('#/')" class="btn-crimson px-6 py-2.5 text-white font-bold text-xs rounded-xl transition shadow-xl active:scale-95">Browse Trending Titles</button>
         </div>
       ` : `
-        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
           ${items.map(it => renderFlowCard(it, { width: 'w-full' })).join('')}
         </div>
       `}
@@ -2899,37 +2983,52 @@ function showHistory() {
   const items = Array.isArray(state.history) ? state.history : [];
 
   app.innerHTML = `
-    <div class="space-y-6 fade-enter">
+    <div class="space-y-6 fade-enter max-w-[1400px] mx-auto px-1">
       <div class="flex items-center justify-between pb-4 border-b border-white/10">
         <div>
-          <h1 class="font-display text-3xl sm:text-4xl uppercase text-white tracking-wide">Watch History</h1>
-          <p class="text-xs text-gray-400">${items.length} playback sessions</p>
+          <h1 class="font-display text-3xl sm:text-4xl uppercase text-white tracking-wide flex items-center">
+            <span class="w-1.5 h-6 rounded-full bg-brand-red inline-block mr-2.5 shadow-[0_0_8px_rgba(229,9,20,0.8)]"></span>
+            Watch History
+          </h1>
+          <p class="text-xs text-zinc-400 mt-1">${items.length} playback sessions recorded</p>
         </div>
         ${items.length > 0 ? `
-          <button onclick="clearWatchHistory()" class="px-3 py-1.5 rounded bg-carbon-800 text-xs text-red-400 hover:text-red-300 border border-white/10">Clear History</button>
+          <button onclick="clearWatchHistory()" class="px-3.5 py-1.5 rounded-xl bg-carbon-800 text-xs text-red-400 hover:text-red-300 border border-white/10 transition active:scale-95">Clear History</button>
         ` : ''}
       </div>
 
       ${items.length === 0 ? `
-        <div class="text-center py-28 text-gray-400 text-sm">No watch history yet.</div>
+        <div class="text-center py-28 space-y-4 max-w-md mx-auto">
+          <div class="w-16 h-16 rounded-full bg-carbon-800/80 border border-white/10 flex items-center justify-center mx-auto text-zinc-500 shadow-inner">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          </div>
+          <div class="space-y-1">
+            <p class="font-heading font-bold text-lg text-white">No watch history yet</p>
+            <p class="text-xs text-zinc-400">Episodes you stream will appear here so you can pick up exactly where you left off.</p>
+          </div>
+          <button onclick="navigateTo('#/')" class="btn-crimson px-6 py-2.5 text-white font-bold text-xs rounded-xl transition shadow-xl active:scale-95">Start Watching</button>
+        </div>
       ` : `
-        <div class="divide-y divide-white/10 glass-card rounded-lg overflow-hidden border border-white/10">
+        <div class="divide-y divide-white/[0.06] glass-card rounded-2xl overflow-hidden border border-white/10 shadow-xl">
           ${items.map(it => `
-            <div class="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-carbon-750 transition cursor-pointer"
+            <div class="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-carbon-750/70 transition cursor-pointer"
                  onclick="navigateTo('#/watch/${it.seriesId}/${it.chapterId}')">
               
               <div class="flex items-center gap-4">
-                <div class="w-32 aspect-video rounded overflow-hidden bg-carbon-850 flex-shrink-0 relative">
+                <div class="w-36 aspect-video rounded-xl overflow-hidden bg-carbon-850 flex-shrink-0 relative border border-white/10">
                   <img src="${escapeHtml(it.thumbnail || THUMB_UNAVAILABLE_SVG)}" class="w-full h-full object-cover" onerror="handlePosterError(this, true)">
-                  <span class="absolute bottom-1 right-1 text-[9px] bg-black/80 px-1 rounded font-mono text-white">${formatTime(it.currentTime)}</span>
+                  <span class="absolute bottom-1 right-1 text-[9px] bg-black/80 backdrop-blur-md px-1.5 py-0.5 rounded font-mono text-white">${formatTime(it.currentTime)}</span>
+                  <div class="absolute inset-x-0 bottom-0 h-1 bg-white/20">
+                    <div class="h-full bg-brand-red" style="width: ${it.progressPercent}%"></div>
+                  </div>
                 </div>
-                <div>
-                  <h4 class="font-heading font-semibold text-sm text-white">${escapeHtml(it.title)}</h4>
-                  <p class="text-xs text-gray-400 mt-0.5">${escapeHtml(it.chapterName || 'Episode')} • ${it.progressPercent}% completed</p>
+                <div class="min-w-0">
+                  <h4 class="font-heading font-semibold text-sm sm:text-base text-white truncate">${escapeHtml(it.title)}</h4>
+                  <p class="text-xs text-zinc-400 mt-1">${escapeHtml(it.chapterName || 'Episode')} • ${it.progressPercent}% completed</p>
                 </div>
               </div>
 
-              <button class="px-4 py-1.5 rounded bg-white text-black font-bold text-xs flex items-center gap-1.5 hover:bg-gray-200 transition self-end sm:self-center">
+              <button class="btn-crimson px-5 py-2 rounded-xl text-white font-bold text-xs flex items-center gap-1.5 transition self-end sm:self-center shadow-lg active:scale-95">
                 <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                 Resume
               </button>

@@ -55,69 +55,150 @@
       max-width: 100vw;
     }
     body {
+      background-color: #070709;
+      background-image: 
+        radial-gradient(ellipse 85% 55% at 50% -15%, rgba(229, 9, 20, 0.14) 0%, transparent 65%),
+        radial-gradient(ellipse 60% 40% at 95% 25%, rgba(184, 29, 36, 0.06) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 50% at 5% 75%, rgba(20, 20, 35, 0.35) 0%, transparent 70%);
+      background-attachment: fixed;
       padding-bottom: env(safe-area-inset-bottom);
     }
     ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: #0A0A0A; }
-    ::-webkit-scrollbar-thumb { background: #262626; border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: #383838; }
+    ::-webkit-scrollbar-track { background: #070709; }
+    ::-webkit-scrollbar-thumb { background: #222226; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #383842; }
 
     /* Hide scrollbars for horizontal shelves */
     .no-scrollbar::-webkit-scrollbar { display: none; }
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-    /* Glassmorphic Surfaces (Exact FlowFlix Specs) */
+    /* Modern Glassmorphism Surfaces */
     .glass-nav {
-      background: rgba(10, 10, 10, 0.85);
-      backdrop-filter: blur(20px) saturate(150%);
-      -webkit-backdrop-filter: blur(20px) saturate(150%);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(7, 7, 9, 0.82);
+      backdrop-filter: blur(24px) saturate(160%);
+      -webkit-backdrop-filter: blur(24px) saturate(160%);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.07);
     }
     .glass-card {
-      background: rgba(22, 22, 22, 0.65);
+      background: rgba(18, 18, 22, 0.65);
       backdrop-filter: blur(16px) saturate(150%);
       -webkit-backdrop-filter: blur(16px) saturate(150%);
       border: 1px solid rgba(255, 255, 255, 0.08);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 8px 32px rgba(0, 0, 0, 0.4);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 8px 32px rgba(0, 0, 0, 0.5);
     }
     .glass-strong {
-      background: rgba(14, 14, 18, 0.88);
-      backdrop-filter: blur(24px) saturate(160%);
-      -webkit-backdrop-filter: blur(24px) saturate(160%);
+      background: rgba(13, 13, 17, 0.92);
+      backdrop-filter: blur(28px) saturate(170%);
+      -webkit-backdrop-filter: blur(28px) saturate(170%);
       border: 1px solid rgba(255, 255, 255, 0.12);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 16px 48px rgba(0, 0, 0, 0.6);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 20px 60px rgba(0, 0, 0, 0.7);
     }
     .glass-chip {
-      background: rgba(26, 26, 26, 0.55);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
+      background: rgba(26, 26, 32, 0.65);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
       border: 1px solid rgba(255, 255, 255, 0.12);
     }
     .glass-btn {
-      background: rgba(255, 255, 255, 0.15);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(255, 255, 255, 0.18);
     }
     .glass-btn:hover {
-      background: rgba(255, 255, 255, 0.25);
+      background: rgba(255, 255, 255, 0.22);
+      border-color: rgba(255, 255, 255, 0.3);
     }
 
-    /* Outlined Top 10 Rank Stroke (Exact Flowflix Style) */
+    /* Nav Pill Styling */
+    .nav-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.35rem 0.85rem;
+      border-radius: 9999px;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: #9CA3AF;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      border: 1px solid transparent;
+      user-select: none;
+    }
+    .nav-pill:hover {
+      color: #FFFFFF;
+      background: rgba(255, 255, 255, 0.06);
+    }
+    .nav-pill.active {
+      color: #FFFFFF;
+      font-weight: 700;
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.16);
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    }
+
+    /* Vibrant Crimson Button */
+    .btn-crimson {
+      background: linear-gradient(135deg, #E50914 0%, #B81D24 100%);
+      box-shadow: 0 6px 20px rgba(229, 9, 20, 0.4);
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .btn-crimson:hover {
+      background: linear-gradient(135deg, #FF1F29 0%, #D81720 100%);
+      box-shadow: 0 8px 28px rgba(229, 9, 20, 0.6);
+      transform: translateY(-1px);
+    }
+    .btn-crimson:active {
+      transform: scale(0.96);
+    }
+
+    /* Cinema Card 3D Lift */
+    .cinema-card {
+      transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease;
+      will-change: transform;
+    }
+    .cinema-card:hover {
+      transform: translateY(-7px) scale(1.03);
+      box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.9), 0 0 25px -4px rgba(229, 9, 20, 0.38);
+      border-color: rgba(229, 9, 20, 0.55);
+      z-index: 25;
+    }
+    .cinema-card:active {
+      transform: scale(0.97);
+    }
+
+    /* Luxury Metallic Top 10 Rank Numerals */
     .rank-number {
-      -webkit-text-stroke: 3px #555555;
-      text-stroke: 3px #555555;
-      color: #0A0A0A;
       font-family: 'Bebas Neue', system-ui;
       font-size: 5.5rem;
-      line-height: 1;
+      line-height: 0.9;
       user-select: none;
+      color: transparent;
+      background-clip: text;
+      -webkit-background-clip: text;
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .rank-1 {
+      background-image: linear-gradient(135deg, #FFE259 0%, #FFA751 100%);
+      -webkit-text-stroke: 2.5px #FFE259;
+      filter: drop-shadow(0 0 16px rgba(255, 180, 0, 0.45));
+    }
+    .rank-2 {
+      background-image: linear-gradient(135deg, #FFFFFF 0%, #B0BEC5 100%);
+      -webkit-text-stroke: 2.5px #E0E0E0;
+      filter: drop-shadow(0 0 14px rgba(255, 255, 255, 0.35));
+    }
+    .rank-3 {
+      background-image: linear-gradient(135deg, #F39C12 0%, #D35400 100%);
+      -webkit-text-stroke: 2.5px #F39C12;
+      filter: drop-shadow(0 0 14px rgba(243, 156, 18, 0.4));
+    }
+    .rank-other {
+      background-image: linear-gradient(180deg, #50505A 0%, #151518 100%);
+      -webkit-text-stroke: 2px #606070;
     }
     @media (max-width: 640px) {
       .rank-number {
-        -webkit-text-stroke-width: 2px;
-        text-stroke-width: 2px;
         font-size: 4rem;
+        -webkit-text-stroke-width: 1.8px !important;
       }
     }
 
@@ -133,17 +214,27 @@
       border-radius: 50%;
       background: #E50914;
       cursor: pointer;
-      box-shadow: 0 0 8px rgba(229, 9, 20, 0.8);
+      box-shadow: 0 0 10px rgba(229, 9, 20, 0.9);
       transition: transform 0.15s ease;
     }
     input[type=range].scrubber:hover::-webkit-slider-thumb {
-      transform: scale(1.3);
+      transform: scale(1.35);
+    }
+
+    /* Ambient Player Glow */
+    .cinema-ambient-glow {
+      position: absolute;
+      inset: -30px;
+      background: radial-gradient(circle at center, rgba(229, 9, 20, 0.16) 0%, transparent 70%);
+      filter: blur(50px);
+      pointer-events: none;
+      z-index: 0;
     }
 
     /* Fade animation */
-    .fade-enter { animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+    .fade-enter { animation: fadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
     @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(4px); }
+      from { opacity: 0; transform: translateY(6px); }
       to { opacity: 1; transform: translateY(0); }
     }
 
@@ -155,13 +246,14 @@
     .shimmer {
       position: relative;
       overflow: hidden;
+      background: #111116;
     }
     .shimmer::after {
       content: '';
       position: absolute;
       inset: 0;
-      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), transparent);
-      animation: shimmer 1.5s infinite;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent);
+      animation: shimmer 1.6s infinite;
     }
   
     /* ==========================================================================
@@ -308,6 +400,35 @@
     }
     .vf-action-pill:active {
       transform: scale(0.95);
+    }
+
+    /* Below Player Action Buttons (Download, My List, Share) */
+    .vf-action-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.65rem 1rem;
+      border-radius: 0.75rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #e5e5e5;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      cursor: pointer;
+      user-select: none;
+    }
+    .vf-action-btn:hover {
+      background: rgba(255, 255, 255, 0.16);
+      color: #ffffff;
+      border-color: rgba(255, 255, 255, 0.25);
+      transform: translateY(-1px);
+    }
+    .vf-action-btn:active {
+      transform: scale(0.96);
     }
 
     /* Subtitle Cue Styling */
@@ -542,49 +663,55 @@
       
       <!-- Brand Logo & Navigation Links -->
       <div class="flex items-center gap-6 sm:gap-8">
-        <a href="#/" class="flex items-center gap-1.5 group flex-shrink-0">
-          <span class="font-display text-2xl sm:text-3xl tracking-wider text-brand-red font-bold">
+        <a href="#/" class="flex items-center gap-2 group flex-shrink-0">
+          <span class="font-display text-2xl sm:text-3xl tracking-wider text-brand-red font-bold drop-shadow-[0_0_12px_rgba(229,9,20,0.5)]">
             VOID<span class="text-white">FLIX</span>
           </span>
-          <span class="hidden sm:inline-block text-[9px] font-bold px-1.5 py-0.2 rounded bg-carbon-800 text-gray-300 border border-white/10 tracking-widest uppercase">Hentai</span>
+          <span class="hidden sm:inline-flex items-center text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-brand-red/15 text-brand-red border border-brand-red/30 tracking-widest uppercase">
+            STREAM 18+
+          </span>
         </a>
 
-        <!-- Desktop Navigation Links -->
-        <nav class="hidden md:flex items-center gap-5 text-xs lg:text-sm font-medium text-gray-300">
-          <button onclick="showHome()" id="nav-home" class="hover:text-white transition py-1 text-white font-bold">Home</button>
-          <button onclick="showBrowse('series')" id="nav-series" class="hover:text-white transition py-1 text-gray-300">Series</button>
-          <button onclick="showBrowse('trending')" id="nav-trending" class="hover:text-white transition py-1 text-gray-300">New & Popular</button>
-          <button onclick="showBrowse('uncensored')" id="nav-uncensored" class="hover:text-white transition py-1 text-gray-300">Uncensored</button>
-          <button onclick="showBrowse('all')" id="nav-browse" class="hover:text-white transition py-1 text-gray-300">All Titles (A-Z)</button>
-          <button onclick="showWatchlist()" id="nav-watchlist" class="hover:text-white transition py-1 text-gray-300 flex items-center gap-1.5">
+        <!-- Desktop Navigation Links (Pill Tabs) -->
+        <nav class="hidden md:flex items-center gap-1.5 text-xs font-medium">
+          <button onclick="showHome()" id="nav-home" class="nav-pill active">Home</button>
+          <button onclick="showBrowse('series')" id="nav-series" class="nav-pill">Series</button>
+          <button onclick="showBrowse('trending')" id="nav-trending" class="nav-pill">New &amp; Popular</button>
+          <button onclick="showBrowse('uncensored')" id="nav-uncensored" class="nav-pill">Uncensored</button>
+          <button onclick="showBrowse('all')" id="nav-browse" class="nav-pill">All Titles (A-Z)</button>
+          <button onclick="showWatchlist()" id="nav-watchlist" class="nav-pill gap-1.5">
             My List
             <span id="nav-watchlist-count" class="hidden text-[10px] px-1.5 py-0.2 rounded-full bg-brand-red text-white font-bold">0</span>
           </button>
-          <button onclick="showHistory()" id="nav-history" class="hover:text-white transition py-1 text-gray-300">History</button>
+          <button onclick="showHistory()" id="nav-history" class="nav-pill">History</button>
         </nav>
       </div>
 
       <!-- Right: Search, Randomizer, Settings & Profile -->
-      <div class="flex items-center gap-2 sm:gap-4 justify-end flex-1 max-w-lg">
+      <div class="flex items-center gap-2 sm:gap-3.5 justify-end flex-1 max-w-lg">
         
         <!-- Live Autocomplete Search Bar -->
         <div class="relative flex-1 max-w-xs sm:max-w-sm">
           <div class="relative flex items-center">
-            <span class="absolute left-3 pointer-events-none text-gray-400">
+            <span class="absolute left-3 pointer-events-none text-zinc-400">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
             </span>
-            <input id="search-input" type="text" placeholder="Search..." 
-                   class="w-full bg-carbon-800 text-xs sm:text-sm text-white pl-8 sm:pl-9 pr-7 sm:pr-8 py-1.5 sm:py-2 rounded-md border border-white/10 focus:border-white/30 focus:bg-carbon-750 focus:outline-none transition-all placeholder-gray-500"
+            <input id="search-input" type="text" placeholder="Search anime, tags, studios..." 
+                   class="w-full bg-carbon-850/90 text-xs sm:text-sm text-white pl-9 pr-14 py-2 rounded-xl border border-white/10 focus:border-brand-red/60 focus:bg-carbon-800 focus:outline-none focus:ring-2 focus:ring-brand-red/20 transition-all placeholder-zinc-500 shadow-inner"
                    autocomplete="off"
                    oninput="handleSearchInput(event)"
                    onkeydown="if(event.key==='Enter') submitSearch()">
-            <button id="search-clear-btn" onclick="clearSearch()" class="hidden absolute right-2.5 text-gray-400 hover:text-white p-0.5">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-            </button>
+            
+            <div class="absolute right-2.5 flex items-center gap-1">
+              <button id="search-clear-btn" onclick="clearSearch()" class="hidden text-zinc-400 hover:text-white p-0.5">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+              <kbd class="hidden sm:inline-flex items-center px-1.5 py-0.5 text-[9px] font-mono text-zinc-400 bg-white/5 border border-white/10 rounded pointer-events-none">/</kbd>
+            </div>
           </div>
 
           <!-- Live Search Autocomplete Dropdown -->
-          <div id="search-dropdown" class="hidden absolute top-full left-0 right-0 mt-2 glass-strong rounded-lg shadow-2xl p-2 z-50 max-h-96 overflow-y-auto fade-enter">
+          <div id="search-dropdown" class="hidden absolute top-full left-0 right-0 mt-2 glass-strong rounded-xl shadow-2xl p-2 z-50 max-h-96 overflow-y-auto fade-enter border border-white/10">
             <div id="search-dropdown-results" class="divide-y divide-white/[0.06]">
               <!-- Populated dynamically -->
             </div>
@@ -593,31 +720,34 @@
 
         <!-- Surprise Me / Shuffle Button -->
         <button onclick="playRandomSeries()" title="Surprise Me (Play Random)"
-                class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md bg-carbon-800 hover:bg-carbon-700 text-gray-200 border border-white/10 transition">
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
-          Surprise
+                class="hidden sm:flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-carbon-800 hover:bg-carbon-700 hover:border-brand-red/40 text-zinc-200 border border-white/10 transition shadow-sm active:scale-95">
+          <svg class="w-3.5 h-3.5 text-brand-red" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
+          <span>Surprise</span>
         </button>
 
         <!-- Gateway Diagnostics & Settings -->
         <button onclick="toggleSettingsModal(true)" title="Gateway Diagnostics & Settings"
-                class="p-2 rounded-md bg-carbon-800 hover:bg-carbon-700 text-gray-300 hover:text-white border border-white/10 transition">
+                class="p-2 rounded-xl bg-carbon-800 hover:bg-carbon-700 text-zinc-300 hover:text-white border border-white/10 transition active:scale-95">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
         </button>
 
         <!-- Profile Avatar Dropdown -->
         <div class="relative">
-          <button onclick="toggleProfileMenu()" class="w-8 h-8 rounded bg-brand-red flex items-center justify-center font-bold text-xs text-white border border-white/20 hover:ring-2 hover:ring-white transition">
-            F
+          <button onclick="toggleProfileMenu()" class="w-8 h-8 rounded-xl bg-gradient-to-tr from-brand-red to-rose-600 flex items-center justify-center font-bold text-xs text-white border border-white/20 hover:ring-2 hover:ring-brand-red/50 transition shadow-lg">
+            V
           </button>
-          <div id="profile-dropdown" class="hidden absolute right-0 mt-2 w-48 glass-strong rounded-lg shadow-2xl p-2 z-50 text-xs divide-y divide-white/10">
-            <div class="p-2 space-y-1">
-              <p class="font-bold text-white">VoidFlix VIP</p>
-              <p class="text-[11px] text-gray-400">Master Profile</p>
+          <div id="profile-dropdown" class="hidden absolute right-0 mt-2 w-52 glass-strong rounded-xl shadow-2xl p-2 z-50 text-xs divide-y divide-white/10 border border-white/10">
+            <div class="p-2 space-y-0.5">
+              <p class="font-bold text-white flex items-center gap-1.5">
+                <span>VoidFlix VIP</span>
+                <span class="text-[9px] px-1 py-0.2 bg-brand-red text-white rounded font-mono font-bold">4K PRO</span>
+              </p>
+              <p class="text-[11px] text-zinc-400">Master Streaming Profile</p>
             </div>
             <div class="py-1">
-              <button onclick="navigateTo('#/watchlist'); toggleProfileMenu();" class="w-full text-left px-2 py-1.5 rounded hover:bg-carbon-700 text-gray-200">My Watchlist</button>
-              <button onclick="navigateTo('#/history'); toggleProfileMenu();" class="w-full text-left px-2 py-1.5 rounded hover:bg-carbon-700 text-gray-200">Watch History</button>
-              <button onclick="toggleSettingsModal(true); toggleProfileMenu();" class="w-full text-left px-2 py-1.5 rounded hover:bg-carbon-700 text-gray-200">Gateway Settings</button>
+              <button onclick="navigateTo('#/watchlist'); toggleProfileMenu();" class="w-full text-left px-2.5 py-2 rounded-lg hover:bg-white/10 text-zinc-200 transition">My Watchlist</button>
+              <button onclick="navigateTo('#/history'); toggleProfileMenu();" class="w-full text-left px-2.5 py-2 rounded-lg hover:bg-white/10 text-zinc-200 transition">Watch History</button>
+              <button onclick="toggleSettingsModal(true); toggleProfileMenu();" class="w-full text-left px-2.5 py-2 rounded-lg hover:bg-white/10 text-zinc-200 transition">Gateway &amp; Settings</button>
             </div>
           </div>
         </div>
@@ -651,41 +781,47 @@
   </div>
 
   <!-- ==================== MOBILE BOTTOM TAB BAR ==================== -->
-  <nav id="mobile-bottom-nav" class="md:hidden fixed bottom-0 left-0 right-0 z-40 glass-nav border-t border-white/10 px-4 py-2 flex items-center justify-around pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
-    <button onclick="navigateTo('#/')" id="mobile-nav-home" class="flex flex-col items-center gap-1 text-white font-bold transition">
+  <nav id="mobile-bottom-nav" class="md:hidden fixed bottom-0 left-0 right-0 z-40 glass-nav border-t border-white/10 px-3 py-2 flex items-center justify-around pb-[calc(0.6rem+env(safe-area-inset-bottom))] shadow-[0_-10px_25px_rgba(0,0,0,0.7)]">
+    <button onclick="navigateTo('#/')" id="mobile-nav-home" class="flex flex-col items-center gap-1 text-white font-bold transition py-1 px-3 rounded-xl active:scale-95">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
-      <span class="text-[10px]">Home</span>
+      <span class="text-[10px] tracking-tight">Home</span>
     </button>
-    <button onclick="navigateTo('#/browse/trending')" id="mobile-nav-trending" class="flex flex-col items-center gap-1 text-gray-400 hover:text-white transition">
+    <button onclick="navigateTo('#/browse/trending')" id="mobile-nav-trending" class="flex flex-col items-center gap-1 text-zinc-400 hover:text-white transition py-1 px-3 rounded-xl active:scale-95">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-      <span class="text-[10px]">Trending</span>
+      <span class="text-[10px] tracking-tight">Trending</span>
     </button>
-    <button onclick="navigateTo('#/browse/all')" id="mobile-nav-browse" class="flex flex-col items-center gap-1 text-gray-400 hover:text-white transition">
+    <button onclick="navigateTo('#/browse/all')" id="mobile-nav-browse" class="flex flex-col items-center gap-1 text-zinc-400 hover:text-white transition py-1 px-3 rounded-xl active:scale-95">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
-      <span class="text-[10px]">Catalogue</span>
+      <span class="text-[10px] tracking-tight">Catalogue</span>
     </button>
-    <button onclick="navigateTo('#/watchlist')" id="mobile-nav-watchlist" class="flex flex-col items-center gap-1 text-gray-400 hover:text-white transition">
+    <button onclick="navigateTo('#/watchlist')" id="mobile-nav-watchlist" class="flex flex-col items-center gap-1 text-zinc-400 hover:text-white transition py-1 px-3 rounded-xl active:scale-95">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
-      <span class="text-[10px]">My List</span>
+      <span class="text-[10px] tracking-tight">My List</span>
     </button>
-    <button onclick="navigateTo('#/history')" id="mobile-nav-history" class="flex flex-col items-center gap-1 text-gray-400 hover:text-white transition">
+    <button onclick="navigateTo('#/history')" id="mobile-nav-history" class="flex flex-col items-center gap-1 text-zinc-400 hover:text-white transition py-1 px-3 rounded-xl active:scale-95">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-      <span class="text-[10px]">History</span>
+      <span class="text-[10px] tracking-tight">History</span>
     </button>
   </nav>
 
   <!-- ==================== FOOTER ==================== -->
-  <footer class="mt-auto border-t border-white/[0.08] bg-carbon-950 py-10 px-4 sm:px-8 text-xs text-gray-500 mb-14 md:mb-0">
+  <footer class="mt-auto border-t border-white/[0.07] bg-carbon-950/80 py-10 px-4 sm:px-8 text-xs text-zinc-500 mb-16 md:mb-0">
     <div class="max-w-[1720px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-      <div class="flex items-center gap-2">
-        <span class="font-display text-lg tracking-wider text-brand-red font-bold">VOIDFLIX</span>
-        <span>•</span>
-        <span>VoidFlix Hentai Cinema Streaming Platform</span>
+      <div class="flex items-center gap-3">
+        <span class="font-display text-xl tracking-wider text-brand-red font-bold drop-shadow-[0_0_8px_rgba(229,9,20,0.5)]">VOIDFLIX</span>
+        <span class="text-zinc-700">•</span>
+        <span class="text-zinc-400">Next-Gen Cinema Anime &amp; Hentai Streaming</span>
       </div>
-      <div class="flex items-center gap-6 text-gray-400">
-        <button onclick="showShortcutsModal(true)" class="hover:text-white transition">Controls (?)</button>
+      <div class="flex items-center gap-6 text-zinc-400">
+        <button onclick="showShortcutsModal(true)" class="hover:text-white transition flex items-center gap-1.5">
+          <kbd class="px-1.5 py-0.5 rounded bg-white/10 text-[10px] font-mono">?</kbd>
+          <span>Shortcuts</span>
+        </button>
         <button onclick="toggleSettingsModal(true)" class="hover:text-white transition">Gateway Diagnostics</button>
-        <a href="https://github.com/Keshav974-afk/hentai-stream" target="_blank" rel="noopener" class="hover:text-white transition">GitHub</a>
+        <a href="https://github.com/Keshav974-afk/hentai-stream" target="_blank" rel="noopener" class="hover:text-white transition flex items-center gap-1">
+          <span>GitHub</span>
+          <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+        </a>
       </div>
     </div>
   </footer>
