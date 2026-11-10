@@ -181,30 +181,16 @@ function formatTime(seconds) {
 }
 
 function showToast(message, type = 'info') {
-  const container = document.getElementById('toast-container');
-  if (!container) return;
-
-  const toast = document.createElement('div');
-  const borderCol = type === 'error' ? 'border-red-500/50' : type === 'success' ? 'border-emerald-500/50' : 'border-white/15';
-
-  toast.className = `glass-strong text-white text-xs sm:text-sm font-medium px-4 py-3 rounded-lg shadow-2xl backdrop-blur-xl border ${borderCol} flex items-center gap-2 pointer-events-auto fade-enter`;
-  toast.innerHTML = `<span>${escapeHtml(message)}</span>`;
-
-  container.appendChild(toast);
-  setTimeout(() => {
-    toast.style.opacity = '0';
-    toast.style.transform = 'translateY(6px)';
-    toast.style.transition = 'all 0.25s ease-out';
-    setTimeout(() => toast.remove(), 260);
-  }, 3000);
+  // Snackbar/toast popups disabled per user request to maintain clean cinema UI
+  if (type === 'error') {
+    console.warn('[VoidFlix]', message);
+  }
 }
 
-function copyToClipboard(text, msg = 'Copied to clipboard!') {
-  navigator.clipboard.writeText(text).then(() => {
-    showToast(msg, 'success');
-  }).catch(() => {
-    showToast('Failed to copy', 'error');
-  });
+function copyToClipboard(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).catch(() => {});
+  }
 }
 
 function navigateTo(hash) {
