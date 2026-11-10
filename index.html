@@ -373,33 +373,40 @@
     .vf-action-pill {
       display: inline-flex;
       align-items: center;
+      justify-content: center;
       gap: 5px;
-      padding: 5px 8px;
-      border-radius: 6px;
+      padding: 6px 8px;
+      border-radius: 8px;
       font-size: 11px;
       font-weight: 500;
       color: #e5e5e5;
-      background: transparent;
-      border: none;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
       cursor: pointer;
       transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease;
       white-space: nowrap;
       user-select: none;
       -webkit-user-select: none;
+      flex-shrink: 0;
+      min-width: 32px;
+      min-height: 32px;
     }
     @media (min-width: 640px) {
       .vf-action-pill {
         padding: 6px 11px;
         font-size: 12.5px;
         gap: 6.5px;
+        background: transparent;
+        border-color: transparent;
       }
     }
     .vf-action-pill:hover {
-      background: rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.15);
       color: #ffffff;
+      border-color: rgba(255, 255, 255, 0.18);
     }
     .vf-action-pill:active {
-      transform: scale(0.95);
+      transform: scale(0.92);
     }
 
     /* Below Player Action Buttons (Download, My List, Share) */
@@ -429,6 +436,13 @@
     }
     .vf-action-btn:active {
       transform: scale(0.96);
+    }
+    @media (max-width: 640px) {
+      .vf-action-btn {
+        padding: 0.5rem 0.5rem;
+        font-size: 0.6875rem;
+        gap: 0.35rem;
+      }
     }
 
     /* Subtitle Cue Styling */
@@ -569,14 +583,14 @@
       -webkit-backdrop-filter: blur(10px);
     }
 
-    /* Playback Settings Sheet */
+    /* Playback Settings & Audio/Subtitles Sheet */
     .vf-sheet {
       position: absolute;
-      background: rgba(14, 14, 18, 0.96);
+      background: rgba(14, 14, 18, 0.98);
       border: 1px solid rgba(255, 255, 255, 0.14);
-      backdrop-filter: blur(24px);
-      -webkit-backdrop-filter: blur(24px);
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(28px);
+      -webkit-backdrop-filter: blur(28px);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9);
       z-index: 40;
     }
     @media (min-width: 641px) {
@@ -586,7 +600,7 @@
         width: 480px;
         max-width: calc(100% - 36px);
         max-height: 80%;
-        border-radius: 14px;
+        border-radius: 16px;
       }
     }
     @media (max-width: 640px) {
@@ -595,12 +609,18 @@
         left: 0;
         right: 0;
         width: 100%;
-        max-height: 85%;
+        max-height: 94%;
         border-radius: 18px 18px 0 0;
         border-bottom: none;
         border-left: none;
         border-right: none;
+        box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.95);
+        animation: slideUpSheet 0.22s cubic-bezier(0.16, 1, 0.3, 1);
       }
+    }
+    @keyframes slideUpSheet {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
     }
     .vf-sheet-title {
       font-size: 10.5px;
@@ -608,7 +628,7 @@
       text-transform: uppercase;
       letter-spacing: 0.08em;
       color: #9ca3af;
-      margin: 10px 8px 6px 8px;
+      margin: 6px 4px 6px 4px;
     }
 
     /* In-Player Episode Drawer */
@@ -620,6 +640,12 @@
     .vf-drawer.open {
       transform: translateX(0);
       pointer-events: auto;
+    }
+    @media (max-width: 640px) {
+      .vf-drawer {
+        width: 85% !important;
+        max-width: 320px;
+      }
     }
 
     /* Theater Mode */
@@ -659,10 +685,10 @@
 
   <!-- ==================== VOIDFLIX MAIN NAVBAR ==================== -->
   <header class="sticky top-0 z-50 glass-nav transition-all duration-300">
-    <div class="max-w-[1720px] mx-auto px-4 sm:px-8 h-16 flex items-center justify-between gap-4">
+    <div class="max-w-[1720px] mx-auto px-3 sm:px-8 h-16 flex items-center justify-between gap-2.5 sm:gap-4">
       
       <!-- Brand Logo & Navigation Links -->
-      <div class="flex items-center gap-6 sm:gap-8">
+      <div class="flex items-center gap-4 sm:gap-8">
         <a href="#/" class="flex items-center gap-2 group flex-shrink-0">
           <span class="font-display text-2xl sm:text-3xl tracking-wider text-brand-red font-bold drop-shadow-[0_0_12px_rgba(229,9,20,0.5)]">
             VOID<span class="text-white">FLIX</span>
@@ -689,21 +715,21 @@
       </div>
 
       <!-- Right: Search, Randomizer, Settings & Profile -->
-      <div class="flex items-center gap-2 sm:gap-3.5 justify-end flex-1 max-w-lg">
+      <div class="flex items-center gap-1.5 sm:gap-3.5 justify-end flex-1 max-w-lg">
         
         <!-- Live Autocomplete Search Bar -->
-        <div class="relative flex-1 max-w-xs sm:max-w-sm">
+        <div class="relative flex-1 max-w-[210px] sm:max-w-sm">
           <div class="relative flex items-center">
-            <span class="absolute left-3 pointer-events-none text-zinc-400">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            <span class="absolute left-2.5 sm:left-3 pointer-events-none text-zinc-400">
+              <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
             </span>
-            <input id="search-input" type="text" placeholder="Search anime, tags, studios..." 
-                   class="w-full bg-carbon-850/90 text-xs sm:text-sm text-white pl-9 pr-14 py-2 rounded-xl border border-white/10 focus:border-brand-red/60 focus:bg-carbon-800 focus:outline-none focus:ring-2 focus:ring-brand-red/20 transition-all placeholder-zinc-500 shadow-inner"
+            <input id="search-input" type="text" placeholder="Search anime..." 
+                   class="w-full bg-carbon-850/90 text-xs sm:text-sm text-white pl-8 sm:pl-9 pr-8 sm:pr-14 py-2 rounded-xl border border-white/10 focus:border-brand-red/60 focus:bg-carbon-800 focus:outline-none focus:ring-2 focus:ring-brand-red/20 transition-all placeholder-zinc-500 shadow-inner"
                    autocomplete="off"
                    oninput="handleSearchInput(event)"
                    onkeydown="if(event.key==='Enter') submitSearch()">
             
-            <div class="absolute right-2.5 flex items-center gap-1">
+            <div class="absolute right-2 sm:right-2.5 flex items-center gap-1">
               <button id="search-clear-btn" onclick="clearSearch()" class="hidden text-zinc-400 hover:text-white p-0.5">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
               </button>
@@ -712,7 +738,7 @@
           </div>
 
           <!-- Live Search Autocomplete Dropdown -->
-          <div id="search-dropdown" class="hidden absolute top-full left-0 right-0 mt-2 glass-strong rounded-xl shadow-2xl p-2 z-50 max-h-96 overflow-y-auto fade-enter border border-white/10">
+          <div id="search-dropdown" class="hidden absolute top-full left-0 right-0 sm:left-0 sm:right-0 min-w-[240px] mt-2 glass-strong rounded-xl shadow-2xl p-2 z-50 max-h-96 overflow-y-auto fade-enter border border-white/10">
             <div id="search-dropdown-results" class="divide-y divide-white/[0.06]">
               <!-- Populated dynamically -->
             </div>
@@ -782,30 +808,30 @@
   </div>
 
   <!-- ==================== MOBILE BOTTOM TAB BAR ==================== -->
-  <nav id="mobile-bottom-nav" class="md:hidden fixed bottom-0 left-0 right-0 z-40 glass-nav border-t border-white/10 px-2 py-2 flex items-center justify-around pb-[calc(0.6rem+env(safe-area-inset-bottom))] shadow-[0_-10px_25px_rgba(0,0,0,0.7)]">
-    <button onclick="showHome()" id="mobile-nav-home" class="flex flex-col items-center gap-1 text-white font-bold transition py-1 px-2.5 rounded-xl active:scale-95">
+  <nav id="mobile-bottom-nav" class="md:hidden fixed bottom-0 left-0 right-0 z-40 glass-nav border-t border-white/10 px-1 py-1.5 flex items-center justify-around pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-[0_-10px_25px_rgba(0,0,0,0.7)]">
+    <button onclick="showHome()" id="mobile-nav-home" class="flex flex-col items-center gap-0.5 text-white font-bold transition py-1 px-1.5 sm:px-2 rounded-xl active:scale-95">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
-      <span class="text-[10px] tracking-tight">Home</span>
+      <span class="text-[9.5px] tracking-tight">Home</span>
     </button>
-    <button onclick="showGenresPage()" id="mobile-nav-genres" class="flex flex-col items-center gap-1 text-zinc-400 hover:text-white transition py-1 px-2.5 rounded-xl active:scale-95">
+    <button onclick="showGenresPage()" id="mobile-nav-genres" class="flex flex-col items-center gap-0.5 text-zinc-400 hover:text-white transition py-1 px-1.5 sm:px-2 rounded-xl active:scale-95">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
-      <span class="text-[10px] tracking-tight">Genres</span>
+      <span class="text-[9.5px] tracking-tight">Genres</span>
     </button>
-    <button onclick="navigateTo('#/browse/trending')" id="mobile-nav-trending" class="flex flex-col items-center gap-1 text-zinc-400 hover:text-white transition py-1 px-2.5 rounded-xl active:scale-95">
+    <button onclick="navigateTo('#/browse/trending')" id="mobile-nav-trending" class="flex flex-col items-center gap-0.5 text-zinc-400 hover:text-white transition py-1 px-1.5 sm:px-2 rounded-xl active:scale-95">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-      <span class="text-[10px] tracking-tight">Trending</span>
+      <span class="text-[9.5px] tracking-tight">Trending</span>
     </button>
-    <button onclick="navigateTo('#/browse/all')" id="mobile-nav-browse" class="flex flex-col items-center gap-1 text-zinc-400 hover:text-white transition py-1 px-2.5 rounded-xl active:scale-95">
+    <button onclick="navigateTo('#/browse/all')" id="mobile-nav-browse" class="flex flex-col items-center gap-0.5 text-zinc-400 hover:text-white transition py-1 px-1.5 sm:px-2 rounded-xl active:scale-95">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
-      <span class="text-[10px] tracking-tight">Catalogue</span>
+      <span class="text-[9.5px] tracking-tight">Catalogue</span>
     </button>
-    <button onclick="navigateTo('#/watchlist')" id="mobile-nav-watchlist" class="flex flex-col items-center gap-1 text-zinc-400 hover:text-white transition py-1 px-2.5 rounded-xl active:scale-95">
+    <button onclick="navigateTo('#/watchlist')" id="mobile-nav-watchlist" class="flex flex-col items-center gap-0.5 text-zinc-400 hover:text-white transition py-1 px-1.5 sm:px-2 rounded-xl active:scale-95">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
-      <span class="text-[10px] tracking-tight">My List</span>
+      <span class="text-[9.5px] tracking-tight">My List</span>
     </button>
-    <button onclick="navigateTo('#/history')" id="mobile-nav-history" class="flex flex-col items-center gap-1 text-zinc-400 hover:text-white transition py-1 px-3 rounded-xl active:scale-95">
+    <button onclick="navigateTo('#/history')" id="mobile-nav-history" class="flex flex-col items-center gap-0.5 text-zinc-400 hover:text-white transition py-1 px-1.5 sm:px-2 rounded-xl active:scale-95">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-      <span class="text-[10px] tracking-tight">History</span>
+      <span class="text-[9.5px] tracking-tight">History</span>
     </button>
   </nav>
 

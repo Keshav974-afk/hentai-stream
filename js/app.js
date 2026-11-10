@@ -51,6 +51,7 @@ const state = {
     hoverPreview: localStorage.getItem('voidflix_hover_preview') !== 'false',
     isDrawerOpen: false,
     isSettingsOpen: false,
+    isSubsOpen: false,
     settingsSection: null,
     isScrubbing: false
   },
@@ -230,7 +231,7 @@ function updateNavHighlight(route) {
   // Mobile Bottom Tab Bar Highlight & Visibility (hidden during video playback like FlowFlix)
   const bottomNav = document.getElementById('mobile-bottom-nav');
   if (bottomNav) {
-    if (route === 'player') {
+    if (route === 'player' || state.route === 'player') {
       bottomNav.classList.add('hidden');
     } else {
       bottomNav.classList.remove('hidden');
@@ -242,9 +243,9 @@ function updateNavHighlight(route) {
     if (mobEl) {
       const isActive = (r === route) || (r === 'genres' && (route === 'genre' || route === 'genres')) || (r === 'browse' && (route === 'series' || route === 'uncensored'));
       if (isActive) {
-        mobEl.className = 'flex flex-col items-center gap-1 text-brand-red font-bold transition py-1 px-2.5 rounded-xl bg-brand-red/10 border border-brand-red/20 shadow-sm';
+        mobEl.className = 'flex flex-col items-center gap-0.5 text-brand-red font-bold transition py-1 px-1.5 sm:px-2 rounded-xl bg-brand-red/10 border border-brand-red/20 shadow-sm';
       } else {
-        mobEl.className = 'flex flex-col items-center gap-1 text-zinc-400 hover:text-white transition py-1 px-2.5 rounded-xl';
+        mobEl.className = 'flex flex-col items-center gap-0.5 text-zinc-400 hover:text-white transition py-1 px-1.5 sm:px-2 rounded-xl';
       }
     }
   });
@@ -1251,7 +1252,7 @@ async function showSeriesPage(id) {
 // ==================== DEDICATED WATCH PAGE & FLOWFLIX CINEMA PLAYER ====================
 async function showWatchPage(seriesId, chapterId) {
   state.route = 'player';
-  updateNavHighlight('series');
+  updateNavHighlight('player');
   window.scrollTo({ top: 0, behavior: 'smooth' });
 
   // Hide mobile bottom navigation on video player view (like FlowFlix)
@@ -1333,6 +1334,7 @@ async function showWatchPage(seriesId, chapterId) {
     // Reset per-episode player UI state
     state.player.isDrawerOpen = false;
     state.player.isSettingsOpen = false;
+    state.player.isSubsOpen = false;
 
     app.innerHTML = `
       <div class="max-w-[1500px] mx-auto fade-enter relative space-y-4 sm:space-y-6" id="player-container">
@@ -1378,26 +1380,26 @@ async function showWatchPage(seriesId, chapterId) {
               <div class="vf-top pointer-events-auto flex items-center gap-2 sm:gap-3 px-3 sm:px-6 pt-3 sm:pt-4 pb-10">
                 <button onclick="navigateTo('#/series/${seriesId}')" class="vf-icon-btn" title="Back">${ICON.back}</button>
                 <div class="min-w-0 flex-1">
-                  <h3 class="font-heading font-bold text-[13px] sm:text-base text-white truncate leading-tight">${escapeHtml(title)}</h3>
-                  <p class="text-[11px] sm:text-xs text-gray-300 truncate">${escapeHtml(epTitle)} <span class="text-gray-500">• ${epIndex + 1} of ${episodes.length}</span></p>
+                  <h3 class="font-heading font-bold text-xs sm:text-base text-white truncate leading-tight">${escapeHtml(title)}</h3>
+                  <p class="text-[10px] sm:text-xs text-gray-300 truncate">${escapeHtml(epTitle)} <span class="text-gray-500">• ${epIndex + 1} of ${episodes.length}</span></p>
                 </div>
                 <button onclick="${dlCall}" class="vf-icon-btn" title="Download Episode">${ICON.dl}</button>
               </div>
 
               <!-- Center transport (Clean Floating VoidFlix Spec) -->
-              <div class="vf-center pointer-events-none absolute inset-0 flex items-center justify-center gap-10 sm:gap-24">
+              <div class="vf-center pointer-events-none absolute inset-0 flex items-center justify-center gap-8 sm:gap-24">
                 <button onclick="event.stopPropagation(); seekRelative(-10); flashSeek('left');" class="vf-transport-clean pointer-events-auto" title="Back 10s">
-                  <svg class="w-9 h-9 sm:w-12 sm:h-12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <svg class="w-8 h-8 sm:w-12 sm:h-12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
                     <path d="M3 3v5h5"/>
                     <text x="12" y="15" font-size="8" font-weight="bold" fill="currentColor" stroke="none" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">10</text>
                   </svg>
                 </button>
                 <button onclick="togglePlayPause(event)" id="center-play-btn" class="vf-transport-clean pointer-events-auto" title="Play / Pause">
-                  <svg id="center-play-icon" class="w-12 h-12 sm:w-16 sm:h-16 fill-current text-white hover:text-brand-red transition-colors" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                  <svg id="center-play-icon" class="w-11 h-11 sm:w-16 sm:h-16 fill-current text-white hover:text-brand-red transition-colors" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                 </button>
                 <button onclick="event.stopPropagation(); seekRelative(10); flashSeek('right');" class="vf-transport-clean pointer-events-auto" title="Forward 10s">
-                  <svg class="w-9 h-9 sm:w-12 sm:h-12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <svg class="w-8 h-8 sm:w-12 sm:h-12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M21 12a9 9 0 1 1-9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
                     <path d="M21 3v5h-5"/>
                     <text x="12" y="15" font-size="8" font-weight="bold" fill="currentColor" stroke="none" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">10</text>
@@ -1405,8 +1407,8 @@ async function showWatchPage(seriesId, chapterId) {
                 </button>
               </div>
 
-              <!-- Right-Side Vertical Brightness Slider (From VoidFlix Screenshot) -->
-              <div id="player-brightness-ctrl" class="absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 z-20 flex flex-col items-center gap-2 pointer-events-auto select-none opacity-85 hover:opacity-100 transition-opacity">
+              <!-- Right-Side Vertical Brightness Slider (Desktop Only) -->
+              <div id="player-brightness-ctrl" class="hidden sm:flex absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 z-20 flex-col items-center gap-2 pointer-events-auto select-none opacity-85 hover:opacity-100 transition-opacity">
                 <button onclick="resetPlayerBrightness()" class="text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] hover:scale-110 transition-transform" title="Reset Brightness (100%)">
                   <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
                 </button>
@@ -1416,56 +1418,58 @@ async function showWatchPage(seriesId, chapterId) {
                 </div>
               </div>
 
-              <!-- Bottom bar (VoidFlix Specs) -->
-              <div class="vf-bottom pointer-events-auto px-3 sm:px-6 pb-2.5 sm:pb-4 pt-12 space-y-1 sm:space-y-2">
+              <!-- Bottom bar -->
+              <div class="vf-bottom pointer-events-auto px-3 sm:px-6 pb-2.5 sm:pb-4 pt-12 space-y-1.5 sm:space-y-2">
 
                 <!-- Scrubber row -->
-                <div class="flex items-center gap-3">
-                  <div id="timeline-container" class="vf-timeline relative flex-1 h-5 flex items-center cursor-pointer touch-none">
+                <div class="flex items-center gap-2.5 sm:gap-3">
+                  <div id="timeline-container" class="vf-timeline relative flex-1 h-6 sm:h-5 flex items-center cursor-pointer touch-none py-2">
                     <div class="vf-track relative w-full h-[3px] rounded-full bg-white/20 overflow-visible">
                       <div id="player-buffer-bar" class="absolute inset-y-0 left-0 bg-white/35 rounded-full" style="width:0"></div>
                       <div id="player-progress-bar" class="absolute inset-y-0 left-0 bg-brand-red rounded-full" style="width:0"></div>
                     </div>
-                    <div id="player-scrubber-thumb" class="vf-thumb absolute top-1/2 w-3.5 h-3.5 rounded-full bg-brand-red ring-2 ring-white/60 pointer-events-none shadow" style="left:0"></div>
-                    <div id="player-hover-tooltip" class="hidden absolute bottom-full mb-1.5 -translate-x-1/2 px-2 py-0.5 rounded bg-black/90 border border-white/15 text-white text-[11px] font-mono pointer-events-none">00:00</div>
+                    <div id="player-scrubber-thumb" class="vf-thumb absolute top-1/2 w-4 h-4 sm:w-3.5 sm:h-3.5 rounded-full bg-brand-red ring-2 ring-white/70 pointer-events-none shadow" style="left:0"></div>
+                    <div id="player-hover-tooltip" class="hidden absolute bottom-full mb-1.5 -translate-x-1/2 px-2 py-0.5 rounded bg-black/90 border border-white/15 text-white text-[10px] font-mono pointer-events-none">00:00</div>
                   </div>
-                  <span id="player-time-remaining" class="text-xs sm:text-sm font-medium text-white tabular-nums min-w-[42px] text-right drop-shadow">00:00</span>
+                  <span id="player-time-remaining" class="text-[11px] sm:text-sm font-medium text-white tabular-nums min-w-[38px] sm:min-w-[42px] text-right drop-shadow">00:00</span>
                 </div>
 
-                <!-- Bottom Button Row (Exact Order from VoidFlix Screenshot) -->
+                <!-- Bottom Button Row (Mobile: Icon-Only, Desktop: Icon + Label) -->
                 <div class="flex items-center justify-between gap-1 sm:gap-2 pt-0.5">
-                  <div class="flex items-center gap-1 sm:gap-2 overflow-x-auto no-scrollbar min-w-0 pr-1">
+                  <div class="flex items-center gap-1 sm:gap-1.5 overflow-x-auto no-scrollbar min-w-0 pr-1">
+                    
                     <!-- 1. Speed (1x) -->
-                    <button onclick="event.stopPropagation(); togglePlayerSettings('speed');" class="vf-action-pill" title="Playback Speed">
+                    <button onclick="event.stopPropagation(); toggleSpeedMenu();" class="vf-action-pill" title="Playback Speed">
                       <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16.2 7.8l-4.2 4.2"/><path d="M12 12v.01"/></svg>
-                      <span id="btn-speed-label">Speed (${state.player.speed || 1}x)</span>
+                      <span id="btn-speed-label" class="hidden sm:inline">Speed (${state.player.speed || 1}x)</span>
                     </button>
 
-                    <!-- 3. Quality -->
-                    <button onclick="event.stopPropagation(); togglePlayerSettings('quality');" class="vf-action-pill" title="Stream Quality">
+                    <!-- 2. Audio & Subtitles (Separate Dedicated Modal) -->
+                    <button id="btn-subs-toggle" onclick="event.stopPropagation(); toggleSubtitlesModal();" class="vf-action-pill" title="Audio & Subtitles">
+                      <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                      <span class="hidden sm:inline">Audio &amp; Subtitles</span>
+                      <span id="subs-badge" class="hidden text-[9px] font-bold px-1 py-0.2 rounded bg-brand-red text-white"></span>
+                    </button>
+
+                    <!-- 3. Settings (Quality & Preferences) -->
+                    <button onclick="event.stopPropagation(); togglePlayerSettings();" class="vf-action-pill" title="Playback Settings">
                       <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg>
-                      <span>Quality</span>
+                      <span class="hidden sm:inline">Settings</span>
                     </button>
 
                     <!-- 4. Episodes -->
                     ${episodes.length > 1 ? `
                       <button onclick="event.stopPropagation(); toggleInPlayerDrawer();" class="vf-action-pill" title="Episode Drawer">
                         <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
-                        <span>Episodes</span>
+                        <span class="hidden sm:inline">Episodes</span>
                       </button>
                     ` : ''}
 
-                    <!-- 5. Audio & Subtitles -->
-                    <button id="btn-subs-toggle" onclick="event.stopPropagation(); togglePlayerSettings('subs');" class="vf-action-pill hidden" title="Audio & Subtitles">
-                      <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
-                      <span>Audio &amp; Subtitles</span>
-                    </button>
-
-                    <!-- 6. Next Ep. -->
+                    <!-- 5. Next Ep. -->
                     ${nextEp ? `
                       <button onclick="navigateTo('#/watch/${seriesId}/${nextEp.chapter_id}')" class="vf-action-pill" title="Next Episode">
                         <svg class="w-4 h-4 flex-shrink-0 fill-current" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
-                        <span>Next Ep.</span>
+                        <span class="hidden sm:inline">Next Ep.</span>
                       </button>
                     ` : ''}
                   </div>
@@ -1480,44 +1484,71 @@ async function showWatchPage(seriesId, chapterId) {
                              oninput="handleVolumeChange(this.value)" class="scrubber vf-volume-slider hidden sm:block w-16 md:w-20 h-1 rounded-full cursor-pointer">
                     </div>
                     <button onclick="event.stopPropagation(); toggleFullscreen();" class="vf-action-pill p-1.5" title="Fullscreen (F)">
-                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg>
+                      <svg id="fs-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg>
                     </button>
                   </div>
                 </div>
               </div>
             </div>
 
-            <!-- ============ SETTINGS SHEET (Quality / Speed / Audio / Subtitles) ============ -->
-            <div id="player-settings-backdrop" class="hidden absolute inset-0 z-30 bg-black/40" onclick="togglePlayerSettings(false)"></div>
-            <div id="player-settings" class="vf-sheet hidden absolute z-40 glass-strong overflow-y-auto no-scrollbar">
-              <div class="flex items-center justify-between px-4 pt-3 pb-2 sticky top-0 bg-[rgba(14,14,18,0.96)] z-10">
-                <h4 class="font-heading font-bold text-sm text-white">Playback Settings</h4>
-                <button onclick="togglePlayerSettings(false)" class="vf-icon-btn -mr-2">${ICON.close}</button>
+            <!-- ============ DEDICATED AUDIO & SUBTITLES BOTTOM SHEET ============ -->
+            <div id="player-subs-backdrop" class="hidden absolute inset-0 z-30 bg-black/60 backdrop-blur-sm" onclick="toggleSubtitlesModal(false)"></div>
+            <div id="player-subs-modal" class="vf-sheet hidden absolute z-40 glass-strong overflow-y-auto no-scrollbar rounded-t-2xl sm:rounded-2xl">
+              <div class="flex items-center justify-between px-4 pt-3.5 pb-2.5 sticky top-0 bg-[rgba(14,14,18,0.98)] border-b border-white/10 z-10">
+                <div class="flex items-center gap-2">
+                  <svg class="w-4 h-4 text-brand-red" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                  <h4 class="font-heading font-bold text-sm text-white">Audio &amp; Subtitles</h4>
+                </div>
+                <button onclick="toggleSubtitlesModal(false)" class="vf-icon-btn -mr-1">${ICON.close}</button>
               </div>
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-2 px-2 pb-3">
-                <section id="settings-sec-quality">
+              <div class="grid grid-cols-2 gap-3 p-3.5 text-xs">
+                <div class="space-y-2">
+                  <h5 class="vf-sheet-title">Audio Track</h5>
+                  <div id="audio-tracks-list" class="space-y-1">
+                    <button class="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-white/[0.08] text-white font-semibold border border-brand-red/40">
+                      <span class="truncate">Original (Stereo)</span>
+                      <svg class="w-3.5 h-3.5 text-brand-red flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+                    </button>
+                  </div>
+                </div>
+                <div class="space-y-2">
+                  <h5 class="vf-sheet-title">Subtitles</h5>
+                  <div id="subtitles-dropdown" class="space-y-1"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ============ PLAYBACK SETTINGS SHEET (Quality / Speed / Preferences) ============ -->
+            <div id="player-settings-backdrop" class="hidden absolute inset-0 z-30 bg-black/60 backdrop-blur-sm" onclick="togglePlayerSettings(false)"></div>
+            <div id="player-settings" class="vf-sheet hidden absolute z-40 glass-strong overflow-y-auto no-scrollbar rounded-t-2xl sm:rounded-2xl">
+              <div class="flex items-center justify-between px-4 pt-3.5 pb-2.5 sticky top-0 bg-[rgba(14,14,18,0.98)] border-b border-white/10 z-10">
+                <div class="flex items-center gap-2">
+                  <svg class="w-4 h-4 text-brand-red" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg>
+                  <h4 class="font-heading font-bold text-sm text-white">Playback Settings</h4>
+                </div>
+                <button onclick="togglePlayerSettings(false)" class="vf-icon-btn -mr-1">${ICON.close}</button>
+              </div>
+              <div class="grid grid-cols-2 gap-3 p-3.5 text-xs">
+                <section id="settings-sec-quality" class="space-y-2">
                   <h5 class="vf-sheet-title">Quality</h5>
-                  <div id="quality-dropdown" class="space-y-0.5"><p class="px-3 py-2 text-xs text-gray-500">Loading stream levels…</p></div>
+                  <div id="quality-dropdown" class="space-y-1"><p class="px-3 py-2 text-xs text-gray-500">Loading stream levels…</p></div>
                 </section>
-                <section id="settings-sec-speed">
+                <section id="settings-sec-speed" class="space-y-2">
                   <h5 class="vf-sheet-title">Playback Speed</h5>
-                  <div id="speed-dropdown" class="grid grid-cols-3 gap-1.5 px-2"></div>
-                </section>
-                <section id="settings-sec-subs">
-                  <h5 class="vf-sheet-title">Audio &amp; Subtitles</h5>
-                  <div id="subtitles-dropdown" class="space-y-0.5"></div>
-                </section>
-                <section>
-                  <h5 class="vf-sheet-title">Preferences</h5>
-                  <label class="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-white/5 cursor-pointer text-sm text-gray-200">
-                    <span>Auto-play next episode</span>
-                    <input type="checkbox" ${state.player.autoPlayNext ? 'checked' : ''} onchange="state.player.autoPlayNext=this.checked; localStorage.setItem('voidflix_autoplay', String(this.checked));" class="w-4 h-4 accent-[#E50914]">
-                  </label>
+                  <div id="speed-dropdown" class="grid grid-cols-3 gap-1"></div>
+                  <div class="pt-2 border-t border-white/10 mt-2">
+                    <h5 class="vf-sheet-title mb-1.5">Preferences</h5>
+                    <label class="flex items-center justify-between p-2 rounded-lg hover:bg-white/5 cursor-pointer text-[11px] text-gray-200 bg-carbon-800/80 border border-white/5">
+                      <span>Auto-play next</span>
+                      <input type="checkbox" ${state.player.autoPlayNext ? 'checked' : ''} onchange="state.player.autoPlayNext=this.checked; localStorage.setItem('voidflix_autoplay', String(this.checked));" class="w-3.5 h-3.5 accent-[#E50914]">
+                    </label>
+                  </div>
                 </section>
               </div>
             </div>
 
             <!-- ============ EPISODE DRAWER ============ -->
+            <div id="in-player-drawer-backdrop" class="hidden absolute inset-0 z-35 bg-black/60 backdrop-blur-sm" onclick="toggleInPlayerDrawer(false)"></div>
             <div id="in-player-drawer" class="vf-drawer absolute top-0 bottom-0 right-0 z-40 w-full sm:w-80 bg-carbon-950/95 backdrop-blur-xl border-l border-white/10 flex flex-col">
               <div class="flex items-center justify-between px-4 py-3 border-b border-white/10">
                 <h4 class="font-heading font-bold text-xs uppercase tracking-wider text-white">Episodes · ${episodes.length}</h4>
@@ -1567,13 +1598,13 @@ async function showWatchPage(seriesId, chapterId) {
             <p id="watch-synopsis" class="text-zinc-300 text-xs sm:text-sm leading-relaxed line-clamp-3">${escapeHtml(data.post_content || 'Stream all episodes in high definition with VoidFlix Cinema Engine.')}</p>
             <button onclick="document.getElementById('watch-synopsis').classList.toggle('line-clamp-3'); this.textContent = this.textContent === 'More' ? 'Less' : 'More';" class="text-[11px] font-semibold text-brand-red hover:underline">More synopsis</button>
           </div>
-          <div class="grid grid-cols-3 lg:grid-cols-1 gap-2.5 lg:border-l lg:border-white/10 lg:pl-6 content-center">
+          <div class="grid grid-cols-3 lg:grid-cols-1 gap-2 sm:gap-2.5 lg:border-l lg:border-white/10 lg:pl-6 content-center">
             <button onclick="${dlCall}" class="vf-action-btn">${ICON.dl}<span>Download</span></button>
             <button onclick="toggleWatchlist({ id: ${seriesId}, title: '${escapeHtml(title).replace(/'/g, "\\'")}', thumbnail: '${escapeHtml(data.post_thumbnail || '')}' }, event)" data-watchlist-id="${seriesId}" class="vf-action-btn">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg><span>My List</span>
+              <svg class="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg><span>My List</span>
             </button>
             <button onclick="copyToClipboard(window.location.href, 'Episode link copied!')" class="vf-action-btn">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg><span>Share</span>
+              <svg class="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg><span>Share</span>
             </button>
           </div>
         </div>
@@ -1775,7 +1806,7 @@ function scheduleHideControls(delay = 3500) {
   state.playerControlsTimer = setTimeout(() => {
     const frame = document.getElementById('video-frame');
     const video = document.getElementById('video-player');
-    if (!frame || !video || video.paused || state.player.isDrawerOpen || state.player.isSettingsOpen || state.player.isScrubbing) return;
+    if (!frame || !video || video.paused || state.player.isDrawerOpen || state.player.isSettingsOpen || state.player.isSubsOpen || state.player.isScrubbing) return;
     frame.classList.add('controls-hidden');
   }, delay);
 }
@@ -1815,7 +1846,11 @@ function handlePlayerTap(e) {
   // Single-tap: Cleanly toggle controls visibility (NEVER accidentally pauses video!)
   clearTimeout(playerTapTimer);
   playerTapTimer = setTimeout(() => {
-    // If settings sheet or drawer is open, dismiss them on tap
+    // If settings sheet, subtitles modal, or drawer is open, dismiss them on tap
+    if (state.player.isSubsOpen) {
+      toggleSubtitlesModal(false);
+      return;
+    }
     if (state.player.isSettingsOpen) {
       togglePlayerSettings(false);
       return;
@@ -1851,45 +1886,77 @@ function flashSeek(side) {
 // Backwards compat
 function showSeekRipple(side) { flashSeek(side); }
 
-// ---- Drawer & settings sheet ----
+// ---- Drawer, Subtitles Modal & Settings Sheet ----
 function toggleInPlayerDrawer(force) {
   state.player.isDrawerOpen = typeof force === 'boolean' ? force : !state.player.isDrawerOpen;
   document.getElementById('in-player-drawer')?.classList.toggle('open', state.player.isDrawerOpen);
-  if (state.player.isDrawerOpen) { togglePlayerSettings(false); revealPlayerControls(true); }
-  else scheduleHideControls();
-}
-
-function togglePlayerSettings(section) {
-  const sheet = document.getElementById('player-settings');
-  const backdrop = document.getElementById('player-settings-backdrop');
-  if (!sheet) return;
-  const open = section === false ? false : (section === true || typeof section === 'string') ? !(state.player.isSettingsOpen && state.player.settingsSection === section) : !state.player.isSettingsOpen;
-  state.player.isSettingsOpen = open;
-  state.player.settingsSection = open ? section : null;
-  sheet.classList.toggle('hidden', !open);
-  backdrop?.classList.toggle('hidden', !open);
-  if (open) {
-    if (state.player.isDrawerOpen) toggleInPlayerDrawer(false);
-    revealPlayerControls(true);
-    const target = section === 'subs' ? 'settings-sec-subs' : section === 'speed' ? 'settings-sec-speed' : 'settings-sec-quality';
-    const sec = document.getElementById(target);
-    if (sec && sheet.scrollHeight > sheet.clientHeight) sheet.scrollTop = sec.offsetTop - 48;
+  document.getElementById('in-player-drawer-backdrop')?.classList.toggle('hidden', !state.player.isDrawerOpen);
+  if (state.player.isDrawerOpen) { 
+    togglePlayerSettings(false); 
+    toggleSubtitlesModal(false);
+    revealPlayerControls(true); 
   } else {
     scheduleHideControls();
   }
 }
 
-function closeAllPlayerDropdowns() { togglePlayerSettings(false); }
-function toggleSubtitlesMenu() { togglePlayerSettings('subs'); }
-function toggleQualityMenu() { togglePlayerSettings('quality'); }
-function toggleSpeedMenu() { togglePlayerSettings('quality'); }
+function toggleSubtitlesModal(force) {
+  const modal = document.getElementById('player-subs-modal');
+  const backdrop = document.getElementById('player-subs-backdrop');
+  if (!modal) return;
+  const open = typeof force === 'boolean' ? force : !state.player.isSubsOpen;
+  state.player.isSubsOpen = open;
+  modal.classList.toggle('hidden', !open);
+  backdrop?.classList.toggle('hidden', !open);
+  if (open) {
+    if (state.player.isDrawerOpen) toggleInPlayerDrawer(false);
+    if (state.player.isSettingsOpen) togglePlayerSettings(false);
+    revealPlayerControls(true);
+    populateSubtitlesMenu();
+  } else {
+    scheduleHideControls();
+  }
+}
+
+function togglePlayerSettings(targetSection) {
+  const sheet = document.getElementById('player-settings');
+  const backdrop = document.getElementById('player-settings-backdrop');
+  if (!sheet) return;
+  const open = typeof targetSection === 'boolean' ? targetSection : (typeof targetSection === 'string' ? true : !state.player.isSettingsOpen);
+  state.player.isSettingsOpen = open;
+  sheet.classList.toggle('hidden', !open);
+  backdrop?.classList.toggle('hidden', !open);
+  if (open) {
+    if (state.player.isDrawerOpen) toggleInPlayerDrawer(false);
+    if (state.player.isSubsOpen) toggleSubtitlesModal(false);
+    revealPlayerControls(true);
+    if (targetSection === 'speed') {
+      setTimeout(() => {
+        const sec = document.getElementById('settings-sec-speed');
+        if (sec) sec.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 50);
+    }
+  } else {
+    scheduleHideControls();
+  }
+}
+
+function closeAllPlayerDropdowns() { 
+  togglePlayerSettings(false); 
+  toggleSubtitlesModal(false);
+  toggleInPlayerDrawer(false);
+}
+
+function toggleSubtitlesMenu() { toggleSubtitlesModal(); }
+function toggleQualityMenu() { togglePlayerSettings(); }
+function toggleSpeedMenu() { togglePlayerSettings('speed'); }
 
 function sheetOption(label, active, onclick, sub) {
   return `
-    <button onclick="${onclick}" class="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-left text-sm transition hover:bg-white/5 ${active ? 'text-white font-semibold' : 'text-gray-400'}">
-      <svg class="w-4 h-4 flex-shrink-0 ${active ? 'text-brand-red opacity-100' : 'opacity-0'}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+    <button onclick="${onclick}" class="w-full flex items-center gap-2 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg text-left text-xs sm:text-sm transition hover:bg-white/5 ${active ? 'text-white font-semibold bg-white/[0.08]' : 'text-gray-400'}">
+      <svg class="w-3.5 h-3.5 flex-shrink-0 ${active ? 'text-brand-red opacity-100' : 'opacity-0'}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
       <span class="flex-1 truncate">${label}</span>
-      ${sub ? `<span class="text-[10px] text-gray-500 font-normal">${sub}</span>` : ''}
+      ${sub ? `<span class="text-[9px] sm:text-[10px] text-gray-400 font-normal ml-1">${sub}</span>` : ''}
     </button>`;
 }
 
@@ -2122,23 +2189,21 @@ async function loadMasterSubtitles(manifestUrl) {
 function updateSubtitleButtonVisibility() {
   const btn = document.getElementById('btn-subs-toggle');
   const badge = document.getElementById('subs-badge');
-  const sheetSubsSec = document.getElementById('settings-sec-subs');
   const tracks = state.player.subtitleTracks || [];
   if (!btn) return;
 
-  if (tracks.length > 0) {
-    btn.classList.remove('hidden');
-    if (sheetSubsSec) sheetSubsSec.classList.remove('hidden');
-    if (badge) {
-      const active = state.player.currentSubtitle >= 0 ? tracks[state.player.currentSubtitle] : null;
-      badge.textContent = active ? (active.name || active.lang || 'ON').slice(0, 3).toUpperCase() : 'OFF';
-      badge.className = state.player.currentSubtitle >= 0
-        ? 'text-[10px] font-bold px-1.5 py-0.5 rounded bg-brand-red text-white'
-        : 'text-[10px] font-bold px-1.5 py-0.5 rounded bg-white/15 text-gray-300';
+  // Always keep Audio & Subtitles button accessible in action bar
+  btn.classList.remove('hidden');
+
+  if (badge) {
+    if (tracks.length > 0 && state.player.currentSubtitle >= 0) {
+      const active = tracks[state.player.currentSubtitle];
+      badge.textContent = (active.name || active.lang || 'CC').slice(0, 3).toUpperCase();
+      badge.className = 'text-[9px] font-bold px-1 py-0.2 rounded bg-brand-red text-white';
+      badge.classList.remove('hidden');
+    } else {
+      badge.classList.add('hidden');
     }
-  } else {
-    btn.classList.add('hidden');
-    if (sheetSubsSec) sheetSubsSec.classList.add('hidden');
   }
 }
 
@@ -2346,8 +2411,8 @@ function renderSpeedOptions() {
   if (!box) return;
   const cur = state.player.speed || 1;
   box.innerHTML = [0.5, 0.75, 1, 1.25, 1.5, 2].map(s => `
-    <button onclick="setPlaybackSpeed(${s})" class="py-2 rounded-lg text-xs font-semibold transition border ${s === cur ? 'bg-white text-black border-white' : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10'}">
-      ${s === 1 ? 'Normal' : s + 'x'}
+    <button onclick="setPlaybackSpeed(${s})" class="py-1.5 sm:py-2 rounded-lg text-[11px] sm:text-xs font-semibold transition border ${s === cur ? 'bg-white text-black border-white' : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10'}">
+      ${s === 1 ? '1x' : s + 'x'}
     </button>`).join('');
 }
 
