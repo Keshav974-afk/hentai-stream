@@ -1,9 +1,12 @@
 // Zero-dependency Node.js server and API proxy for Hentai Stream
-const http = require('http');
-const https = require('https');
-const fs = require('fs');
-const path = require('path');
-const url = require('url');
+import http from 'node:http';
+import https from 'node:https';
+import fs from 'node:fs';
+import path from 'node:path';
+import url, { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const PORT = process.env.PORT || 3000;
 const API_BASE = 'https://api.hentaihaven.app/v1';
