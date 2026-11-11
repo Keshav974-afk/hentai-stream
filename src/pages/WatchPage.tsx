@@ -4,6 +4,7 @@ import { API } from '../services/api';
 import { VideoPlayer } from '../components/VideoPlayer';
 import { AnimeCard } from '../components/AnimeCard';
 import { useWatchlist, useWatchHistory } from '../hooks/useLocalStorage';
+import { downloadMediaStream } from '../utils/download';
 
 interface WatchPageProps {
   seriesId: string | number;
@@ -17,7 +18,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({ seriesId, episodeId }) => 
   const [isTheaterMode, setIsTheaterMode] = useState(false);
   const [recommendations, setRecommendations] = useState<HentaiItem[]>([]);
   const [synopsisExpanded, setSynopsisExpanded] = useState(false);
-  const [copiedDirectLink, setCopiedDirectLink] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   const { isSaved, toggleWatchlist } = useWatchlist();
   const { getProgress } = useWatchHistory();
@@ -168,6 +169,16 @@ export const WatchPage: React.FC<WatchPageProps> = ({ seriesId, episodeId }) => 
     alert('Episode link copied to clipboard!');
   };
 
+  const handleDownload = async () => {
+    if (!currentEp?.chapter_content) return;
+    setIsDownloading(true);
+    try {
+      await downloadMediaStream(currentEp.chapter_content, `${title} - ${epTitle}.m3u8`);
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   return (
     <div className="pb-16 pt-16 sm:pt-20">
       <div
@@ -225,46 +236,6 @@ export const WatchPage: React.FC<WatchPageProps> = ({ seriesId, episodeId }) => 
       {/* Main Details and Episodes Grid Container (FlowFlix Spec) */}
       <div className="max-w-[1500px] mx-auto px-4 sm:px-6 mt-6 space-y-6">
 
-        {/* Direct Link & Quick Stream Fallback Bar */}
-        <div className="bg-carbon-900/90 border border-white/10 rounded-xl p-3 sm:p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-          <div className="flex items-center gap-2 w-full sm:w-auto min-w-0">
-            <span className="w-2 h-2 rounded-full bg-[#E50914] flex-shrink-0 animate-pulse" />
-            <span className="font-semibold text-white flex-shrink-0">Direct Stream Link:</span>
-            <span className="font-mono text-gray-400 truncate max-w-[200px] sm:max-w-md select-all bg-black/40 px-2 py-1 rounded border border-white/5">
-              {currentEp.chapter_content}
-            </span>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end flex-shrink-0">
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(currentEp.chapter_content);
-                setCopiedDirectLink(true);
-                setTimeout(() => setCopiedDirectLink(false), 2000);
-              }}
-              className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-200 hover:text-white border border-white/10 transition flex items-center gap-1.5"
-            >
-              <span>{copiedDirectLink ? '✓ Copied' : 'Copy Link'}</span>
-            </button>
-            <a
-              href={`https://videojs-http-streaming.netlify.app/?src=${encodeURIComponent(currentEp.chapter_content)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-200 hover:text-white border border-white/10 transition flex items-center gap-1.5"
-              title="Open in Web HLS Player"
-            >
-              <span>Web Player</span>
-            </a>
-            <a
-              href={currentEp.chapter_content}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-3 py-1.5 rounded-lg bg-[#E50914] hover:bg-[#b81d24] text-white font-semibold transition flex items-center gap-1.5"
-            >
-              <span>Open in New Tab / VLC</span>
-            </a>
-          </div>
-        </div>
-
         {/* Video Metadata & Action Bar Box */}
         <div className="bg-carbon-900 border border-white/10 rounded-2xl p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-4 gap-6">
           <div className="lg:col-span-3 space-y-3">
@@ -301,16 +272,24 @@ export const WatchPage: React.FC<WatchPageProps> = ({ seriesId, episodeId }) => 
 
           {/* Action Buttons (Download, My List, Share) */}
           <div className="grid grid-cols-3 lg:grid-cols-1 gap-2.5 lg:border-l lg:border-white/10 lg:pl-6 content-center">
-            <a
-              href={currentEp.chapter_content}
-              download={`${title} - ${epTitle}.m3u8`}
-              className="vf-action-btn"
+            <button
+              onClick={handleDownload}
+              disabled={isDownloading}
+              className="vf-action-btn cursor-pointer"
+              title="Download Episode M3U8"
             >
-              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-              </svg>
-              <span>Download</span>
-            </a>
+              {isDownloading ? (
+                <svg className="w-4 h-4 animate-spin text-[#E50914] flex-shrink-0" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              ) : (
+                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                </svg>
+              )}
+              <span>{isDownloading ? 'Saving...' : 'Download'}</span>
+            </button>
 
             <button
               onClick={() => toggleWatchlist({

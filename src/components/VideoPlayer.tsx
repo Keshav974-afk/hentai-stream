@@ -21,13 +21,11 @@ import {
   LayoutGrid,
   Download,
   X,
-  Copy,
-  Link,
-  ExternalLink,
-  Radio
+  Copy
 } from 'lucide-react';
 import { Episode, VideoQualityLevel } from '../types/api';
 import { useWatchHistory } from '../hooks/useLocalStorage';
+import { downloadMediaStream } from '../utils/download';
 
 interface VideoPlayerProps {
   streamUrl: string;
@@ -47,7 +45,7 @@ interface VideoPlayerProps {
   startTime?: number;
 }
 
-type SheetView = 'none' | 'speed' | 'quality' | 'audiosubs' | 'episodes' | 'download' | 'directlink';
+type SheetView = 'none' | 'speed' | 'quality' | 'audiosubs' | 'episodes' | 'download';
 
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 
@@ -100,12 +98,10 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     };
   });
 
-  // Active Stream URL (Supports streamUrl or user-entered custom direct link)
+  // Active Stream URL
   const [activeUrl, setActiveUrl] = useState<string>(streamUrl);
-  const [playbackMode, setPlaybackMode] = useState<'hls' | 'direct'>('hls');
-  const [customLinkInput, setCustomLinkInput] = useState<string>('');
   const [streamReloadNonce, setStreamReloadNonce] = useState(0);
-  const [copiedLink, setCopiedLink] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   // Keep activeUrl in sync with streamUrl prop updates
   useEffect(() => {
@@ -243,7 +239,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     };
 
     // Native playback mode for MP4 or native Apple HLS (Safari/iOS)
-    if (isDirectMp4 || (canPlayNativeHls && (playbackMode === 'direct' || isSafari || isIOS))) {
+    if (isDirectMp4 || (canPlayNativeHls && (isSafari || isIOS))) {
       video.src = activeUrl;
       const onLoaded = () => {
         if (startTime > 0 && video.currentTime < 1) {
@@ -392,7 +388,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
     setIsBuffering(false);
     setPlaybackError('HLS playback is not supported on this browser.');
-  }, [activeUrl, playbackMode, startTime, streamReloadNonce]);
+  }, [activeUrl, startTime, streamReloadNonce]);
 
   // Sync Volume & Brightness
   useEffect(() => {
@@ -747,12 +743,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         </div>
       )}
 
-      {/* Mode Indicator Pill (Top Left, subtle) */}
-      <div className="absolute top-3 left-14 z-25 pointer-events-none hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-black/50 backdrop-blur border border-white/10 text-[10px] text-gray-400">
-        <Radio className="size-3 text-[#E50914]" />
-        <span>{playbackMode === 'hls' ? 'HLS Engine' : 'Direct Link Mode'}</span>
-      </div>
-
       {/* Center Buffering Spinner (Does not block play button) */}
       {isBuffering && isPlaying && !playbackError && (
         <div className="pointer-events-none absolute inset-0 z-20 grid place-items-center bg-black/30 backdrop-blur-[1px]">
@@ -762,51 +752,20 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
       {/* Error / Fallback Retry Overlay */}
       {playbackError && (
-        <div className="absolute inset-0 z-25 flex flex-col items-center justify-center bg-black/90 p-6 text-center space-y-3 backdrop-blur-sm">
-          <div className="w-12 h-12 rounded-full bg-red-500/20 text-[#E50914] flex items-center justify-center mb-1">
-            <Radio className="size-6 animate-pulse" />
+        <div className="absolute inset-0 z-25 flex flex-col items-center justify-center bg-black/90 p-6 text-center space-y-4 backdrop-blur-sm">
+          <div className="w-14 h-14 rounded-full bg-red-500/15 border border-red-500/30 text-[#E50914] flex items-center justify-center mb-1 shadow-lg">
+            <Loader2 className="size-7" />
           </div>
-          <p className="text-white text-sm font-semibold max-w-md">{playbackError}</p>
-          <p className="text-gray-400 text-xs max-w-sm">
-            You can retry playback immediately, stream in the web player, or paste the direct link in VLC / 1DM.
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-2 pt-2 pointer-events-auto">
-            <button
-              onClick={reloadStream}
-              className="px-4 py-2 rounded-xl bg-[#E50914] hover:bg-[#b81d24] text-white text-xs font-bold transition shadow-lg cursor-pointer"
-            >
-              Retry Stream
-            </button>
-            <a
-              href={`https://videojs-http-streaming.netlify.app/?src=${encodeURIComponent(activeUrl)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold border border-white/15 transition shadow-lg cursor-pointer flex items-center gap-1.5"
-            >
-              <ExternalLink className="size-3.5 text-[#E50914]" />
-              <span>Web Player</span>
-            </a>
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(activeUrl);
-                setCopiedLink(true);
-                setTimeout(() => setCopiedLink(false), 2000);
-              }}
-              className="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white text-xs font-medium border border-white/10 transition flex items-center gap-1.5"
-            >
-              <Copy className="size-3.5" />
-              <span>{copiedLink ? '✓ Copied Link' : 'Copy Direct Link'}</span>
-            </button>
-            <a
-              href={activeUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white text-xs font-medium border border-white/10 transition flex items-center gap-1.5"
-            >
-              <ExternalLink className="size-3.5" />
-              <span>Open in VLC / Tab</span>
-            </a>
+          <div className="space-y-1">
+            <h4 className="text-white text-base font-bold">Playback Error</h4>
+            <p className="text-gray-300 text-xs max-w-sm">{playbackError}</p>
           </div>
+          <button
+            onClick={reloadStream}
+            className="px-6 py-2.5 rounded-xl bg-[#E50914] hover:bg-[#b81d24] text-white text-xs font-bold transition shadow-xl cursor-pointer active:scale-95"
+          >
+            Retry Playback
+          </button>
         </div>
       )}
 
@@ -923,16 +882,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
           {/* Right Actions */}
           <div className="flex items-center gap-1 sm:gap-1.5">
-            {/* Direct Link Switcher / Modal */}
-            <button
-              onClick={() => setActiveSheet(activeSheet === 'directlink' ? 'none' : 'directlink')}
-              aria-label="Direct Link"
-              className="grid size-9 place-items-center opacity-85 hover:opacity-100 transition-opacity"
-              title="Direct Link & Custom Streams"
-            >
-              <Link className="size-5" />
-            </button>
-
             {/* Download Modal Trigger */}
             <button
               onClick={() => setActiveSheet(activeSheet === 'download' ? 'none' : 'download')}
@@ -1038,13 +987,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
           {/* Bottom Row Action Buttons (FlowFlix BarButtons) */}
           <div className="flex items-center justify-between sm:justify-center sm:gap-6 lg:gap-8 pt-1 text-white">
-            {/* Direct Link Switcher Pill */}
-            <BarButton
-              icon={<Link className="size-4 sm:size-5" />}
-              label={playbackMode === 'direct' ? 'Direct: ON' : 'Direct Link'}
-              onClick={() => setActiveSheet(activeSheet === 'directlink' ? 'none' : 'directlink')}
-            />
-
             {/* Speed Pill */}
             <BarButton
               icon={<Gauge className="size-4 sm:size-5" />}
@@ -1109,122 +1051,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
             className="absolute inset-x-0 bottom-0 max-h-[85%] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-[#161616]/95 border border-white/10 text-white shadow-2xl backdrop-blur sm:inset-x-auto sm:left-1/2 sm:w-full sm:max-w-lg sm:-translate-x-1/2 p-4 sm:p-6"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* ============ DIRECT LINK MODAL ============ */}
-            {activeSheet === 'directlink' && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between pb-2 border-b border-white/10">
-                  <h4 className="font-bold text-sm text-white flex items-center gap-2">
-                    <Link className="size-4 text-[#E50914]" />
-                    <span>Direct Link & Stream Fallback</span>
-                  </h4>
-                  <button onClick={() => setActiveSheet('none')} className="text-gray-400 hover:text-white">
-                    <X className="size-5" />
-                  </button>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs text-gray-300 font-semibold block">Active Episode Direct Link:</label>
-                  <div className="flex items-center gap-2 bg-black/50 p-2 rounded-xl border border-white/10">
-                    <input
-                      type="text"
-                      readOnly
-                      value={activeUrl}
-                      className="bg-transparent text-xs text-gray-200 font-mono flex-1 outline-none truncate select-all"
-                    />
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(activeUrl);
-                        alert('Copied direct link to clipboard!');
-                      }}
-                      className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition flex-shrink-0"
-                      title="Copy Link"
-                    >
-                      <Copy className="size-4" />
-                    </button>
-                    <a
-                      href={`https://videojs-http-streaming.netlify.app/?src=${encodeURIComponent(activeUrl)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition flex-shrink-0"
-                      title="Open in Web HLS Player"
-                    >
-                      <Radio className="size-4 text-[#E50914]" />
-                    </a>
-                    <a
-                      href={activeUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition flex-shrink-0"
-                      title="Open in new tab / VLC"
-                    >
-                      <ExternalLink className="size-4" />
-                    </a>
-                  </div>
-                </div>
-
-                {/* Switch Mode Controls */}
-                <div className="space-y-2 pt-1">
-                  <span className="text-xs text-gray-400 block font-semibold">Playback Engine:</span>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => {
-                        setPlaybackMode('hls');
-                        reloadStream();
-                        setActiveSheet('none');
-                      }}
-                      className={`p-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
-                        playbackMode === 'hls' ? 'bg-[#E50914] text-white' : 'bg-white/5 hover:bg-white/10 text-gray-300'
-                      }`}
-                    >
-                      <Radio className="size-3.5" />
-                      <span>HLS.js Engine</span>
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        setPlaybackMode('direct');
-                        reloadStream();
-                        setActiveSheet('none');
-                      }}
-                      className={`p-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
-                        playbackMode === 'direct' ? 'bg-[#E50914] text-white' : 'bg-white/5 hover:bg-white/10 text-gray-300'
-                      }`}
-                    >
-                      <Link className="size-3.5" />
-                      <span>Direct HTML5 Stream</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Custom Direct Link Player */}
-                <div className="space-y-2 pt-2 border-t border-white/10">
-                  <label className="text-xs text-gray-300 font-semibold block">Play Any Custom Direct Video Link:</label>
-                  <div className="flex gap-2">
-                    <input
-                      type="url"
-                      placeholder="https://.../video.mp4 or .m3u8"
-                      value={customLinkInput}
-                      onChange={(e) => setCustomLinkInput(e.target.value)}
-                      className="flex-1 bg-black/50 border border-white/15 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-500 outline-none focus:border-[#E50914]"
-                    />
-                    <button
-                      onClick={() => {
-                        if (customLinkInput.trim()) {
-                          setActiveUrl(customLinkInput.trim());
-                          setPlaybackMode(customLinkInput.trim().includes('.m3u8') ? 'hls' : 'direct');
-                          reloadStream();
-                          setActiveSheet('none');
-                        }
-                      }}
-                      className="px-4 py-2 rounded-xl bg-[#E50914] hover:bg-[#b81d24] text-white font-bold text-xs transition"
-                    >
-                      Play
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {/* Speed Sheet */}
             {activeSheet === 'speed' && (
               <SheetSection title="Playback Speed" onClose={() => setActiveSheet('none')}>
@@ -1344,14 +1170,21 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
                 </p>
 
                 <div className="space-y-2 pt-2">
-                  <a
-                    href={activeUrl}
-                    download={`${seriesTitle} - ${epTitle}.m3u8`}
-                    className="w-full py-2.5 px-4 rounded-xl bg-[#E50914] hover:bg-[#b81d24] text-white font-semibold text-xs flex items-center justify-center gap-2 transition"
+                  <button
+                    onClick={async () => {
+                      setIsDownloading(true);
+                      try {
+                        await downloadMediaStream(activeUrl, `${seriesTitle} - ${epTitle}.m3u8`);
+                      } finally {
+                        setIsDownloading(false);
+                      }
+                    }}
+                    disabled={isDownloading}
+                    className="w-full py-2.5 px-4 rounded-xl bg-[#E50914] hover:bg-[#b81d24] text-white font-semibold text-xs flex items-center justify-center gap-2 transition cursor-pointer"
                   >
-                    <Download className="size-4" />
-                    <span>Download M3U8 Playlist File</span>
-                  </a>
+                    {isDownloading ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+                    <span>{isDownloading ? 'Saving File...' : 'Download M3U8 Playlist File'}</span>
+                  </button>
 
                   <button
                     onClick={() => {
