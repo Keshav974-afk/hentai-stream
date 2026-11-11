@@ -10,6 +10,52 @@ import { GenresPage } from './pages/GenresPage';
 import { CataloguePage } from './pages/CataloguePage';
 import { WatchlistPage } from './pages/WatchlistPage';
 
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error?: Error;
+}
+
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, ErrorBoundaryState> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('Unhandled UI error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-[65vh] flex flex-col items-center justify-center text-center px-4 pt-24 space-y-4">
+          <div className="w-16 h-16 rounded-full bg-carbon-800 border border-white/10 flex items-center justify-center text-[#E50914] text-2xl font-bold">
+            !
+          </div>
+          <h2 className="text-xl font-bold text-white">Playback or Display Interrupted</h2>
+          <p className="text-xs text-gray-400 max-w-md">
+            {this.state.error?.message || 'An unexpected rendering error occurred.'}
+          </p>
+          <button
+            onClick={() => {
+              this.setState({ hasError: false });
+              window.location.reload();
+            }}
+            className="px-6 py-2.5 rounded-xl bg-[#E50914] text-white font-semibold text-xs transition hover:scale-105 active:scale-95"
+          >
+            Reload Page
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export const App: React.FC = () => {
   const [currentHash, setCurrentHash] = useState<string>(() => window.location.hash || '#/');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -40,7 +86,7 @@ export const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Route Resolver
+// Route Resolver
   const renderRoute = () => {
     const hash = currentHash.replace(/^#\/?/, '');
     const [pathPart, queryPart] = hash.split('?');
@@ -48,33 +94,33 @@ export const App: React.FC = () => {
     const searchParams = new URLSearchParams(queryPart || '');
 
     if (segments.length === 0 || segments[0] === '') {
-      return <HomePage />;
+      return <HomePage key="home" />;
     }
 
     if (segments[0] === 'series' && segments[1]) {
-      return <SeriesPage seriesId={segments[1]} />;
+      return <SeriesPage key={`series-${segments[1]}`} seriesId={segments[1]} />;
     }
 
     if (segments[0] === 'watch' && segments[1]) {
-      return <WatchPage seriesId={segments[1]} episodeId={segments[2]} />;
+      return <WatchPage key={`watch-${segments[1]}-${segments[2] || 'ep1'}`} seriesId={segments[1]} episodeId={segments[2]} />;
     }
 
     if (segments[0] === 'genres' || segments[0] === 'genre') {
       const initialId = segments[1] || searchParams.get('id') || undefined;
-      return <GenresPage initialGenreId={initialId} />;
+      return <GenresPage key={`genres-${initialId || 'all'}`} initialGenreId={initialId} />;
     }
 
     if (segments[0] === 'browse' || segments[0] === 'catalogue') {
       const sort = (searchParams.get('sort') as any) || 'trending';
-      return <CataloguePage initialSort={sort} />;
+      return <CataloguePage key={`cat-${sort}`} initialSort={sort} />;
     }
 
     if (segments[0] === 'watchlist' || segments[0] === 'history' || segments[0] === 'saved') {
-      return <WatchlistPage />;
+      return <WatchlistPage key="watchlist" />;
     }
 
     // Default fallback to HomePage
-    return <HomePage />;
+    return <HomePage key="home-fallback" />;
   };
 
   const getActiveRoute = () => {
@@ -92,7 +138,9 @@ export const App: React.FC = () => {
 
       {/* Main Page Body */}
       <main className="flex-1">
-        {renderRoute()}
+        <ErrorBoundary>
+          {renderRoute()}
+        </ErrorBoundary>
       </main>
 
       {/* Global Search Dialog */}

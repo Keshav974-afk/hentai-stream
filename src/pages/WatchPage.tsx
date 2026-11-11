@@ -21,6 +21,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({ seriesId, episodeId }) => 
   const { isSaved, toggleWatchlist } = useWatchlist();
   const { getProgress } = useWatchHistory();
 
+  // 1. Fetch series data
   useEffect(() => {
     let isMounted = true;
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -54,6 +55,45 @@ export const WatchPage: React.FC<WatchPageProps> = ({ seriesId, episodeId }) => 
     };
   }, [seriesId, episodeId]);
 
+  // Derive episode list and selected episode
+  const episodes: Episode[] = Array.isArray(series?.post_episodes)
+    ? series!.post_episodes!
+    : Array.isArray(series?.episodes)
+    ? series!.episodes!
+    : [];
+
+  let epIndex = episodes.findIndex((e) => String(e.chapter_id) === String(episodeId));
+  if (epIndex < 0 && episodes.length > 0) {
+    const saved = getProgress(seriesId);
+    if (saved) {
+      epIndex = episodes.findIndex((e) => String(e.chapter_id) === String(saved.chapterId));
+    }
+    if (epIndex < 0) epIndex = 0;
+  }
+
+  const currentEp = episodes[epIndex];
+  const activeChapterId = currentEp?.chapter_id;
+
+  // 2. Fetch specific episode stream if chapter_content is missing (MUST be before any return)
+  useEffect(() => {
+    if (currentEp && !currentEp.chapter_content && seriesId && activeChapterId) {
+      API.getEpisode(seriesId, activeChapterId).then((epData) => {
+        if (epData && epData.chapter_content) {
+          setSeries((prev) => {
+            if (!prev) return prev;
+            const updated = (prev.post_episodes || []).map((e) =>
+              String(e.chapter_id) === String(activeChapterId)
+                ? { ...e, chapter_content: epData.chapter_content }
+                : e
+            );
+            return { ...prev, post_episodes: updated };
+          });
+        }
+      }).catch(() => {});
+    }
+  }, [activeChapterId, seriesId, currentEp]);
+
+  // NOW CONDITIONAL RENDERING (No hooks below this line)
   if (loading) {
     return (
       <div className="pt-20 max-w-[1500px] mx-auto px-3 sm:px-6 space-y-4 animate-pulse">
@@ -78,12 +118,6 @@ export const WatchPage: React.FC<WatchPageProps> = ({ seriesId, episodeId }) => 
     );
   }
 
-  const episodes: Episode[] = Array.isArray(series.post_episodes)
-    ? series.post_episodes
-    : Array.isArray(series.episodes)
-    ? series.episodes
-    : [];
-
   if (episodes.length === 0) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center text-center px-4 pt-20">
@@ -98,40 +132,11 @@ export const WatchPage: React.FC<WatchPageProps> = ({ seriesId, episodeId }) => 
     );
   }
 
-  let epIndex = episodes.findIndex((e) => String(e.chapter_id) === String(episodeId));
-  if (epIndex < 0) {
-    const saved = getProgress(seriesId);
-    if (saved) {
-      epIndex = episodes.findIndex((e) => String(e.chapter_id) === String(saved.chapterId));
-    }
-    if (epIndex < 0) epIndex = 0;
-  }
-
-  const currentEp = episodes[epIndex];
   const title = series.post_title || 'Untitled';
   const epTitle = currentEp?.chapter_name || `Episode ${epIndex + 1}`;
   const hasNext = epIndex + 1 < episodes.length;
   const hasPrev = epIndex > 0;
   const bookmarked = isSaved(seriesId);
-
-  // If chapter_content is missing on the episode object, fetch it directly
-  useEffect(() => {
-    if (currentEp && !currentEp.chapter_content && seriesId && currentEp.chapter_id) {
-      API.getEpisode(seriesId, currentEp.chapter_id).then((epData) => {
-        if (epData && epData.chapter_content) {
-          setSeries((prev) => {
-            if (!prev) return prev;
-            const updated = (prev.post_episodes || []).map((e) =>
-              String(e.chapter_id) === String(currentEp.chapter_id)
-                ? { ...e, chapter_content: epData.chapter_content }
-                : e
-            );
-            return { ...prev, post_episodes: updated };
-          });
-        }
-      }).catch(() => {});
-    }
-  }, [currentEp?.chapter_id, seriesId]);
 
   const handleSelectEpisode = (idx: number) => {
     const next = episodes[idx];
