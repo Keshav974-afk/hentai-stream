@@ -25,25 +25,30 @@ export const CataloguePage: React.FC<CataloguePageProps> = ({ initialSort = 'tre
       if (targetLetter === 'ALL') {
         if (pageNum === 1) {
           const home = await API.getHome();
-          if (sort === 'trending') {
-            data = Array.isArray(home.trending_month) ? [...home.trending_month] : [];
-          } else if (sort === 'latest') {
-            data = Array.isArray(home.last) ? [...home.last] : Array.isArray(home.last_episodes) ? [...home.last_episodes] : [];
-          } else {
-            // Most viewed: combine shelves and sort by views
-            const combined = [
-              ...(Array.isArray(home.trending_month) ? home.trending_month : []),
-              ...(Array.isArray(home.last) ? home.last : []),
-              ...(Array.isArray(home.uncensored) ? home.uncensored : [])
-            ];
-            const seen = new Set<string>();
-            data = combined.filter((it) => {
-              const id = String(it.post_ID || it.id);
-              if (seen.has(id)) return false;
-              seen.add(id);
-              return true;
-            });
+          const combined = [
+            ...(Array.isArray(home.trending_month) ? home.trending_month : []),
+            ...(Array.isArray(home.last) ? home.last : []),
+            ...(Array.isArray(home.uncensored) ? home.uncensored : [])
+          ];
+          const seen = new Set<string>();
+          data = combined.filter((it) => {
+            const id = String(it.post_ID || it.id);
+            if (seen.has(id)) return false;
+            seen.add(id);
+            return true;
+          });
+
+          if (sort === 'views') {
             data.sort((a, b) => (Number(b.post_views) || 0) - (Number(a.post_views) || 0));
+          } else if (sort === 'latest') {
+            const latestPool = Array.isArray(home.last) ? home.last : [];
+            if (latestPool.length > 0) {
+              data = [...latestPool, ...data.filter(d => !latestPool.some(l => String(l.post_ID || l.id) === String(d.post_ID || d.id)))];
+            }
+          }
+
+          if (data.length === 0) {
+            data = await API.search('a', 0);
           }
         } else {
           // Pagination: search common characters pool

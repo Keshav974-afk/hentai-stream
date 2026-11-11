@@ -210,6 +210,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({ seriesId, episodeId }) => 
           onPrevEpisode={hasPrev ? handlePrevEpisode : undefined}
           isTheaterMode={isTheaterMode}
           onToggleTheater={() => setIsTheaterMode(!isTheaterMode)}
+          onBack={() => { window.location.hash = `#/series/${seriesId}`; }}
           poster={series.post_thumbnail}
         />
       </div>

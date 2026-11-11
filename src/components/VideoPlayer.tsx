@@ -1,5 +1,28 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, ReactNode } from 'react';
 import Hls from 'hls.js';
+import {
+  Play,
+  Pause,
+  Volume2,
+  VolumeX,
+  Maximize,
+  Minimize,
+  Settings,
+  Captions,
+  PictureInPicture2,
+  SkipForward,
+  RotateCcw,
+  RotateCw,
+  Loader2,
+  Check,
+  Gauge,
+  Sun,
+  ArrowLeft,
+  LayoutGrid,
+  Download,
+  X,
+  Copy
+} from 'lucide-react';
 import { Episode, VideoQualityLevel } from '../types/api';
 import { useWatchHistory } from '../hooks/useLocalStorage';
 
@@ -16,8 +39,13 @@ interface VideoPlayerProps {
   onPrevEpisode?: () => void;
   isTheaterMode?: boolean;
   onToggleTheater?: () => void;
+  onBack?: () => void;
   poster?: string;
 }
+
+type SheetView = 'none' | 'speed' | 'quality' | 'audiosubs' | 'episodes' | 'download';
+
+const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 
 export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   streamUrl,
@@ -32,13 +60,17 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   onPrevEpisode,
   isTheaterMode = false,
   onToggleTheater,
+  onBack,
   poster = ''
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
   const hlsRef = useRef<Hls | null>(null);
+  const lastLoadedSrcRef = useRef<string>('');
+  const forcedMuteRef = useRef(false);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const lastTapRef = useRef<{ time: number; x: number }>({ time: 0, x: 0 });
+  const seekRef = useRef<HTMLDivElement>(null);
+  const isDraggingSeek = useRef(false);
 
   const { saveProgress, getProgress } = useWatchHistory();
 
@@ -64,32 +96,29 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [currentLevel, setCurrentLevel] = useState<number>(-1);
   const [currentQualityLabel, setCurrentQualityLabel] = useState<string>('Auto');
   const [speed, setSpeed] = useState<number>(1);
-  const [activeSheet, setActiveSheet] = useState<'none' | 'settings' | 'subtitles' | 'drawer' | 'download'>('none');
-  const [seekFlash, setSeekFlash] = useState<'left' | 'right' | null>(null);
-  const [autoPlayNext, setAutoPlayNext] = useState<boolean>(() => {
-    return localStorage.getItem('voidflix_autoplay') !== 'false';
-  });
+  const [activeSheet, setActiveSheet] = useState<SheetView>('none');
+  const [seekFlash, setSeekFlash] = useState<{ side: 'l' | 'r'; id: number } | null>(null);
+  const [hoverSeek, setHoverSeek] = useState<{ pct: number; time: number } | null>(null);
   const [selectedSub, setSelectedSub] = useState<string>('en');
 
-  // Format seconds to mm:ss or hh:mm:ss
+  // Format seconds to mm:ss or hh:mm:ss (FlowFlix standard)
   const formatTime = (secs: number) => {
     if (isNaN(secs) || secs < 0) return '00:00';
-    const h = Math.floor(secs / 3600);
-    const m = Math.floor((secs % 3600) / 60);
-    const s = Math.floor(secs % 60);
-    if (h > 0) {
-      return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-    }
-    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    const s = Math.floor(secs);
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const ss = s % 60;
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return h > 0 ? `${h}:${pad(m)}:${pad(ss)}` : `${m}:${pad(ss)}`;
   };
 
   const formatRemaining = (cur: number, dur: number) => {
-    if (isNaN(dur) || dur <= 0) return '-00:00';
+    if (isNaN(dur) || dur <= 0) return '00:00';
     const rem = Math.max(0, dur - cur);
-    return `-${formatTime(rem)}`;
+    return formatTime(rem);
   };
 
-  const scheduleHideControls = useCallback((delay = 3500) => {
+  const scheduleHideControls = useCallback((delay = 3200) => {
     if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
     if (isPlaying && activeSheet === 'none') {
       controlsTimeoutRef.current = setTimeout(() => {
@@ -98,35 +127,99 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   }, [isPlaying, activeSheet]);
 
-  const revealControls = () => {
+  const revealControls = useCallback(() => {
     setShowControls(true);
     scheduleHideControls();
-  };
+  }, [scheduleHideControls]);
 
-  // Initialize HLS & Video Stream (FlowFlix Engine Spec)
+  // Keep auto-unmute listener on first user gesture (FlowFlix Engine Spec)
+  useEffect(() => {
+    const handleFirstGesture = () => {
+      const v = videoRef.current;
+      if (v && v.muted && forcedMuteRef.current) {
+        v.muted = false;
+        setIsMuted(false);
+        forcedMuteRef.current = false;
+      }
+    };
+    window.addEventListener('pointerdown', handleFirstGesture, { once: true });
+    window.addEventListener('keydown', handleFirstGesture, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', handleFirstGesture);
+      window.removeEventListener('keydown', handleFirstGesture);
+    };
+  }, []);
+
+  // Initialize HLS & Video Stream (FlowFlix / NativePlayer Engine Spec)
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !streamUrl) return;
 
+    // Avoid unnecessary reload if same source is already active
+    if (lastLoadedSrcRef.current === streamUrl && hlsRef.current) {
+      return;
+    }
+    lastLoadedSrcRef.current = streamUrl;
+
     setIsBuffering(true);
     setPlaybackError(null);
 
-    if (Hls.isSupported()) {
+    const attemptPlay = () => {
+      const savedMuted = localStorage.getItem('voidflix_muted') === 'true';
+      video.muted = savedMuted;
+
+      const p = video.play();
+      if (p !== undefined) {
+        p.then(() => {
+          setIsPlaying(true);
+          setIsBuffering(false);
+        }).catch(() => {
+          // Autoplay blocked: start muted, auto-unmute on first click/touch
+          video.muted = true;
+          setIsMuted(true);
+          forcedMuteRef.current = true;
+          video.play().then(() => {
+            setIsPlaying(true);
+            setIsBuffering(false);
+          }).catch(() => {
+            setIsPlaying(false);
+            setIsBuffering(false);
+          });
+        });
+      }
+    };
+
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+    if (Hls.isSupported() && !(isSafari || isIOS)) {
       if (hlsRef.current) {
         hlsRef.current.destroy();
       }
 
+      // Fast-start zero-buffering HLS config matching FlowFlix NativePlayer
       const hls = new Hls({
         enableWorker: true,
-        lowLatencyMode: false, // Critical: OctopusManifest VOD streams require lowLatencyMode=false
-        capLevelToPlayerSize: true,
-        renderTextTracksNatively: false,
-        backBufferLength: 90,
-        maxBufferLength: 60,
-        maxMaxBufferLength: 120
+        lowLatencyMode: false,
+        maxBufferLength: 30,
+        maxMaxBufferLength: 30,
+        maxFragLookUpTolerance: 0.25,
+        startFragPrefetch: false,
+        capLevelToPlayerSize: false,
+        abrEwmaDefaultEstimate: 5000000,
+        abrBandWidthFactor: 0.95,
+        abrBandWidthUpFactor: 0.9,
+        backBufferLength: 60,
+        startPosition: -1,
+        maxBufferHole: 0.5,
+        highBufferWatchdogPeriod: 2,
+        nudgeMaxRetry: 5,
+        nudgeOffset: 0.1,
       });
 
       hlsRef.current = hls;
+      let netRetries = 0;
+
       hls.loadSource(streamUrl);
       hls.attachMedia(video);
 
@@ -134,7 +227,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         setIsBuffering(false);
         setPlaybackError(null);
 
-        const levels: VideoQualityLevel[] = data.levels.map((lvl, index) => ({
+        const levels: VideoQualityLevel[] = (data.levels || []).map((lvl, index) => ({
           index,
           height: lvl.height,
           bitrate: lvl.bitrate,
@@ -142,31 +235,21 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         }));
         setQualityLevels(levels);
 
-        // Auto-resume previously saved timestamp if exists
+        // Resume saved timestamp if valid
         const saved = getProgress(seriesId, episode.chapter_id);
         if (saved && saved.currentTime > 10 && saved.currentTime < (saved.duration - 15)) {
           video.currentTime = saved.currentTime;
           setCurrentTime(saved.currentTime);
         }
 
-        // Try to start playback (if browser policy blocks autoplay, gracefully reveal center play button)
-        const playPromise = video.play();
-        if (playPromise !== undefined) {
-          playPromise.then(() => {
-            setIsPlaying(true);
-            setIsBuffering(false);
-          }).catch(() => {
-            setIsPlaying(false);
-            setIsBuffering(false);
-          });
-        }
-      });
-
-      hls.on(Hls.Events.LEVEL_LOADED, () => {
-        setIsBuffering(false);
+        attemptPlay();
       });
 
       hls.on(Hls.Events.FRAG_LOADED, () => {
+        setIsBuffering(false);
+      });
+
+      hls.on(Hls.Events.LEVEL_LOADED, () => {
         setIsBuffering(false);
       });
 
@@ -181,28 +264,30 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
       hls.on(Hls.Events.ERROR, (_, data) => {
         if (!data.fatal) return;
-        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+        if (data.type === Hls.ErrorTypes.NETWORK_ERROR && netRetries < 5) {
+          netRetries++;
           hls.startLoad();
-        } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+        } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR && netRetries < 5) {
+          netRetries++;
           hls.recoverMediaError();
         } else {
-          hls.destroy();
           setIsBuffering(false);
           setPlaybackError('Stream failed to load. Please click to retry.');
         }
       });
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      // Native Apple HLS pipeline (iOS / Safari)
       video.src = streamUrl;
-      const playPromise = video.play();
-      if (playPromise !== undefined) {
-        playPromise.then(() => {
-          setIsPlaying(true);
-          setIsBuffering(false);
-        }).catch(() => {
-          setIsPlaying(false);
-          setIsBuffering(false);
-        });
-      }
+      const onLoaded = () => {
+        setIsBuffering(false);
+        const saved = getProgress(seriesId, episode.chapter_id);
+        if (saved && saved.currentTime > 10 && saved.currentTime < (saved.duration - 15)) {
+          video.currentTime = saved.currentTime;
+          setCurrentTime(saved.currentTime);
+        }
+        attemptPlay();
+      };
+      video.addEventListener('loadedmetadata', onLoaded, { once: true });
     }
 
     return () => {
@@ -210,19 +295,20 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         hlsRef.current.destroy();
         hlsRef.current = null;
       }
+      lastLoadedSrcRef.current = '';
     };
-  }, [streamUrl, episode.chapter_id, seriesId]);
+  }, [streamUrl]);
 
   // Sync Volume & Brightness
   useEffect(() => {
     if (videoRef.current) {
       videoRef.current.volume = volume;
       videoRef.current.muted = isMuted;
-      videoRef.current.style.filter = `brightness(${brightness})`;
+      videoRef.current.style.filter = brightness !== 1 ? `brightness(${brightness})` : '';
     }
   }, [volume, isMuted, brightness]);
 
-  // Fullscreen change
+  // Fullscreen change listener
   useEffect(() => {
     const handleFs = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener('fullscreenchange', handleFs);
@@ -233,6 +319,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) return;
+      revealControls();
 
       switch (e.key.toLowerCase()) {
         case ' ':
@@ -264,7 +351,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           break;
         case 'e':
           e.preventDefault();
-          setActiveSheet(activeSheet === 'drawer' ? 'none' : 'drawer');
+          setActiveSheet(activeSheet === 'episodes' ? 'none' : 'episodes');
           break;
         case 'p':
           e.preventDefault();
@@ -282,13 +369,18 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isPlaying, volume, isMuted, activeSheet, episodeIndex, totalEpisodes]);
+  }, [isPlaying, volume, isMuted, activeSheet, episodeIndex, totalEpisodes, revealControls]);
 
   const togglePlay = () => {
     const video = videoRef.current;
     if (!video) return;
+    forcedMuteRef.current = false;
+
     if (video.paused) {
-      video.play().then(() => setIsPlaying(true)).catch(() => {});
+      video.play().then(() => {
+        setIsPlaying(true);
+        setIsBuffering(false);
+      }).catch(() => {});
     } else {
       video.pause();
       setIsPlaying(false);
@@ -298,30 +390,40 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
   const seekDelta = (seconds: number) => {
     const video = videoRef.current;
-    if (!video) return;
-    const target = Math.max(0, Math.min(video.currentTime + seconds, duration));
+    if (!video || !video.duration) return;
+    const target = Math.max(0, Math.min(video.currentTime + seconds, video.duration));
     video.currentTime = target;
     setCurrentTime(target);
-    triggerSeekFlash(seconds > 0 ? 'right' : 'left');
+    flashSeek(seconds > 0 ? 'r' : 'l');
     revealControls();
   };
 
-  const triggerSeekFlash = (direction: 'left' | 'right') => {
-    setSeekFlash(direction);
-    setTimeout(() => setSeekFlash(null), 600);
+  const flashSeek = (side: 'l' | 'r') => {
+    const id = Date.now();
+    setSeekFlash({ side, id });
+    setTimeout(() => {
+      setSeekFlash((prev) => (prev?.id === id ? null : prev));
+    }, 550);
   };
 
   const toggleMute = () => {
+    forcedMuteRef.current = false;
     const next = !isMuted;
     setIsMuted(next);
     localStorage.setItem('voidflix_muted', String(next));
+    if (!next && volume === 0) {
+      setVolume(1);
+      localStorage.setItem('voidflix_volume', '1');
+    }
   };
 
-  const handleVolumeInput = (val: number) => {
+  const handleVolumeChange = (val: number) => {
+    forcedMuteRef.current = false;
     setVolume(val);
-    setIsMuted(val === 0);
+    const muted = val === 0;
+    setIsMuted(muted);
     localStorage.setItem('voidflix_volume', String(val));
-    localStorage.setItem('voidflix_muted', String(val === 0));
+    localStorage.setItem('voidflix_muted', String(muted));
   };
 
   const toggleFullscreen = () => {
@@ -333,6 +435,20 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   };
 
+  const togglePip = async () => {
+    const video = videoRef.current;
+    if (!video) return;
+    try {
+      if (document.pictureInPictureElement) {
+        await document.exitPictureInPicture();
+      } else {
+        await video.requestPictureInPicture();
+      }
+    } catch {
+      // PiP not supported
+    }
+  };
+
   const changeLevel = (lvlIndex: number) => {
     setCurrentLevel(lvlIndex);
     if (hlsRef.current) {
@@ -341,7 +457,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     if (lvlIndex === -1) {
       setCurrentQualityLabel('Auto');
     } else {
-      const lvl = qualityLevels.find(q => q.index === lvlIndex);
+      const lvl = qualityLevels.find((q) => q.index === lvlIndex);
       if (lvl) setCurrentQualityLabel(lvl.label);
     }
     setActiveSheet('none');
@@ -357,25 +473,21 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     revealControls();
   };
 
-  const handleScrubberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const t = parseFloat(e.target.value);
-    setCurrentTime(t);
-    if (videoRef.current) {
-      videoRef.current.currentTime = t;
-    }
-  };
-
-  // Video Event Handlers
+  // Video time update & event handlers
   const handleTimeUpdate = () => {
     const video = videoRef.current;
     if (!video || !video.duration) return;
     const cur = video.currentTime;
     const dur = video.duration;
-    setCurrentTime(cur);
+    if (!isDraggingSeek.current) {
+      setCurrentTime(cur);
+    }
     setDuration(dur);
 
     if (video.buffered.length > 0) {
-      setBufferedPct((video.buffered.end(video.buffered.length - 1) / dur) * 100);
+      try {
+        setBufferedPct((video.buffered.end(video.buffered.length - 1) / dur) * 100);
+      } catch {}
     }
 
     // Auto save history progress every 4s
@@ -393,54 +505,87 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   };
 
-  // Single tap & Double tap handling (FlowFlix Spec)
-  const handleTap = (e: React.MouseEvent<HTMLDivElement>) => {
-    const now = Date.now();
-    const rect = frameRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const clickX = e.clientX - rect.left;
-    const isLeft = clickX < rect.width * 0.35;
-    const isRight = clickX > rect.width * 0.65;
+  // Seek bar interaction (FlowFlix zero-jitter scrub engine)
+  const getSeekFracTime = (clientX: number) => {
+    const bar = seekRef.current;
+    const video = videoRef.current;
+    if (!bar || !video || !video.duration) return null;
+    const rect = bar.getBoundingClientRect();
+    const frac = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+    return frac * video.duration;
+  };
 
-    if (now - lastTapRef.current.time < 300) {
-      // Double tap seek
-      if (isLeft) {
-        seekDelta(-10);
-      } else if (isRight) {
-        seekDelta(10);
-      } else {
-        togglePlay();
-      }
-      lastTapRef.current = { time: 0, x: 0 };
-    } else {
-      // Single tap: start playing if paused, or toggle controls visibility
-      lastTapRef.current = { time: now, x: clickX };
-      setTimeout(() => {
-        if (Date.now() - lastTapRef.current.time >= 280) {
-          if (videoRef.current?.paused) {
-            videoRef.current.play().then(() => {
-              setIsPlaying(true);
-              setIsBuffering(false);
-            }).catch(() => {});
-          } else {
-            setShowControls(prev => !prev);
-          }
-        }
-      }, 300);
+  const onSeekDown = (e: React.PointerEvent) => {
+    isDraggingSeek.current = true;
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    const t = getSeekFracTime(e.clientX);
+    if (t !== null) {
+      setCurrentTime(t);
     }
   };
 
-  const playedPct = duration > 0 ? (currentTime / duration) * 100 : 0;
+  const onSeekMove = (e: React.PointerEvent) => {
+    const t = getSeekFracTime(e.clientX);
+    const dur = videoRef.current?.duration || duration;
+    if (t !== null && dur > 0) {
+      setHoverSeek({ pct: (t / dur) * 100, time: t });
+    }
+    if (isDraggingSeek.current && t !== null) {
+      setCurrentTime(t);
+    }
+  };
+
+  const onSeekUp = (e: React.PointerEvent) => {
+    if (isDraggingSeek.current) {
+      isDraggingSeek.current = false;
+      try {
+        (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+      } catch {}
+      const video = videoRef.current;
+      const t = getSeekFracTime(e.clientX);
+      if (video && t !== null) {
+        video.currentTime = t;
+      }
+    }
+  };
+
+  // Single-tap & Double-tap surface click
+  const onSurfaceClick = () => {
+    if (activeSheet !== 'none') {
+      setActiveSheet('none');
+      return;
+    }
+    if (showControls) {
+      setShowControls(false);
+    } else {
+      revealControls();
+    }
+  };
+
+  const onDoubleTap = (e: React.MouseEvent<HTMLDivElement>) => {
+    const frame = frameRef.current;
+    if (!frame) return;
+    const rect = frame.getBoundingClientRect();
+    const xRatio = (e.clientX - rect.left) / Math.max(1, rect.width);
+
+    if (xRatio < 0.35) {
+      seekDelta(-10);
+    } else if (xRatio > 0.65) {
+      seekDelta(10);
+    } else {
+      toggleFullscreen();
+    }
+  };
+
+  const progressPct = duration > 0 ? (currentTime / duration) * 100 : 0;
   const epTitle = episode.chapter_name || `Episode ${episodeIndex + 1}`;
 
   return (
     <div
       ref={frameRef}
-      onMouseMove={revealControls}
-      onMouseLeave={() => scheduleHideControls(800)}
-      className={`vf-frame relative w-full aspect-video select-none overflow-hidden sm:rounded-2xl sm:border sm:border-white/10 shadow-2xl ${
-        !showControls ? 'controls-hidden' : ''
-      }`}
+      onMouseMove={() => revealControls()}
+      onMouseLeave={() => scheduleHideControls(600)}
+      className="relative w-full aspect-video select-none overflow-hidden bg-black text-white rounded-none sm:rounded-2xl sm:border sm:border-white/10 shadow-2xl group/player font-sans"
     >
       {/* Native HTML5 Video Element */}
       <video
@@ -448,59 +593,75 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         playsInline
         preload="auto"
         poster={episode.chapter_thumbnail || poster}
-        onPlay={() => { setIsPlaying(true); setIsBuffering(false); scheduleHideControls(); }}
-        onPause={() => { setIsPlaying(false); setIsBuffering(false); revealControls(); }}
+        onPlay={() => {
+          setIsPlaying(true);
+          setIsBuffering(false);
+          scheduleHideControls();
+        }}
+        onPause={() => {
+          setIsPlaying(false);
+          setIsBuffering(false);
+          revealControls();
+        }}
         onWaiting={() => {
           if (videoRef.current && !videoRef.current.paused) {
             setIsBuffering(true);
           }
         }}
-        onPlaying={() => { setIsPlaying(true); setIsBuffering(false); }}
+        onPlaying={() => {
+          setIsPlaying(true);
+          setIsBuffering(false);
+        }}
         onCanPlay={() => setIsBuffering(false)}
         onCanPlayThrough={() => setIsBuffering(false)}
         onLoadedData={() => setIsBuffering(false)}
         onTimeUpdate={handleTimeUpdate}
         onEnded={() => {
           setIsPlaying(false);
-          if (autoPlayNext && onNextEpisode && episodeIndex + 1 < totalEpisodes) {
+          if (onNextEpisode && episodeIndex + 1 < totalEpisodes) {
             onNextEpisode();
           }
         }}
-        className="absolute inset-0 w-full h-full object-contain bg-black"
+        className="absolute inset-0 h-full w-full object-contain bg-black"
       />
 
       {/* Tap layer covering video canvas */}
       <div
         id="tap-layer"
-        onClick={handleTap}
+        onClick={onSurfaceClick}
+        onDoubleClick={onDoubleTap}
         className="absolute inset-0 z-10 cursor-pointer"
       />
 
-      {/* Big Center Play Button when Paused (FlowFlix Spec) */}
-      {!isPlaying && !isBuffering && !playbackError && (
-        <div className="absolute inset-0 z-15 flex items-center justify-center pointer-events-none">
-          <button
-            onClick={(e) => { e.stopPropagation(); togglePlay(); }}
-            className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-[#E50914] text-white flex items-center justify-center shadow-[0_4px_30px_rgba(229,9,20,0.6)] hover:scale-110 active:scale-95 transition-all pointer-events-auto cursor-pointer"
-            title="Play (Space / K)"
-          >
-            <svg className="w-8 h-8 sm:w-10 sm:h-10 fill-white translate-x-0.5" viewBox="0 0 24 24">
-              <path d="M8 5v14l11-7z" />
-            </svg>
-          </button>
+      {/* Double-tap Seek Flash Overlay (±10s) */}
+      {seekFlash && (
+        <div
+          key={seekFlash.id}
+          className={`pointer-events-none absolute inset-y-0 z-20 grid w-1/3 place-items-center ${
+            seekFlash.side === 'l' ? 'left-0' : 'right-0'
+          }`}
+        >
+          <div className="flex flex-col items-center gap-1 rounded-full bg-black/60 backdrop-blur px-5 py-4 text-white animate-in fade-in zoom-in">
+            {seekFlash.side === 'l' ? (
+              <RotateCcw className="size-8" />
+            ) : (
+              <RotateCw className="size-8" />
+            )}
+            <span className="text-xs font-bold">10s</span>
+          </div>
         </div>
       )}
 
-      {/* Buffering Spinner */}
-      {isBuffering && !playbackError && (
-        <div className="pointer-events-none absolute inset-0 z-15 flex items-center justify-center">
-          <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full border-4 border-white/20 border-t-[#E50914] animate-spin" />
+      {/* Center Buffering Spinner (Does not block play button) */}
+      {isBuffering && isPlaying && !playbackError && (
+        <div className="pointer-events-none absolute inset-0 z-20 grid place-items-center bg-black/30 backdrop-blur-[1px]">
+          <Loader2 className="size-12 sm:size-14 animate-spin text-[#E50914]" />
         </div>
       )}
 
-      {/* Playback Error Overlay with Retry */}
+      {/* Error Retry Overlay */}
       {playbackError && (
-        <div className="absolute inset-0 z-15 flex flex-col items-center justify-center bg-black/85 p-4 text-center space-y-3">
+        <div className="absolute inset-0 z-25 flex flex-col items-center justify-center bg-black/85 p-6 text-center space-y-3">
           <p className="text-white text-sm font-semibold max-w-sm">{playbackError}</p>
           <button
             onClick={() => {
@@ -514,533 +675,516 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
                 videoRef.current.play().catch(() => {});
               }
             }}
-            className="px-5 py-2 rounded-xl bg-[#E50914] text-white text-xs font-bold shadow-lg hover:scale-105 active:scale-95 transition"
+            className="px-5 py-2 rounded-xl bg-[#E50914] text-white text-xs font-bold hover:bg-[#b81d24] transition shadow-lg pointer-events-auto"
           >
-            Retry Stream
+            Click to Retry Playback
           </button>
         </div>
       )}
 
-      {/* Double Tap Seek Feedback Flashes */}
-      <div className={`seek-flash left-0 ${seekFlash === 'left' ? 'show' : ''}`}>
-        <div className="seek-flash-pill">
-          <svg className="w-6 h-6 sm:w-8 sm:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.8">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M3 12a9 9 0 1 0 3-6.7L3 8"/>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v5h5"/>
-            <text x="12" y="15.5" textAnchor="middle" fontSize="7" fontWeight="bold" fill="currentColor" stroke="none">10</text>
-          </svg>
-          <span>10s</span>
+      {/* ============ CENTER TRANSPORT CONTROLS (Netflix / FlowFlix Spec) ============ */}
+      {showControls && !playbackError && activeSheet === 'none' && (
+        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center gap-14 sm:gap-24 lg:gap-32 text-white">
+          {/* Rewind 10s */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              seekDelta(-10);
+              revealControls();
+            }}
+            aria-label="Back 10 seconds"
+            className="pointer-events-auto relative grid place-items-center opacity-90 transition hover:scale-110 hover:opacity-100"
+          >
+            <RotateCcw className="size-9 sm:size-12" strokeWidth={1.5} />
+            <span className="absolute text-[9px] sm:text-xs font-bold">10</span>
+          </button>
+
+          {/* Big Center Play / Pause Button - ALWAYS CLICKABLE */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              togglePlay();
+            }}
+            aria-label={isPlaying ? 'Pause' : 'Play'}
+            className="pointer-events-auto grid place-items-center opacity-95 transition hover:scale-110 hover:opacity-100"
+          >
+            {isPlaying ? (
+              <Pause className="size-14 sm:size-18 fill-white text-white" strokeWidth={1} />
+            ) : (
+              <Play className="size-14 sm:size-18 translate-x-1 fill-white text-white" strokeWidth={1} />
+            )}
+          </button>
+
+          {/* Forward 10s */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              seekDelta(10);
+              revealControls();
+            }}
+            aria-label="Forward 10 seconds"
+            className="pointer-events-auto relative grid place-items-center opacity-90 transition hover:scale-110 hover:opacity-100"
+          >
+            <RotateCw className="size-9 sm:size-12" strokeWidth={1.5} />
+            <span className="absolute text-[9px] sm:text-xs font-bold">10</span>
+          </button>
         </div>
-      </div>
+      )}
 
-      <div className={`seek-flash right-0 ${seekFlash === 'right' ? 'show' : ''}`}>
-        <div className="seek-flash-pill">
-          <svg className="w-6 h-6 sm:w-8 sm:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.8">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 1 1-3-6.7L21 8"/>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 3v5h-5"/>
-            <text x="12" y="15.5" textAnchor="middle" fontSize="7" fontWeight="bold" fill="currentColor" stroke="none">10</text>
-          </svg>
-          <span>10s</span>
+      {/* ============ DESKTOP BRIGHTNESS SLIDER (Right Edge) ============ */}
+      {showControls && activeSheet === 'none' && (
+        <div className="hidden sm:flex absolute right-3 sm:right-5 top-1/2 -translate-y-1/2 z-25 flex-col items-center gap-2 pointer-events-auto opacity-80 hover:opacity-100 transition-opacity">
+          <button
+            onClick={() => {
+              setBrightness(1);
+              localStorage.setItem('voidflix_brightness', '1');
+            }}
+            title="Reset Brightness (100%)"
+            className="text-white/80 hover:text-white transition-colors"
+          >
+            <Sun className="size-4" />
+          </button>
+          <div className="flex h-28 w-6 items-center justify-center">
+            <input
+              type="range"
+              min={0.4}
+              max={1.6}
+              step={0.05}
+              value={brightness}
+              onChange={(e) => {
+                const b = Number(e.target.value);
+                setBrightness(b);
+                localStorage.setItem('voidflix_brightness', String(b));
+              }}
+              aria-label="Brightness"
+              className="h-1 w-28 -rotate-90 cursor-pointer accent-[#E50914]"
+            />
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* ============ FLOWFLIX CONTROLS OVERLAY ============ */}
-      <div className="vf-controls absolute inset-0 z-20 flex flex-col justify-between pointer-events-none">
-
-        {/* Top Bar (Back, Title, Download) */}
-        <div className="vf-top pointer-events-auto flex items-center gap-2 sm:gap-3 px-3 sm:px-6 pt-3 sm:pt-4 pb-10">
-          <a
-            href={`#/series/${seriesId}`}
-            className="vf-icon-btn"
+      {/* ============ TOP BAR ============ */}
+      <div
+        className={`pointer-events-none absolute inset-x-0 top-0 z-30 bg-gradient-to-b from-black/85 via-black/40 to-transparent px-3 sm:px-6 pt-3 sm:pt-4 pb-14 transition-opacity duration-300 ${
+          showControls ? 'opacity-100' : 'opacity-0'
+        }`}
+      >
+        <div className="pointer-events-auto flex items-center gap-2 text-white">
+          {/* Back button */}
+          <button
+            onClick={() => {
+              if (onBack) onBack();
+              else window.location.hash = `#/series/${seriesId}`;
+            }}
+            aria-label="Back"
+            className="grid size-9 place-items-center opacity-85 hover:opacity-100 transition-opacity"
             title="Back to Series"
           >
-            <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"/>
-            </svg>
-          </a>
+            <ArrowLeft className="size-6" />
+          </button>
 
-          <div className="min-w-0 flex-1">
-            <h3 className="font-bold text-xs sm:text-base text-white truncate leading-tight">
+          {/* Title Header */}
+          <div className="flex-1 min-w-0 text-center px-2">
+            <h3 className="text-sm sm:text-base font-bold text-white truncate leading-tight drop-shadow-md">
               {seriesTitle}
             </h3>
-            <p className="text-[10px] sm:text-xs text-gray-300 truncate">
+            <p className="text-[11px] sm:text-xs text-gray-300 truncate font-medium">
               {epTitle} <span className="text-gray-500">• {episodeIndex + 1} of {totalEpisodes}</span>
             </p>
           </div>
 
-          <button
-            onClick={() => setActiveSheet(activeSheet === 'download' ? 'none' : 'download')}
-            className="vf-icon-btn"
-            title="Download Episode"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-            </svg>
-          </button>
-        </div>
+          {/* Right Actions */}
+          <div className="flex items-center gap-1 sm:gap-1.5">
+            {/* Download Modal Trigger */}
+            <button
+              onClick={() => setActiveSheet(activeSheet === 'download' ? 'none' : 'download')}
+              aria-label="Download"
+              className="grid size-9 place-items-center opacity-85 hover:opacity-100 transition-opacity"
+              title="Download Episode"
+            >
+              <Download className="size-5" />
+            </button>
 
-        {/* Center Floating Transport (FlowFlix Clean Spec) */}
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center gap-8 sm:gap-20">
-          <button
-            onClick={(e) => { e.stopPropagation(); seekDelta(-10); }}
-            className="vf-transport-clean pointer-events-auto"
-            title="Rewind 10s (J / Left)"
-          >
-            <svg className="w-8 h-8 sm:w-12 sm:h-12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-              <path d="M3 3v5h5"/>
-              <text x="12" y="15" fontSize="8" fontWeight="bold" fill="currentColor" stroke="none" textAnchor="middle">10</text>
-            </svg>
-          </button>
+            {/* Mute Toggle */}
+            <button
+              onClick={toggleMute}
+              aria-label="Mute"
+              className="grid size-9 place-items-center opacity-85 hover:opacity-100 transition-opacity"
+              title={isMuted ? 'Unmute (M)' : 'Mute (M)'}
+            >
+              {isMuted ? <VolumeX className="size-5" /> : <Volume2 className="size-5" />}
+            </button>
 
-          <button
-            onClick={(e) => { e.stopPropagation(); togglePlay(); }}
-            className="vf-transport-clean pointer-events-auto"
-            title={isPlaying ? 'Pause (Space / K)' : 'Play (Space / K)'}
-          >
-            {isPlaying ? (
-              <svg className="w-12 h-12 sm:w-16 sm:h-16 fill-current text-white hover:text-[#E50914] transition-colors" viewBox="0 0 24 24">
-                <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
-              </svg>
-            ) : (
-              <svg className="w-12 h-12 sm:w-16 sm:h-16 fill-current text-white hover:text-[#E50914] transition-colors ml-1" viewBox="0 0 24 24">
-                <path d="M8 5v14l11-7z"/>
-              </svg>
-            )}
-          </button>
+            {/* Picture-in-Picture */}
+            <button
+              onClick={togglePip}
+              aria-label="Picture in picture"
+              className="grid size-9 place-items-center opacity-85 hover:opacity-100 transition-opacity"
+              title="Picture in Picture"
+            >
+              <PictureInPicture2 className="size-5" />
+            </button>
 
-          <button
-            onClick={(e) => { e.stopPropagation(); seekDelta(10); }}
-            className="vf-transport-clean pointer-events-auto"
-            title="Forward 10s (L / Right)"
-          >
-            <svg className="w-8 h-8 sm:w-12 sm:h-12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 12a9 9 0 1 1-9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
-              <path d="M21 3v5h-5"/>
-              <text x="12" y="15" fontSize="8" fontWeight="bold" fill="currentColor" stroke="none" textAnchor="middle">10</text>
-            </svg>
-          </button>
-        </div>
-
-        {/* Right-Side Vertical Brightness Slider (Desktop Only) */}
-        <div className="hidden sm:flex absolute right-4 sm:right-6 top-1/2 -translate-y-1/2 z-20 flex-col items-center gap-2 pointer-events-auto select-none opacity-80 hover:opacity-100 transition-opacity">
-          <button
-            onClick={() => setBrightness(1)}
-            className="text-white hover:scale-110 transition-transform"
-            title="Reset Brightness (100%)"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
-            </svg>
-          </button>
-          <div
-            onClick={(e) => {
-              const rect = e.currentTarget.getBoundingClientRect();
-              const val = Math.max(0.3, Math.min(1.7, (rect.bottom - e.clientY) / rect.height * 1.5 + 0.3));
-              setBrightness(val);
-              localStorage.setItem('voidflix_brightness', String(val));
-            }}
-            className="relative w-1.5 h-24 rounded-full bg-white/20 backdrop-blur-sm cursor-pointer py-1"
-            title="Adjust Brightness"
-          >
-            <div
-              className="absolute bottom-0 inset-x-0 bg-white rounded-full transition-all"
-              style={{ height: `${Math.min(100, (brightness / 1.5) * 100)}%` }}
-            />
+            {/* Fullscreen */}
+            <button
+              onClick={toggleFullscreen}
+              aria-label="Fullscreen"
+              className="grid size-9 place-items-center opacity-85 hover:opacity-100 transition-opacity"
+              title="Fullscreen (F)"
+            >
+              {isFullscreen ? <Minimize className="size-5" /> : <Maximize className="size-5" />}
+            </button>
           </div>
         </div>
+      </div>
 
-        {/* Bottom Bar (Scrubber, Controls Row) */}
-        <div className="vf-bottom pointer-events-auto px-3 sm:px-6 pb-2.5 sm:pb-4 pt-10 space-y-1.5 sm:space-y-2">
-
-          {/* Timeline Scrubber Row */}
-          <div className="flex items-center gap-2.5 sm:gap-3">
-            <div className="vf-timeline relative flex-1 h-5 flex items-center cursor-pointer touch-none">
-              {/* Background track */}
-              <div className="vf-track relative w-full h-1 bg-white/20 rounded-full overflow-hidden">
-                {/* Buffer Progress */}
+      {/* ============ BOTTOM BAR (Netflix / FlowFlix Spec) ============ */}
+      <div
+        className={`pointer-events-none absolute inset-x-0 bottom-0 z-30 bg-gradient-to-t from-black/95 via-black/50 to-transparent px-3 sm:px-8 pb-3 pt-16 transition-opacity duration-300 ${
+          showControls ? 'opacity-100' : 'opacity-0'
+        }`}
+      >
+        <div className="pointer-events-auto space-y-2">
+          {/* Timeline Scrubber */}
+          <div className="flex items-center gap-3">
+            <div
+              ref={seekRef}
+              onPointerDown={onSeekDown}
+              onPointerMove={onSeekMove}
+              onPointerUp={onSeekUp}
+              onPointerLeave={() => setHoverSeek(null)}
+              className="group/seek relative flex h-5 flex-1 cursor-pointer touch-none items-center"
+            >
+              {/* Hover Timestamp Tooltip */}
+              {hoverSeek && (
                 <div
-                  className="absolute left-0 top-0 bottom-0 bg-white/30 rounded-full transition-all"
+                  className="pointer-events-none absolute bottom-5 -translate-x-1/2 rounded bg-black/90 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-white shadow border border-white/10"
+                  style={{ left: `${hoverSeek.pct}%` }}
+                >
+                  {formatTime(hoverSeek.time)}
+                </div>
+              )}
+
+              {/* Track */}
+              <div className="absolute inset-x-0 h-[3px] bg-white/25 rounded-full transition-all group-hover/seek:h-1">
+                {/* Buffered track */}
+                <div
+                  className="absolute inset-y-0 left-0 bg-white/60 rounded-full transition-[width] duration-150"
                   style={{ width: `${bufferedPct}%` }}
                 />
-                {/* Played Progress (FlowFlix Crimson Red) */}
+                {/* Hover preview ghost track */}
+                {hoverSeek && (
+                  <div
+                    className="absolute inset-y-0 left-0 bg-white/30 rounded-full"
+                    style={{ width: `${hoverSeek.pct}%` }}
+                  />
+                )}
+                {/* Played track */}
                 <div
-                  className="absolute left-0 top-0 bottom-0 bg-[#E50914] rounded-full"
-                  style={{ width: `${playedPct}%` }}
+                  className="absolute inset-y-0 left-0 bg-[#E50914] rounded-full"
+                  style={{ width: `${progressPct}%` }}
+                />
+                {/* Red scrubber thumb */}
+                <div
+                  className="absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#E50914] shadow transition-transform group-hover/seek:scale-125"
+                  style={{ left: `${progressPct}%` }}
                 />
               </div>
+            </div>
 
-              {/* Thumb */}
-              <div
-                className="vf-thumb absolute top-1/2 w-3.5 h-3.5 rounded-full bg-[#E50914] border-2 border-white pointer-events-none"
-                style={{ left: `${playedPct}%` }}
+            {/* Remaining Time */}
+            <span className="shrink-0 text-xs sm:text-[13px] font-semibold tabular-nums text-white/90">
+              {formatRemaining(currentTime, duration)}
+            </span>
+          </div>
+
+          {/* Bottom Row Action Buttons (FlowFlix BarButtons) */}
+          <div className="flex items-center justify-between sm:justify-center sm:gap-6 lg:gap-8 pt-1 text-white">
+            {/* Speed Pill */}
+            <BarButton
+              icon={<Gauge className="size-4 sm:size-5" />}
+              label={`Speed (${speed}x)`}
+              onClick={() => setActiveSheet(activeSheet === 'speed' ? 'none' : 'speed')}
+            />
+
+            {/* Quality Pill */}
+            <BarButton
+              icon={<Settings className="size-4 sm:size-5" />}
+              label={`Quality${currentLevel !== -1 ? ` (${currentQualityLabel})` : ' (Auto)'}`}
+              onClick={() => setActiveSheet(activeSheet === 'quality' ? 'none' : 'quality')}
+            />
+
+            {/* Episodes Picker Pill */}
+            <BarButton
+              icon={<LayoutGrid className="size-4 sm:size-5" />}
+              label="Episodes"
+              onClick={() => setActiveSheet(activeSheet === 'episodes' ? 'none' : 'episodes')}
+            />
+
+            {/* Audio & Subtitles Pill */}
+            <BarButton
+              icon={<Captions className="size-4 sm:size-5" />}
+              label="Audio & Subs"
+              onClick={() => setActiveSheet(activeSheet === 'audiosubs' ? 'none' : 'audiosubs')}
+            />
+
+            {/* Next Episode Pill (when available) */}
+            {onNextEpisode && episodeIndex + 1 < totalEpisodes && (
+              <BarButton
+                icon={<SkipForward className="size-4 sm:size-5" />}
+                label="Next Ep."
+                onClick={onNextEpisode}
               />
+            )}
 
-              {/* Interactive Range Input */}
+            {/* Desktop Volume Slider */}
+            <div className="hidden lg:flex items-center gap-2 pl-4 border-l border-white/10">
+              <button onClick={toggleMute} className="text-white/80 hover:text-white transition-colors">
+                {isMuted || volume === 0 ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />}
+              </button>
               <input
                 type="range"
                 min={0}
-                max={duration || 100}
-                step={0.1}
-                value={currentTime}
-                onChange={handleScrubberChange}
-                className="absolute inset-0 w-full opacity-0 cursor-pointer h-full z-10"
+                max={1}
+                step={0.05}
+                value={isMuted ? 0 : volume}
+                onChange={(e) => handleVolumeChange(Number(e.target.value))}
+                aria-label="Volume"
+                className="h-1 w-20 cursor-pointer accent-[#E50914]"
               />
-            </div>
-
-            {/* Elapsed / Remaining Countdown Display (FlowFlix Tabular Numbers) */}
-            <div className="text-[11px] sm:text-xs font-mono font-bold text-gray-300 tabular-nums flex-shrink-0">
-              <span>{formatTime(currentTime)}</span>
-              <span className="text-gray-500 mx-1">/</span>
-              <span className="text-gray-400">{formatRemaining(currentTime, duration)}</span>
-            </div>
-          </div>
-
-          {/* Bottom Controls Action Row */}
-          <div className="flex items-center justify-between text-white text-xs">
-
-            {/* Left Controls Group (Play, Quality, Speed, Subtitles, Episodes, Next) */}
-            <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto scrollbar-none py-0.5">
-              {/* Play / Pause Toggle */}
-              <button
-                onClick={togglePlay}
-                className="vf-action-pill"
-                title={isPlaying ? 'Pause' : 'Play'}
-              >
-                {isPlaying ? (
-                  <svg className="w-4 h-4 sm:w-5 sm:h-5 fill-current" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-                ) : (
-                  <svg className="w-4 h-4 sm:w-5 sm:h-5 fill-current ml-0.5" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                )}
-              </button>
-
-              {/* Quality Pill */}
-              <button
-                onClick={() => setActiveSheet(activeSheet === 'settings' ? 'none' : 'settings')}
-                className="vf-action-pill"
-                title="Video Quality"
-              >
-                <span className="text-white font-bold">{currentQualityLabel}</span>
-              </button>
-
-              {/* Speed Pill */}
-              <button
-                onClick={() => setActiveSheet(activeSheet === 'settings' ? 'none' : 'settings')}
-                className="vf-action-pill"
-                title="Playback Speed"
-              >
-                <span>{speed}x</span>
-              </button>
-
-              {/* Audio & Subtitles Pill */}
-              <button
-                onClick={() => setActiveSheet(activeSheet === 'subtitles' ? 'none' : 'subtitles')}
-                className="vf-action-pill"
-                title="Audio & Subtitles"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/>
-                </svg>
-                <span className="hidden sm:inline">Audio &amp; Subs</span>
-              </button>
-
-              {/* Episodes Drawer Toggle */}
-              {totalEpisodes > 1 && (
-                <button
-                  onClick={() => setActiveSheet(activeSheet === 'drawer' ? 'none' : 'drawer')}
-                  className="vf-action-pill"
-                  title="Episode Drawer (E)"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-                    <rect x="3" y="3" width="7" height="7" rx="1"/>
-                    <rect x="14" y="3" width="7" height="7" rx="1"/>
-                    <rect x="3" y="14" width="7" height="7" rx="1"/>
-                    <rect x="14" y="14" width="7" height="7" rx="1"/>
-                  </svg>
-                  <span className="hidden sm:inline">Episodes</span>
-                </button>
-              )}
-
-              {/* Next Episode Quick Button */}
-              {onNextEpisode && episodeIndex + 1 < totalEpisodes && (
-                <button
-                  onClick={onNextEpisode}
-                  className="vf-action-pill"
-                  title="Next Episode (N)"
-                >
-                  <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-                    <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
-                  </svg>
-                  <span className="hidden sm:inline">Next Ep.</span>
-                </button>
-              )}
-            </div>
-
-            {/* Right Controls Group (Volume, Fullscreen) */}
-            <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-              {/* Volume Slider */}
-              <div className="vf-volume flex items-center gap-1.5">
-                <button
-                  onClick={toggleMute}
-                  className="vf-action-pill p-1.5"
-                  title="Mute (M)"
-                >
-                  {isMuted || volume === 0 ? (
-                    <svg className="w-4 h-4 sm:w-5 sm:h-5 text-[#E50914]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"/>
-                    </svg>
-                  ) : (
-                    <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/>
-                    </svg>
-                  )}
-                </button>
-
-                <input
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  value={isMuted ? 0 : volume}
-                  onChange={(e) => handleVolumeInput(parseFloat(e.target.value))}
-                  className="vf-volume-slider hidden sm:block h-1 accent-[#E50914] bg-white/20 rounded-full cursor-pointer"
-                />
-              </div>
-
-              {/* Fullscreen Button */}
-              <button
-                onClick={toggleFullscreen}
-                className="vf-action-pill p-1.5"
-                title="Fullscreen (F)"
-              >
-                {isFullscreen ? (
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 9L4 4m0 0h5M4 4v5m11 11l5 5m0 0h-5m5 0v-5m-5-11l5-5m0 0v5m0-5h-5M4 20l5-5m-5 5v-5m0 5h5"/>
-                  </svg>
-                ) : (
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/>
-                  </svg>
-                )}
-              </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ============ AUDIO & SUBTITLES BOTTOM SHEET ============ */}
-      {activeSheet === 'subtitles' && (
-        <>
-          <div className="absolute inset-0 z-30 bg-black/60 backdrop-blur-sm" onClick={() => setActiveSheet('none')} />
-          <div className="vf-sheet z-40 overflow-y-auto rounded-t-2xl sm:rounded-2xl p-4 space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-white/10">
-              <h4 className="font-bold text-sm text-white flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-[#E50914]" />
-                Audio &amp; Subtitles
-              </h4>
-              <button onClick={() => setActiveSheet('none')} className="text-gray-400 hover:text-white">✕</button>
-            </div>
+      {/* ============ BOTTOM SHEETS / MODALS (FlowFlix Spec) ============ */}
+      {activeSheet !== 'none' && (
+        <div className="absolute inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={() => setActiveSheet('none')}>
+          <div
+            className="absolute inset-x-0 bottom-0 max-h-[80%] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-[#161616]/95 border border-white/10 text-white shadow-2xl backdrop-blur sm:inset-x-auto sm:left-1/2 sm:w-full sm:max-w-lg sm:-translate-x-1/2 p-4 sm:p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Speed Sheet */}
+            {activeSheet === 'speed' && (
+              <SheetSection title="Playback Speed" onClose={() => setActiveSheet('none')}>
+                {SPEEDS.map((sp) => (
+                  <OptionRow
+                    key={sp}
+                    label={sp === 1 ? '1x (Normal)' : `${sp}x`}
+                    active={speed === sp}
+                    onClick={() => changeSpeed(sp)}
+                  />
+                ))}
+              </SheetSection>
+            )}
 
-            <div className="grid grid-cols-2 gap-4 text-xs">
-              <div className="space-y-2">
-                <h5 className="vf-sheet-title">Audio Track</h5>
-                <div className="p-2.5 rounded-xl bg-white/10 text-white font-semibold flex items-center justify-between border border-[#E50914]/40">
-                  <span>Japanese (Original)</span>
-                  <span className="text-[#E50914] font-bold">✓</span>
-                </div>
-              </div>
+            {/* Quality Sheet */}
+            {activeSheet === 'quality' && (
+              <SheetSection title="Quality" onClose={() => setActiveSheet('none')}>
+                <OptionRow
+                  label="Auto (Adaptive 1080p)"
+                  active={currentLevel === -1}
+                  onClick={() => changeLevel(-1)}
+                />
+                {qualityLevels.map((q) => (
+                  <OptionRow
+                    key={q.index}
+                    label={`${q.label} Full HD`}
+                    active={currentLevel === q.index}
+                    onClick={() => changeLevel(q.index)}
+                  />
+                ))}
+              </SheetSection>
+            )}
 
-              <div className="space-y-2">
-                <h5 className="vf-sheet-title">Subtitles</h5>
-                <div className="space-y-1 max-h-40 overflow-y-auto">
-                  {['English (Hardsubbed / Softsub)', 'Off'].map((sub) => (
-                    <button
-                      key={sub}
-                      onClick={() => { setSelectedSub(sub); setActiveSheet('none'); }}
-                      className={`w-full text-left p-2 rounded-lg transition flex items-center justify-between ${
-                        selectedSub === sub ? 'bg-[#E50914] text-white font-bold' : 'bg-white/5 hover:bg-white/10 text-gray-300'
-                      }`}
-                    >
-                      <span>{sub}</span>
-                      {selectedSub === sub && <span>✓</span>}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* ============ PLAYBACK SETTINGS SHEET ============ */}
-      {activeSheet === 'settings' && (
-        <>
-          <div className="absolute inset-0 z-30 bg-black/60 backdrop-blur-sm" onClick={() => setActiveSheet('none')} />
-          <div className="vf-sheet z-40 overflow-y-auto rounded-t-2xl sm:rounded-2xl p-4 space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-white/10">
-              <h4 className="font-bold text-sm text-white flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-[#E50914]" />
-                Playback Settings
-              </h4>
-              <button onClick={() => setActiveSheet('none')} className="text-gray-400 hover:text-white">✕</button>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 text-xs">
-              {/* Quality Levels */}
-              <div className="space-y-2">
-                <h5 className="vf-sheet-title">Quality</h5>
-                <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
-                  <button
-                    onClick={() => changeLevel(-1)}
-                    className={`w-full text-left p-2 rounded-lg transition flex items-center justify-between ${
-                      currentLevel === -1 ? 'bg-[#E50914] text-white font-bold' : 'bg-white/5 hover:bg-white/10 text-gray-300'
-                    }`}
-                  >
-                    <span>Auto (Adaptive)</span>
-                    {currentLevel === -1 && <span>✓</span>}
-                  </button>
-                  {qualityLevels.map((lvl) => (
-                    <button
-                      key={lvl.index}
-                      onClick={() => changeLevel(lvl.index)}
-                      className={`w-full text-left p-2 rounded-lg transition flex items-center justify-between ${
-                        currentLevel === lvl.index ? 'bg-[#E50914] text-white font-bold' : 'bg-white/5 hover:bg-white/10 text-gray-300'
-                      }`}
-                    >
-                      <span>{lvl.label} Full HD</span>
-                      {currentLevel === lvl.index && <span>✓</span>}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Playback Speed & AutoPlay */}
+            {/* Episodes Sheet */}
+            {activeSheet === 'episodes' && (
               <div className="space-y-3">
-                <h5 className="vf-sheet-title">Speed</h5>
-                <div className="grid grid-cols-3 gap-1">
-                  {[0.75, 1, 1.25, 1.5, 2].map((s) => (
-                    <button
-                      key={s}
-                      onClick={() => changeSpeed(s)}
-                      className={`py-1.5 rounded-lg text-center font-semibold transition ${
-                        speed === s ? 'bg-[#E50914] text-white' : 'bg-white/5 hover:bg-white/10 text-gray-300'
-                      }`}
-                    >
-                      {s}x
-                    </button>
-                  ))}
+                <div className="flex items-center justify-between pb-2 border-b border-white/10">
+                  <h4 className="font-bold text-sm text-white uppercase tracking-wider">
+                    Episodes • {episodes.length} Available
+                  </h4>
+                  <button onClick={() => setActiveSheet('none')} className="text-gray-400 hover:text-white">
+                    <X className="size-5" />
+                  </button>
                 </div>
 
-                <div className="pt-2 border-t border-white/10">
-                  <label className="flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/5 cursor-pointer">
-                    <span className="text-[11px] text-gray-200">Auto-play next episode</span>
-                    <input
-                      type="checkbox"
-                      checked={autoPlayNext}
-                      onChange={(e) => {
-                        setAutoPlayNext(e.target.checked);
-                        localStorage.setItem('voidflix_autoplay', String(e.target.checked));
-                      }}
-                      className="w-3.5 h-3.5 accent-[#E50914]"
-                    />
-                  </label>
+                <div className="max-h-[55vh] overflow-y-auto space-y-2 pr-1 no-scrollbar">
+                  {episodes.map((ep, idx) => {
+                    const active = idx === episodeIndex;
+                    return (
+                      <button
+                        key={ep.chapter_id || idx}
+                        onClick={() => {
+                          onSelectEpisode(idx);
+                          setActiveSheet('none');
+                        }}
+                        className={`w-full text-left flex items-center gap-3 p-2 rounded-xl transition ${
+                          active ? 'bg-[#E50914]/20 ring-1 ring-[#E50914] text-white' : 'hover:bg-white/5 text-gray-300'
+                        }`}
+                      >
+                        <div className="relative w-24 aspect-video rounded-lg overflow-hidden bg-carbon-800 flex-shrink-0">
+                          <img
+                            src={ep.chapter_thumbnail || poster}
+                            alt={ep.chapter_name || `Episode ${idx + 1}`}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                          {active && (
+                            <span className="absolute inset-0 flex items-center justify-center bg-black/60 text-[10px] font-extrabold text-[#E50914] uppercase tracking-wider">
+                              Playing
+                            </span>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className={`text-xs font-semibold truncate ${active ? 'text-[#E50914] font-bold' : 'text-white'}`}>
+                            {ep.chapter_name || `Episode ${idx + 1}`}
+                          </p>
+                          <span className="text-[10px] text-gray-500">1080p FHD</span>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
-            </div>
-          </div>
-        </>
-      )}
+            )}
 
-      {/* ============ IN-PLAYER EPISODE DRAWER ============ */}
-      {activeSheet === 'drawer' && (
-        <>
-          <div className="absolute inset-0 z-35 bg-black/60 backdrop-blur-sm" onClick={() => setActiveSheet('none')} />
-          <div className="vf-drawer open absolute top-0 bottom-0 right-0 z-40 w-full sm:w-80 bg-[#070709]/95 backdrop-blur-xl border-l border-white/10 flex flex-col">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
-              <h4 className="font-bold text-xs uppercase tracking-wider text-white">
-                Episodes · {episodes.length} Available
-              </h4>
-              <button onClick={() => setActiveSheet('none')} className="text-gray-400 hover:text-white">✕</button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-2.5 space-y-2 no-scrollbar">
-              {episodes.map((ep, idx) => {
-                const active = idx === episodeIndex;
-                return (
-                  <button
-                    key={ep.chapter_id || idx}
-                    onClick={() => {
-                      onSelectEpisode(idx);
-                      setActiveSheet('none');
-                    }}
-                    className={`w-full text-left flex items-center gap-3 p-2 rounded-xl transition ${
-                      active ? 'bg-[#E50914]/20 ring-1 ring-[#E50914] text-white' : 'hover:bg-white/5 text-gray-300'
-                    }`}
-                  >
-                    <div className="relative w-24 aspect-video rounded-lg overflow-hidden bg-carbon-800 flex-shrink-0">
-                      <img
-                        src={ep.chapter_thumbnail || poster}
-                        alt={ep.chapter_name || `Episode ${idx + 1}`}
-                        className="w-full h-full object-cover"
-                        loading="lazy"
-                      />
-                      {active && (
-                        <span className="absolute inset-0 flex items-center justify-center bg-black/60 text-[10px] font-extrabold text-[#E50914] uppercase tracking-wider">
-                          Playing
-                        </span>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className={`text-xs font-semibold truncate ${active ? 'text-[#E50914] font-bold' : 'text-white'}`}>
-                        {ep.chapter_name || `Episode ${idx + 1}`}
-                      </p>
-                      <span className="text-[10px] text-gray-500">1080p FHD</span>
-                    </div>
+            {/* Audio & Subtitles Sheet */}
+            {activeSheet === 'audiosubs' && (
+              <div className="grid grid-cols-2 gap-4 pb-2">
+                <div>
+                  <h4 className="px-2 pb-2 text-xs font-bold uppercase tracking-wider text-white/50">Audio</h4>
+                  <ul className="space-y-1">
+                    <OptionRow label="Japanese [Original]" active={true} onClick={() => {}} />
+                  </ul>
+                </div>
+                <div>
+                  <h4 className="px-2 pb-2 text-xs font-bold uppercase tracking-wider text-white/50">Subtitles</h4>
+                  <ul className="space-y-1">
+                    <OptionRow label="English (Burned/VTT)" active={selectedSub === 'en'} onClick={() => setSelectedSub('en')} />
+                    <OptionRow label="Off" active={selectedSub === 'off'} onClick={() => setSelectedSub('off')} />
+                  </ul>
+                </div>
+              </div>
+            )}
+
+            {/* Download Episode Sheet */}
+            {activeSheet === 'download' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between pb-2 border-b border-white/10">
+                  <h4 className="font-bold text-sm text-white">Download Episode</h4>
+                  <button onClick={() => setActiveSheet('none')} className="text-gray-400 hover:text-white">
+                    <X className="size-5" />
                   </button>
-                );
-              })}
-            </div>
+                </div>
+
+                <p className="text-xs text-gray-300 leading-relaxed">
+                  Download the master HLS streaming playlist file to play directly in VLC, PotPlayer, MPV, or download as MP4 with yt-dlp.
+                </p>
+
+                <div className="space-y-2 pt-2">
+                  <a
+                    href={streamUrl}
+                    download={`${seriesTitle} - ${epTitle}.m3u8`}
+                    className="w-full py-2.5 px-4 rounded-xl bg-[#E50914] hover:bg-[#b81d24] text-white font-semibold text-xs flex items-center justify-center gap-2 transition"
+                  >
+                    <Download className="size-4" />
+                    <span>Download M3U8 Playlist File</span>
+                  </a>
+
+                  <button
+                    onClick={() => {
+                      const cmd = `yt-dlp "${streamUrl}" -o "${seriesTitle} - ${epTitle}.mp4"`;
+                      navigator.clipboard.writeText(cmd);
+                      alert('Copied yt-dlp command to clipboard!');
+                    }}
+                    className="w-full py-2.5 px-4 rounded-xl bg-white/10 hover:bg-white/15 text-white font-semibold text-xs flex items-center justify-center gap-2 border border-white/10 transition"
+                  >
+                    <Copy className="size-4" />
+                    <span>Copy yt-dlp Command (Download MP4)</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <button
+              onClick={() => setActiveSheet('none')}
+              className="mt-4 w-full border-t border-white/10 pt-3 text-center text-xs font-semibold text-white/70 hover:text-white transition-colors"
+            >
+              Close
+            </button>
           </div>
-        </>
-      )}
-
-      {/* ============ DOWNLOAD MODAL ============ */}
-      {activeSheet === 'download' && (
-        <>
-          <div className="absolute inset-0 z-30 bg-black/60 backdrop-blur-sm" onClick={() => setActiveSheet('none')} />
-          <div className="vf-sheet z-40 overflow-y-auto rounded-t-2xl sm:rounded-2xl p-4 sm:p-6 space-y-4 max-w-md mx-auto">
-            <div className="flex items-center justify-between pb-2 border-b border-white/10">
-              <h4 className="font-bold text-sm text-white">Download Episode</h4>
-              <button onClick={() => setActiveSheet('none')} className="text-gray-400 hover:text-white">✕</button>
-            </div>
-
-            <p className="text-xs text-gray-300 leading-relaxed">
-              Download the master HLS streaming playlist file to play directly in VLC, PotPlayer, MPV, or download as MP4 with yt-dlp.
-            </p>
-
-            <div className="space-y-2 pt-2">
-              <a
-                href={streamUrl}
-                download={`${seriesTitle} - ${epTitle}.m3u8`}
-                className="w-full py-2.5 px-4 rounded-xl bg-[#E50914] hover:bg-[#b81d24] text-white font-semibold text-xs flex items-center justify-center gap-2 transition"
-              >
-                <span>Download M3U8 Playlist File</span>
-              </a>
-
-              <button
-                onClick={() => {
-                  const cmd = `yt-dlp "${streamUrl}" -o "${seriesTitle} - ${epTitle}.mp4"`;
-                  navigator.clipboard.writeText(cmd);
-                  alert('Copied yt-dlp terminal command to clipboard!');
-                }}
-                className="w-full py-2.5 px-4 rounded-xl bg-white/10 hover:bg-white/15 text-white font-semibold text-xs flex items-center justify-center gap-2 border border-white/10 transition"
-              >
-                <span>Copy yt-dlp Command (Download as MP4)</span>
-              </button>
-            </div>
-          </div>
-        </>
+        </div>
       )}
     </div>
   );
 };
+
+// FlowFlix Bar Button Component
+function BarButton({
+  icon,
+  label,
+  onClick
+}: {
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex items-center gap-1.5 px-2 py-1 text-xs font-semibold text-white/80 hover:text-white transition-colors rounded-lg hover:bg-white/10 active:scale-95"
+    >
+      {icon}
+      <span className="hidden sm:inline">{label}</span>
+    </button>
+  );
+}
+
+// FlowFlix Sheet Section Component
+function SheetSection({
+  title,
+  children,
+  onClose
+}: {
+  title: string;
+  children: ReactNode;
+  onClose: () => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between pb-2 border-b border-white/10">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-white/50">{title}</h4>
+        <button onClick={onClose} className="text-gray-400 hover:text-white">
+          <X className="size-5" />
+        </button>
+      </div>
+      <ul className="space-y-1">{children}</ul>
+    </div>
+  );
+}
+
+// FlowFlix Option Row Component
+function OptionRow({
+  label,
+  active,
+  onClick
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <li>
+      <button
+        onClick={onClick}
+        className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs sm:text-sm transition ${
+          active ? 'bg-[#E50914] font-bold text-white' : 'text-white/80 hover:bg-white/10 hover:text-white'
+        }`}
+      >
+        <Check className={`size-4 shrink-0 ${active ? 'opacity-100' : 'opacity-0'}`} />
+        <span className="flex-1 truncate">{label}</span>
+      </button>
+    </li>
+  );
+}
