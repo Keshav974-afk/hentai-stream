@@ -1,2 +1,9 @@
 /*
   Access-Control-Allow-Origin: *
+  Cache-Control: public, max-age=86400, s-maxage=86400
+
+/assets/*
+  Cache-Control: public, max-age=86400, s-maxage=86400, immutable
+
+/api/*
+  Cache-Control: public, max-age=86400, s-maxage=86400, stale-while-revalidate=86400

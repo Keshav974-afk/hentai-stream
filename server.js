@@ -175,13 +175,20 @@ async function handleApiProxy(req, res, targetPath, parsedUrl) {
               return res.end(normalized);
             }
           } catch (e) {}
-          res.writeHead(proxyRes.statusCode, { 'Content-Type': 'application/json' });
+          res.writeHead(proxyRes.statusCode, {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=86400'
+          });
           res.end(body);
         });
         return;
       }
 
-      res.writeHead(proxyRes.statusCode, { 'Content-Type': 'application/json' });
+      const headers = { 'Content-Type': 'application/json' };
+      if (req.method === 'GET' && proxyRes.statusCode === 200) {
+        headers['Cache-Control'] = 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=86400';
+      }
+      res.writeHead(proxyRes.statusCode, headers);
       proxyRes.pipe(res);
     });
 

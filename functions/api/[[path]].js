@@ -150,7 +150,11 @@ export async function onRequest(context) {
       } catch (e) {}
       return new Response(text, {
         status: upstreamRes.status,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=86400',
+          ...corsHeaders
+        }
       });
     }
 
@@ -158,6 +162,10 @@ export async function onRequest(context) {
     responseHeaders.set('Access-Control-Allow-Origin', '*');
     responseHeaders.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     responseHeaders.set('Access-Control-Allow-Headers', '*');
+
+    if (request.method === 'GET' && upstreamRes.status === 200) {
+      responseHeaders.set('Cache-Control', 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=86400');
+    }
 
     return new Response(upstreamRes.body, {
       status: upstreamRes.status,

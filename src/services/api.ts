@@ -2,6 +2,9 @@ import { Episode, GenreTag, HentaiItem, HomeData } from '../types/api';
 
 const DEFAULT_DIRECT_API = 'https://api.hentaihaven.app/v1';
 
+// 1 Day Cache TTL (86,400,000 ms = 24 Hours)
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
 const DEVICE_BODY = new URLSearchParams({
   sdkInt: '33',
   board: 'goldfish_x86_64',
@@ -16,8 +19,7 @@ class ApiService {
   private baseUrl: string;
   private wardenToken: string | null = null;
   private tokenExpiry = 0;
-  private cachedHome: { data: HomeData } | null = null;
-  private cacheTimestamp = 0;
+  private memoryCache = new Map<string, { time: number; data: any }>();
   private isProxyMode: boolean;
 
   constructor() {
@@ -37,6 +39,49 @@ class ApiService {
     }
 
     this.isProxyMode = this.baseUrl.startsWith('/') || this.baseUrl.includes('localhost') || !this.baseUrl.includes('api.hentaihaven.app');
+  }
+
+  private getCachedData<T>(key: string, maxAgeMs: number = ONE_DAY_MS): T | null {
+    const mem = this.memoryCache.get(key);
+    if (mem && Date.now() - mem.time < maxAgeMs) {
+      return mem.data as T;
+    }
+
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const stored = localStorage.getItem(`hh_cache_${key}`);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed && parsed.time && Date.now() - parsed.time < maxAgeMs) {
+            this.memoryCache.set(key, parsed);
+            return parsed.data as T;
+          } else {
+            localStorage.removeItem(`hh_cache_${key}`);
+          }
+        }
+      } catch {}
+    }
+    return null;
+  }
+
+  private setCachedData(key: string, data: any): void {
+    const entry = { time: Date.now(), data };
+    this.memoryCache.set(key, entry);
+
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem(`hh_cache_${key}`, JSON.stringify(entry));
+      } catch {
+        try {
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k && k.startsWith('hh_cache_')) {
+              localStorage.removeItem(k);
+            }
+          }
+        } catch {}
+      }
+    }
   }
 
   public getBaseUrl(): string {
@@ -87,6 +132,15 @@ class ApiService {
   }
 
   public async fetchApi<T = any>(path: string, options: RequestInit = {}): Promise<T> {
+    const isGet = !options.method || options.method.toUpperCase() === 'GET';
+
+    if (isGet) {
+      const cached = this.getCachedData<T>(path, ONE_DAY_MS);
+      if (cached !== null) {
+        return cached;
+      }
+    }
+
     let token: string | null = null;
     try {
       token = await this.getToken();
@@ -118,7 +172,9 @@ class ApiService {
           headers
         });
         if (!retryRes.ok) throw new Error(`API error ${retryRes.status}`);
-        return await retryRes.json();
+        const data = await retryRes.json();
+        if (isGet) this.setCachedData(path, data);
+        return data;
       }
 
       if (!res.ok) {
@@ -127,7 +183,9 @@ class ApiService {
 
       const text = await res.text();
       try {
-        return JSON.parse(text);
+        const parsed = JSON.parse(text);
+        if (isGet) this.setCachedData(path, parsed);
+        return parsed;
       } catch (jsonErr: any) {
         if (text.trim().startsWith('<') || text.includes('<!DOCTYPE')) {
           throw new Error('API gateway returned HTML. Please allow 1 minute for cloud backend to warm up.');
@@ -135,22 +193,27 @@ class ApiService {
         throw new Error(`Malformed JSON response: ${jsonErr.message}`);
       }
     } catch (err) {
+      // Stale cache fallback if network fails
+      if (isGet) {
+        const stale = this.getCachedData<T>(path, Infinity);
+        if (stale !== null) {
+          console.warn(`[API] Using stale 1-day cache for ${path}`);
+          return stale;
+        }
+      }
       console.error(`Request to ${path} failed:`, err);
       throw err;
     }
   }
 
   public async getHome(forceRefresh = false): Promise<HomeData> {
-    const now = Date.now();
-    if (!forceRefresh && this.cachedHome && (now - this.cacheTimestamp < 5 * 60 * 1000)) {
-      return this.cachedHome.data;
+    if (forceRefresh) {
+      this.memoryCache.delete('/hentai/home');
+      try { localStorage.removeItem('hh_cache_/hentai/home'); } catch {}
     }
 
     const res = await this.fetchApi<{ success: boolean; data: HomeData }>('/hentai/home');
-    const data = res?.data || {};
-    this.cachedHome = { data };
-    this.cacheTimestamp = now;
-    return data;
+    return res?.data || {};
   }
 
   public async search(query: string, pageOrOffset: number = 0): Promise<HentaiItem[]> {
