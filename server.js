@@ -200,8 +200,11 @@ async function handleApiProxy(req, res, targetPath, parsedUrl) {
 
 // Serve static frontend files
 function serveStatic(req, res, filePath) {
-  let normalizedPath = path.normalize(path.join(__dirname, filePath));
-  if (!normalizedPath.startsWith(__dirname)) {
+  const distDir = path.join(__dirname, 'dist');
+  const baseDir = fs.existsSync(path.join(distDir, 'index.html')) ? distDir : __dirname;
+
+  let normalizedPath = path.normalize(path.join(baseDir, filePath));
+  if (!normalizedPath.startsWith(baseDir)) {
     res.writeHead(403);
     return res.end('Forbidden');
   }
@@ -210,9 +213,26 @@ function serveStatic(req, res, filePath) {
     normalizedPath = path.join(normalizedPath, 'index.html');
   }
 
+  // SPA Fallback: if file doesn't exist and request doesn't have an extension, serve index.html
+  if (!fs.existsSync(normalizedPath) && !path.extname(normalizedPath)) {
+    normalizedPath = path.join(baseDir, 'index.html');
+  }
+
   fs.readFile(normalizedPath, (err, content) => {
     if (err) {
       if (err.code === 'ENOENT') {
+        // Fallback to index.html for SPA client-side routing
+        const spaIndex = path.join(baseDir, 'index.html');
+        if (fs.existsSync(spaIndex)) {
+          return fs.readFile(spaIndex, (spaErr, spaContent) => {
+            if (spaErr) {
+              res.writeHead(404, { 'Content-Type': 'text/plain' });
+              return res.end('404 Not Found');
+            }
+            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+            res.end(spaContent);
+          });
+        }
         res.writeHead(404, { 'Content-Type': 'text/plain' });
         res.end('404 Not Found');
       } else {
