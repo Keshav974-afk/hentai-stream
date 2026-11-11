@@ -45,6 +45,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   // Playback & State
   const [isPlaying, setIsPlaying] = useState(false);
   const [isBuffering, setIsBuffering] = useState(true);
+  const [playbackError, setPlaybackError] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [bufferedPct, setBufferedPct] = useState(0);
@@ -108,6 +109,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     if (!video || !streamUrl) return;
 
     setIsBuffering(true);
+    setPlaybackError(null);
 
     if (Hls.isSupported()) {
       if (hlsRef.current) {
@@ -119,7 +121,9 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         lowLatencyMode: false, // Critical: OctopusManifest VOD streams require lowLatencyMode=false
         capLevelToPlayerSize: true,
         renderTextTracksNatively: false,
-        backBufferLength: 90
+        backBufferLength: 90,
+        maxBufferLength: 60,
+        maxMaxBufferLength: 120
       });
 
       hlsRef.current = hls;
@@ -127,6 +131,9 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       hls.attachMedia(video);
 
       hls.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
+        setIsBuffering(false);
+        setPlaybackError(null);
+
         const levels: VideoQualityLevel[] = data.levels.map((lvl, index) => ({
           index,
           height: lvl.height,
@@ -142,7 +149,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           setCurrentTime(saved.currentTime);
         }
 
-        // Try to start playback
+        // Try to start playback (if browser policy blocks autoplay, gracefully reveal center play button)
         const playPromise = video.play();
         if (playPromise !== undefined) {
           playPromise.then(() => {
@@ -153,6 +160,14 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
             setIsBuffering(false);
           });
         }
+      });
+
+      hls.on(Hls.Events.LEVEL_LOADED, () => {
+        setIsBuffering(false);
+      });
+
+      hls.on(Hls.Events.FRAG_LOADED, () => {
+        setIsBuffering(false);
       });
 
       hls.on(Hls.Events.LEVEL_SWITCHED, (_, data) => {
@@ -173,13 +188,20 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         } else {
           hls.destroy();
           setIsBuffering(false);
+          setPlaybackError('Stream failed to load. Please click to retry.');
         }
       });
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
       video.src = streamUrl;
       const playPromise = video.play();
       if (playPromise !== undefined) {
-        playPromise.then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
+        playPromise.then(() => {
+          setIsPlaying(true);
+          setIsBuffering(false);
+        }).catch(() => {
+          setIsPlaying(false);
+          setIsBuffering(false);
+        });
       }
     }
 
@@ -391,11 +413,18 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       }
       lastTapRef.current = { time: 0, x: 0 };
     } else {
-      // Single tap toggle controls
+      // Single tap: start playing if paused, or toggle controls visibility
       lastTapRef.current = { time: now, x: clickX };
       setTimeout(() => {
         if (Date.now() - lastTapRef.current.time >= 280) {
-          setShowControls(prev => !prev);
+          if (videoRef.current?.paused) {
+            videoRef.current.play().then(() => {
+              setIsPlaying(true);
+              setIsBuffering(false);
+            }).catch(() => {});
+          } else {
+            setShowControls(prev => !prev);
+          }
         }
       }, 300);
     }
@@ -419,11 +448,17 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         playsInline
         preload="auto"
         poster={episode.chapter_thumbnail || poster}
-        onPlay={() => { setIsPlaying(true); scheduleHideControls(); }}
-        onPause={() => { setIsPlaying(false); revealControls(); }}
-        onWaiting={() => setIsBuffering(true)}
-        onPlaying={() => setIsBuffering(false)}
+        onPlay={() => { setIsPlaying(true); setIsBuffering(false); scheduleHideControls(); }}
+        onPause={() => { setIsPlaying(false); setIsBuffering(false); revealControls(); }}
+        onWaiting={() => {
+          if (videoRef.current && !videoRef.current.paused) {
+            setIsBuffering(true);
+          }
+        }}
+        onPlaying={() => { setIsPlaying(true); setIsBuffering(false); }}
         onCanPlay={() => setIsBuffering(false)}
+        onCanPlayThrough={() => setIsBuffering(false)}
+        onLoadedData={() => setIsBuffering(false)}
         onTimeUpdate={handleTimeUpdate}
         onEnded={() => {
           setIsPlaying(false);
@@ -441,10 +476,48 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         className="absolute inset-0 z-10 cursor-pointer"
       />
 
+      {/* Big Center Play Button when Paused (FlowFlix Spec) */}
+      {!isPlaying && !isBuffering && !playbackError && (
+        <div className="absolute inset-0 z-15 flex items-center justify-center pointer-events-none">
+          <button
+            onClick={(e) => { e.stopPropagation(); togglePlay(); }}
+            className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-[#E50914] text-white flex items-center justify-center shadow-[0_4px_30px_rgba(229,9,20,0.6)] hover:scale-110 active:scale-95 transition-all pointer-events-auto cursor-pointer"
+            title="Play (Space / K)"
+          >
+            <svg className="w-8 h-8 sm:w-10 sm:h-10 fill-white translate-x-0.5" viewBox="0 0 24 24">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+          </button>
+        </div>
+      )}
+
       {/* Buffering Spinner */}
-      {isBuffering && (
+      {isBuffering && !playbackError && (
         <div className="pointer-events-none absolute inset-0 z-15 flex items-center justify-center">
           <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full border-4 border-white/20 border-t-[#E50914] animate-spin" />
+        </div>
+      )}
+
+      {/* Playback Error Overlay with Retry */}
+      {playbackError && (
+        <div className="absolute inset-0 z-15 flex flex-col items-center justify-center bg-black/85 p-4 text-center space-y-3">
+          <p className="text-white text-sm font-semibold max-w-sm">{playbackError}</p>
+          <button
+            onClick={() => {
+              setPlaybackError(null);
+              setIsBuffering(true);
+              if (hlsRef.current) {
+                hlsRef.current.loadSource(streamUrl);
+                hlsRef.current.startLoad();
+              } else if (videoRef.current) {
+                videoRef.current.src = streamUrl;
+                videoRef.current.play().catch(() => {});
+              }
+            }}
+            className="px-5 py-2 rounded-xl bg-[#E50914] text-white text-xs font-bold shadow-lg hover:scale-105 active:scale-95 transition"
+          >
+            Retry Stream
+          </button>
         </div>
       )}
 

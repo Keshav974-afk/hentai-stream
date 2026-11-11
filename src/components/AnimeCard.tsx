@@ -20,8 +20,9 @@ export const AnimeCard: React.FC<AnimeCardProps> = ({
   const { isSaved, toggleWatchlist } = useWatchlist();
 
   const id = item.post_ID || item.id || '';
-  const title = item.post_title || 'Untitled';
-  const thumbnail = item.post_thumbnail || '';
+  const title = item.post_title || (item as any).title || 'Untitled';
+  const rawThumbnail = item.post_thumbnail || item.thumbnail || (item as any).cover || '';
+  const thumbnail = rawThumbnail ? rawThumbnail.replace(/ /g, '%20') : '';
   const views = item.post_views;
   const rating = item.post_rate;
   const epCount = item.post_episodes_count || (Array.isArray(item.post_episodes) ? item.post_episodes.length : null);

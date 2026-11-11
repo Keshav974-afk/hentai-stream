@@ -302,6 +302,7 @@ export const GenresPage: React.FC<GenresPageProps> = ({ initialGenreId }) => {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
           {filtered.map((g) => {
             const count = Number(g.count) || 0;
+            const thumbUrl = g.thumbnail ? g.thumbnail.replace(/ /g, '%20') : '';
             return (
               <div
                 key={g.term_id}
@@ -311,9 +312,25 @@ export const GenresPage: React.FC<GenresPageProps> = ({ initialGenreId }) => {
                 }}
                 className="group relative aspect-[16/11] rounded-xl overflow-hidden bg-carbon-850 border border-white/10 hover:border-[#E50914]/60 cursor-pointer shadow-lg transition-all duration-300 hover:-translate-y-1 select-none flex flex-col justify-end p-3 sm:p-4"
               >
-                {/* Background Gradient & Pattern */}
-                <div className="absolute inset-0 bg-gradient-to-br from-carbon-800 via-carbon-900 to-black group-hover:scale-105 transition-transform duration-500" />
-                <div className="absolute inset-0 bg-[#E50914]/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                {/* Fallback Background Gradient */}
+                <div className="absolute inset-0 bg-gradient-to-br from-carbon-800 via-carbon-900 to-black" />
+
+                {/* Background Thumbnail Image with Zoom on Hover */}
+                {thumbUrl ? (
+                  <img
+                    src={thumbUrl}
+                    alt={g.name}
+                    loading="lazy"
+                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-110 filter brightness-[0.70] group-hover:brightness-[0.9]"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLElement).style.display = 'none';
+                    }}
+                  />
+                ) : null}
+
+                {/* Dark Vignette & Hover Overlays */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent pointer-events-none" />
+                <div className="absolute inset-0 bg-[#E50914]/15 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
 
                 {/* Top Count Badge */}
                 <div className="absolute top-2.5 right-2.5 z-10">

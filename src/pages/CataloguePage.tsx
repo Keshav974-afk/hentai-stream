@@ -23,18 +23,61 @@ export const CataloguePage: React.FC<CataloguePageProps> = ({ initialSort = 'tre
     try {
       let data: HentaiItem[] = [];
       if (targetLetter === 'ALL') {
-        const query = sort === 'latest' ? 'latest' : sort === 'trending' ? 'trending' : 'anime';
-        data = await API.search(query, pageNum);
+        if (pageNum === 1) {
+          const home = await API.getHome();
+          if (sort === 'trending') {
+            data = Array.isArray(home.trending_month) ? [...home.trending_month] : [];
+          } else if (sort === 'latest') {
+            data = Array.isArray(home.last) ? [...home.last] : Array.isArray(home.last_episodes) ? [...home.last_episodes] : [];
+          } else {
+            // Most viewed: combine shelves and sort by views
+            const combined = [
+              ...(Array.isArray(home.trending_month) ? home.trending_month : []),
+              ...(Array.isArray(home.last) ? home.last : []),
+              ...(Array.isArray(home.uncensored) ? home.uncensored : [])
+            ];
+            const seen = new Set<string>();
+            data = combined.filter((it) => {
+              const id = String(it.post_ID || it.id);
+              if (seen.has(id)) return false;
+              seen.add(id);
+              return true;
+            });
+            data.sort((a, b) => (Number(b.post_views) || 0) - (Number(a.post_views) || 0));
+          }
+        } else {
+          // Pagination: search common characters pool
+          const char = ['a', 'o', 'e', 'u', 'i', 's', 'm'][(pageNum - 2) % 7];
+          const offset = Math.floor((pageNum - 1) / 7) * 20;
+          data = await API.search(char, offset);
+          if (sort === 'views') {
+            data.sort((a, b) => (Number(b.post_views) || 0) - (Number(a.post_views) || 0));
+          }
+        }
       } else {
-        data = await API.search(targetLetter, pageNum);
+        const query = targetLetter === '#' ? '1' : targetLetter.toLowerCase();
+        data = await API.search(query, (pageNum - 1) * 20);
+        if (targetLetter !== '#') {
+          data.sort((a, b) => {
+            const aStarts = (a.post_title || '').toUpperCase().startsWith(targetLetter);
+            const bStarts = (b.post_title || '').toUpperCase().startsWith(targetLetter);
+            if (aStarts && !bStarts) return -1;
+            if (!aStarts && bStarts) return 1;
+            return 0;
+          });
+        }
       }
 
       if (append) {
-        setItems((prev) => [...prev, ...data]);
+        setItems((prev) => {
+          const existingIds = new Set(prev.map((p) => String(p.post_ID || p.id)));
+          const unique = data.filter((d) => !existingIds.has(String(d.post_ID || d.id)));
+          return [...prev, ...unique];
+        });
       } else {
         setItems(data);
       }
-      setHasMore(data.length >= 15);
+      setHasMore(data.length >= 10);
     } catch {
       if (!append) setItems([]);
       setHasMore(false);

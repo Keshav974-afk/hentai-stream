@@ -109,10 +109,29 @@ export const WatchPage: React.FC<WatchPageProps> = ({ seriesId, episodeId }) => 
 
   const currentEp = episodes[epIndex];
   const title = series.post_title || 'Untitled';
-  const epTitle = currentEp.chapter_name || `Episode ${epIndex + 1}`;
+  const epTitle = currentEp?.chapter_name || `Episode ${epIndex + 1}`;
   const hasNext = epIndex + 1 < episodes.length;
   const hasPrev = epIndex > 0;
   const bookmarked = isSaved(seriesId);
+
+  // If chapter_content is missing on the episode object, fetch it directly
+  useEffect(() => {
+    if (currentEp && !currentEp.chapter_content && seriesId && currentEp.chapter_id) {
+      API.getEpisode(seriesId, currentEp.chapter_id).then((epData) => {
+        if (epData && epData.chapter_content) {
+          setSeries((prev) => {
+            if (!prev) return prev;
+            const updated = (prev.post_episodes || []).map((e) =>
+              String(e.chapter_id) === String(currentEp.chapter_id)
+                ? { ...e, chapter_content: epData.chapter_content }
+                : e
+            );
+            return { ...prev, post_episodes: updated };
+          });
+        }
+      }).catch(() => {});
+    }
+  }, [currentEp?.chapter_id, seriesId]);
 
   const handleSelectEpisode = (idx: number) => {
     const next = episodes[idx];

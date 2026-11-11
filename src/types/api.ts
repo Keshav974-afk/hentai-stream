@@ -4,6 +4,7 @@ export interface GenreTag {
   slug: string;
   taxonomy?: string;
   count?: number;
+  thumbnail?: string;
 }
 
 export interface Episode {
@@ -11,6 +12,7 @@ export interface Episode {
   chapter_name: string;
   chapter_content: string; // m3u8 stream manifest URL
   chapter_thumbnail?: string;
+  thumbnail?: string;
   post_id?: string | number;
 }
 
@@ -20,6 +22,7 @@ export interface HentaiItem {
   post_title: string;
   post_title_alternative?: string;
   post_thumbnail?: string;
+  thumbnail?: string;
   post_content?: string;
   post_views?: string | number;
   post_rate?: string | number;
