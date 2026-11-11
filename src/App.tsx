@@ -55,7 +55,7 @@ export const App: React.FC = () => {
       return <SeriesPage seriesId={segments[1]} />;
     }
 
-    if (segments[0] === 'watch' && segments[1] && segments[2]) {
+    if (segments[0] === 'watch' && segments[1]) {
       return <WatchPage seriesId={segments[1]} episodeId={segments[2]} />;
     }
 

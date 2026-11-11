@@ -43,6 +43,298 @@
   }
 }
 
+/* ==========================================================================
+   FLOWFLIX CINEMA PLAYER SPECIFICATION (True 1:1 FlowFlix Match)
+   ========================================================================== */
+.vf-frame {
+  background: #000;
+  position: relative;
+}
+.vf-controls {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.22s ease-out, visibility 0.22s ease-out;
+}
+.vf-frame.controls-hidden .vf-controls,
+.vf-controls.controls-hidden {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+.vf-frame.controls-hidden {
+  cursor: none;
+}
+.vf-frame:fullscreen {
+  width: 100vw !important;
+  height: 100vh !important;
+  border-radius: 0 !important;
+  border: none !important;
+  max-width: none !important;
+}
+.vf-frame:-webkit-full-screen {
+  width: 100vw !important;
+  height: 100vh !important;
+  border-radius: 0 !important;
+  border: none !important;
+}
+
+/* Top & bottom cinema gradient scrims */
+.vf-top {
+  background: linear-gradient(180deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.45) 60%, transparent 100%);
+}
+.vf-bottom {
+  background: linear-gradient(0deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.6) 65%, transparent 100%);
+}
+
+/* Floating Center Transport */
+.vf-transport-clean {
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.15s ease;
+  filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.85));
+}
+.vf-transport-clean:hover {
+  transform: scale(1.18);
+  opacity: 1;
+}
+.vf-transport-clean:active {
+  transform: scale(0.92);
+}
+
+/* Action Bar Pill Buttons (Speed, Quality, Subtitles, Episodes, Next Ep) */
+.vf-action-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #e5e5e5;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-user-select: none;
+  flex-shrink: 0;
+  min-width: 32px;
+  min-height: 32px;
+}
+@media (min-width: 640px) {
+  .vf-action-pill {
+    padding: 6px 11px;
+    font-size: 12.5px;
+    gap: 6.5px;
+    background: transparent;
+    border-color: transparent;
+  }
+}
+.vf-action-pill:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.18);
+}
+.vf-action-pill:active {
+  transform: scale(0.92);
+}
+
+/* Below Player Action Buttons (Download, My List, Share) */
+.vf-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1rem;
+  border-radius: 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #e5e5e5;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+  user-select: none;
+}
+.vf-action-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: translateY(-1px);
+}
+.vf-action-btn:active {
+  transform: scale(0.96);
+}
+
+/* Top Back / Download Icons */
+.vf-icon-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.12s ease;
+}
+.vf-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+.vf-icon-btn:active {
+  transform: scale(0.9);
+}
+
+/* Pointer Scrubbing Timeline */
+.vf-timeline {
+  position: relative;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.vf-timeline .vf-track {
+  transition: height 0.15s ease;
+}
+.vf-timeline:hover .vf-track,
+.vf-timeline.scrubbing .vf-track {
+  height: 6px;
+}
+.vf-thumb {
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 10px rgba(229, 9, 20, 0.8), 0 0 0 2px rgba(255, 255, 255, 0.95);
+  transition: transform 0.12s ease;
+}
+.vf-timeline:hover .vf-thumb,
+.vf-timeline.scrubbing .vf-thumb {
+  transform: translate(-50%, -50%) scale(1.3);
+}
+
+/* Double Tap Seek Feedback Flashes */
+.seek-flash {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 40%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.22s ease-out;
+  z-index: 15;
+}
+.seek-flash.left-0 {
+  left: 0;
+  border-radius: 0 100% 100% 0 / 50%;
+  background: radial-gradient(circle at left center, rgba(255, 255, 255, 0.18) 0%, transparent 70%);
+}
+.seek-flash.right-0 {
+  right: 0;
+  border-radius: 100% 0 0 100% / 50%;
+  background: radial-gradient(circle at right center, rgba(255, 255, 255, 0.18) 0%, transparent 70%);
+}
+.seek-flash.show {
+  opacity: 1;
+}
+.seek-flash-pill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 10px 18px;
+  border-radius: 9999px;
+  background: rgba(0, 0, 0, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* Playback Settings & Audio/Subtitles Sheet */
+.vf-sheet {
+  position: absolute;
+  background: rgba(14, 14, 18, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9);
+  z-index: 40;
+}
+@media (min-width: 641px) {
+  .vf-sheet {
+    bottom: 58px;
+    right: 18px;
+    width: 480px;
+    max-height: 80%;
+    border-radius: 16px;
+  }
+}
+@media (max-width: 640px) {
+  .vf-sheet {
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-height: 94%;
+    border-radius: 18px 18px 0 0;
+    border-bottom: none;
+    border-left: none;
+    border-right: none;
+    box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.95);
+    animation: slideUpSheet 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+@keyframes slideUpSheet {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+.vf-sheet-title {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #9ca3af;
+  margin: 6px 4px 6px 4px;
+}
+
+/* In-Player Episode Drawer */
+.vf-drawer {
+  transform: translateX(100%);
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+.vf-drawer.open {
+  transform: translateX(0);
+  pointer-events: auto;
+}
+@media (max-width: 640px) {
+  .vf-drawer {
+    width: 85% !important;
+    max-width: 320px;
+  }
+}
+
+/* Volume Slider */
+.vf-volume {
+  position: relative;
+}
+.vf-volume-slider {
+  width: 72px;
+  transition: width 0.2s ease, opacity 0.2s ease;
+}
+
 /* Animations */
 @keyframes fadeIn {
   from {
@@ -54,26 +346,25 @@
     transform: translateY(0);
   }
 }
-
 .animate-fadeIn {
   animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-@keyframes pingShort {
-  0% {
-    transform: scale(0.85);
-    opacity: 0.9;
-  }
-  50% {
-    transform: scale(1.1);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 0;
-  }
+/* Shimmer Skeleton */
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
 }
-
-.animate-ping-short {
-  animation: pingShort 0.5s ease-out forwards;
+.shimmer {
+  position: relative;
+  overflow: hidden;
+  background: #111116;
+}
+.shimmer::after {
+  content: '';
+  position: absolute;
+  top: 0; right: 0; bottom: 0; left: 0;
+  transform: translateX(-100%);
+  background-image: linear-gradient(90deg, rgba(255, 255, 255, 0) 0, rgba(255, 255, 255, 0.04) 20%, rgba(255, 255, 255, 0.08) 60%, rgba(255, 255, 255, 0));
+  animation: shimmer 1.6s infinite;
 }

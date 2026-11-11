@@ -18,12 +18,13 @@ execSync('npx tsc -b && npx vite build', { stdio: 'inherit', cwd: rootDir });
 console.log('📦 Syncing production assets to root for static hosts...');
 fs.copyFileSync(path.join(rootDir, 'dist', 'index.html'), path.join(rootDir, 'index.html'));
 
-// 4. Copy dist/assets to root assets/
+// 4. Clean and copy dist/assets to root assets/
 const rootAssets = path.join(rootDir, 'assets');
 const distAssets = path.join(rootDir, 'dist', 'assets');
-if (!fs.existsSync(rootAssets)) {
-  fs.mkdirSync(rootAssets, { recursive: true });
+if (fs.existsSync(rootAssets)) {
+  fs.rmSync(rootAssets, { recursive: true, force: true });
 }
+fs.mkdirSync(rootAssets, { recursive: true });
 fs.cpSync(distAssets, rootAssets, { recursive: true });
 
 console.log('✅ Build complete! Both dist/ and root / are fully synced and production-ready.');
