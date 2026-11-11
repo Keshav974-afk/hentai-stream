@@ -132,7 +132,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     scheduleHideControls();
   }, [scheduleHideControls]);
 
-  // Keep auto-unmute listener on first user gesture (FlowFlix Engine Spec)
+  // Keep auto-unmute listener on first user gesture
   useEffect(() => {
     const handleFirstGesture = () => {
       const v = videoRef.current;
@@ -150,19 +150,22 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     };
   }, []);
 
-  // Initialize HLS & Video Stream (FlowFlix / NativePlayer Engine Spec)
-  useEffect(() => {
+  // Initialize HLS & Video Stream (FlowFlix Engine Spec from 72496b3)
+  const loadStream = useCallback((url: string) => {
     const video = videoRef.current;
-    if (!video || !streamUrl) return;
-
-    // Avoid unnecessary reload if same source is already active
-    if (lastLoadedSrcRef.current === streamUrl && hlsRef.current) {
-      return;
-    }
-    lastLoadedSrcRef.current = streamUrl;
+    if (!video || !url) return;
 
     setIsBuffering(true);
     setPlaybackError(null);
+
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+
+    const HlsClass = (typeof window !== 'undefined' && (window as any).Hls) || Hls;
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
     const attemptPlay = () => {
       const savedMuted = localStorage.getItem('voidflix_muted') === 'true';
@@ -174,7 +177,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           setIsPlaying(true);
           setIsBuffering(false);
         }).catch(() => {
-          // Autoplay blocked: start muted, auto-unmute on first click/touch
+          // Autoplay policy blocked audio, attempt muted autoplay
           video.muted = true;
           setIsMuted(true);
           forcedMuteRef.current = true;
@@ -182,6 +185,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
             setIsPlaying(true);
             setIsBuffering(false);
           }).catch(() => {
+            // Left paused gracefully for user to tap center play button
             setIsPlaying(false);
             setIsBuffering(false);
           });
@@ -189,45 +193,24 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       }
     };
 
-    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-
-    if (Hls.isSupported() && !(isSafari || isIOS)) {
-      if (hlsRef.current) {
-        hlsRef.current.destroy();
-      }
-
-      // Fast-start zero-buffering HLS config matching FlowFlix NativePlayer
-      const hls = new Hls({
+    if (HlsClass.isSupported() && !(isSafari || isIOS)) {
+      const hls = new HlsClass({
         enableWorker: true,
         lowLatencyMode: false,
-        maxBufferLength: 30,
-        maxMaxBufferLength: 30,
-        maxFragLookUpTolerance: 0.25,
-        startFragPrefetch: false,
-        capLevelToPlayerSize: false,
-        abrEwmaDefaultEstimate: 5000000,
-        abrBandWidthFactor: 0.95,
-        abrBandWidthUpFactor: 0.9,
-        backBufferLength: 60,
-        startPosition: -1,
-        maxBufferHole: 0.5,
-        highBufferWatchdogPeriod: 2,
-        nudgeMaxRetry: 5,
-        nudgeOffset: 0.1,
+        capLevelToPlayerSize: true,
+        renderTextTracksNatively: false
       });
 
       hlsRef.current = hls;
-      let netRetries = 0;
 
-      hls.loadSource(streamUrl);
+      hls.loadSource(url);
       hls.attachMedia(video);
 
-      hls.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
+      hls.on(HlsClass.Events.MANIFEST_PARSED, (_: any, data: any) => {
         setIsBuffering(false);
         setPlaybackError(null);
 
-        const levels: VideoQualityLevel[] = (data.levels || []).map((lvl, index) => ({
+        const levels: VideoQualityLevel[] = (data.levels || []).map((lvl: any, index: number) => ({
           index,
           height: lvl.height,
           bitrate: lvl.bitrate,
@@ -245,15 +228,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         attemptPlay();
       });
 
-      hls.on(Hls.Events.FRAG_LOADED, () => {
-        setIsBuffering(false);
-      });
-
-      hls.on(Hls.Events.LEVEL_LOADED, () => {
-        setIsBuffering(false);
-      });
-
-      hls.on(Hls.Events.LEVEL_SWITCHED, (_, data) => {
+      hls.on(HlsClass.Events.LEVEL_SWITCHED, (_: any, data: any) => {
         setCurrentLevel(data.level);
         if (data.level === -1) {
           setCurrentQualityLabel('Auto');
@@ -262,22 +237,24 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         }
       });
 
-      hls.on(Hls.Events.ERROR, (_, data) => {
+      hls.on(HlsClass.Events.ERROR, (_: any, data: any) => {
         if (!data.fatal) return;
-        if (data.type === Hls.ErrorTypes.NETWORK_ERROR && netRetries < 5) {
-          netRetries++;
+        if (data.type === HlsClass.ErrorTypes.NETWORK_ERROR) {
+          console.warn('HLS Network error -> recovering...', data);
           hls.startLoad();
-        } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR && netRetries < 5) {
-          netRetries++;
+        } else if (data.type === HlsClass.ErrorTypes.MEDIA_ERROR) {
+          console.warn('HLS Media error -> recovering...', data);
           hls.recoverMediaError();
         } else {
+          console.error('Fatal HLS error:', data);
+          hls.destroy();
+          hlsRef.current = null;
           setIsBuffering(false);
           setPlaybackError('Stream failed to load. Please click to retry.');
         }
       });
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      // Native Apple HLS pipeline (iOS / Safari)
-      video.src = streamUrl;
+      video.src = url;
       const onLoaded = () => {
         setIsBuffering(false);
         const saved = getProgress(seriesId, episode.chapter_id);
@@ -289,6 +266,13 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       };
       video.addEventListener('loadedmetadata', onLoaded, { once: true });
     }
+  }, [seriesId, episode.chapter_id, getProgress]);
+
+  useEffect(() => {
+    if (!streamUrl) return;
+    if (lastLoadedSrcRef.current === streamUrl && hlsRef.current) return;
+    lastLoadedSrcRef.current = streamUrl;
+    loadStream(streamUrl);
 
     return () => {
       if (hlsRef.current) {
@@ -297,7 +281,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       }
       lastLoadedSrcRef.current = '';
     };
-  }, [streamUrl]);
+  }, [streamUrl, loadStream]);
 
   // Sync Volume & Brightness
   useEffect(() => {
@@ -667,15 +651,10 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
             onClick={() => {
               setPlaybackError(null);
               setIsBuffering(true);
-              if (hlsRef.current) {
-                hlsRef.current.loadSource(streamUrl);
-                hlsRef.current.startLoad();
-              } else if (videoRef.current) {
-                videoRef.current.src = streamUrl;
-                videoRef.current.play().catch(() => {});
-              }
+              lastLoadedSrcRef.current = '';
+              loadStream(streamUrl);
             }}
-            className="px-5 py-2 rounded-xl bg-[#E50914] text-white text-xs font-bold hover:bg-[#b81d24] transition shadow-lg pointer-events-auto"
+            className="px-5 py-2.5 rounded-xl bg-[#E50914] hover:bg-[#b81d24] text-white text-xs font-bold transition shadow-lg pointer-events-auto cursor-pointer"
           >
             Click to Retry Playback
           </button>
