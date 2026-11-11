@@ -17,6 +17,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({ seriesId, episodeId }) => 
   const [isTheaterMode, setIsTheaterMode] = useState(false);
   const [recommendations, setRecommendations] = useState<HentaiItem[]>([]);
   const [synopsisExpanded, setSynopsisExpanded] = useState(false);
+  const [copiedDirectLink, setCopiedDirectLink] = useState(false);
 
   const { isSaved, toggleWatchlist } = useWatchlist();
   const { getProgress } = useWatchHistory();
@@ -73,6 +74,11 @@ export const WatchPage: React.FC<WatchPageProps> = ({ seriesId, episodeId }) => 
 
   const currentEp = episodes[epIndex];
   const activeChapterId = currentEp?.chapter_id;
+
+  const savedProgress = getProgress(seriesId, activeChapterId);
+  const initialStartTime = savedProgress && savedProgress.currentTime > 10 && savedProgress.currentTime < (savedProgress.duration - 15)
+    ? savedProgress.currentTime
+    : 0;
 
   // 2. Fetch specific episode stream if chapter_content is missing (MUST be before any return)
   useEffect(() => {
@@ -212,6 +218,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({ seriesId, episodeId }) => 
           onToggleTheater={() => setIsTheaterMode(!isTheaterMode)}
           onBack={() => { window.location.hash = `#/series/${seriesId}`; }}
           poster={series.post_thumbnail}
+          startTime={initialStartTime}
         />
       </div>
 
@@ -223,20 +230,30 @@ export const WatchPage: React.FC<WatchPageProps> = ({ seriesId, episodeId }) => 
           <div className="flex items-center gap-2 w-full sm:w-auto min-w-0">
             <span className="w-2 h-2 rounded-full bg-[#E50914] flex-shrink-0 animate-pulse" />
             <span className="font-semibold text-white flex-shrink-0">Direct Stream Link:</span>
-            <span className="font-mono text-gray-400 truncate max-w-[260px] sm:max-w-md select-all bg-black/40 px-2 py-1 rounded border border-white/5">
+            <span className="font-mono text-gray-400 truncate max-w-[200px] sm:max-w-md select-all bg-black/40 px-2 py-1 rounded border border-white/5">
               {currentEp.chapter_content}
             </span>
           </div>
-          <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-shrink-0">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end flex-shrink-0">
             <button
               onClick={() => {
                 navigator.clipboard.writeText(currentEp.chapter_content);
-                alert('Direct stream URL copied to clipboard!');
+                setCopiedDirectLink(true);
+                setTimeout(() => setCopiedDirectLink(false), 2000);
               }}
               className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-200 hover:text-white border border-white/10 transition flex items-center gap-1.5"
             >
-              <span>Copy Link</span>
+              <span>{copiedDirectLink ? '✓ Copied' : 'Copy Link'}</span>
             </button>
+            <a
+              href={`https://videojs-http-streaming.netlify.app/?src=${encodeURIComponent(currentEp.chapter_content)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-200 hover:text-white border border-white/10 transition flex items-center gap-1.5"
+              title="Open in Web HLS Player"
+            >
+              <span>Web Player</span>
+            </a>
             <a
               href={currentEp.chapter_content}
               target="_blank"

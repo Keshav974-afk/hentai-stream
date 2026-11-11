@@ -44,6 +44,7 @@ interface VideoPlayerProps {
   onToggleTheater?: () => void;
   onBack?: () => void;
   poster?: string;
+  startTime?: number;
 }
 
 type SheetView = 'none' | 'speed' | 'quality' | 'audiosubs' | 'episodes' | 'download' | 'directlink';
@@ -64,23 +65,47 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   isTheaterMode = false,
   onToggleTheater,
   onBack,
-  poster = ''
+  poster = '',
+  startTime = 0
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
   const hlsRef = useRef<Hls | null>(null);
-  const lastLoadedSrcRef = useRef<string>('');
   const forcedMuteRef = useRef(false);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const seekRef = useRef<HTMLDivElement>(null);
   const isDraggingSeek = useRef(false);
 
-  const { saveProgress, getProgress } = useWatchHistory();
+  const { saveProgress } = useWatchHistory();
+  const saveProgressRef = useRef(saveProgress);
+  useEffect(() => {
+    saveProgressRef.current = saveProgress;
+  }, [saveProgress]);
+
+  // Keep parent callbacks in ref so re-renders do NOT tear down HLS.js
+  const cbRef = useRef({
+    onSelectEpisode,
+    onNextEpisode,
+    onPrevEpisode,
+    onBack,
+    onToggleTheater,
+  });
+  useEffect(() => {
+    cbRef.current = {
+      onSelectEpisode,
+      onNextEpisode,
+      onPrevEpisode,
+      onBack,
+      onToggleTheater,
+    };
+  });
 
   // Active Stream URL (Supports streamUrl or user-entered custom direct link)
   const [activeUrl, setActiveUrl] = useState<string>(streamUrl);
   const [playbackMode, setPlaybackMode] = useState<'hls' | 'direct'>('hls');
   const [customLinkInput, setCustomLinkInput] = useState<string>('');
+  const [streamReloadNonce, setStreamReloadNonce] = useState(0);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   // Keep activeUrl in sync with streamUrl prop updates
   useEffect(() => {
@@ -163,75 +188,34 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     };
   }, []);
 
-  // Direct HTML5 video playback
-  const playDirectNative = useCallback((url: string) => {
-    const video = videoRef.current;
-    if (!video || !url) return;
-
+  const reloadStream = useCallback(() => {
+    setPlaybackError(null);
+    setIsBuffering(true);
     if (hlsRef.current) {
-      hlsRef.current.destroy();
+      try {
+        hlsRef.current.destroy();
+      } catch {}
       hlsRef.current = null;
     }
+    setStreamReloadNonce(n => n + 1);
+  }, []);
 
-    setPlaybackMode('direct');
-    setIsBuffering(true);
-    setPlaybackError(null);
-
-    video.src = url;
-    video.load();
-
-    const onMeta = () => {
-      setIsBuffering(false);
-      const saved = getProgress(seriesId, episode.chapter_id);
-      if (saved && saved.currentTime > 10 && saved.currentTime < (saved.duration - 15)) {
-        video.currentTime = saved.currentTime;
-        setCurrentTime(saved.currentTime);
-      }
-
-      const p = video.play();
-      if (p !== undefined) {
-        p.then(() => {
-          setIsPlaying(true);
-          setIsBuffering(false);
-        }).catch(() => {
-          video.muted = true;
-          setIsMuted(true);
-          forcedMuteRef.current = true;
-          video.play().then(() => {
-            setIsPlaying(true);
-            setIsBuffering(false);
-          }).catch(() => {
-            setIsPlaying(false);
-            setIsBuffering(false);
-          });
-        });
-      }
-    };
-
-    video.addEventListener('loadedmetadata', onMeta, { once: true });
-  }, [seriesId, episode.chapter_id, getProgress]);
-
-  // Initialize HLS Engine
-  const loadStream = useCallback((url: string, mode: 'hls' | 'direct' = playbackMode) => {
+  // Primary Video & HLS Lifecycle Engine (FlowFlix / VidSrc spec)
+  // Depends ONLY on activeUrl, playbackMode, startTime, and streamReloadNonce
+  useEffect(() => {
     const video = videoRef.current;
-    if (!video || !url) return;
+    if (!video || !activeUrl) return;
 
-    if (mode === 'direct') {
-      playDirectNative(url);
-      return;
-    }
-
+    let hlsInstance: any = null;
+    let netRetries = 0;
     setIsBuffering(true);
     setPlaybackError(null);
-
-    if (hlsRef.current) {
-      hlsRef.current.destroy();
-      hlsRef.current = null;
-    }
 
     const HlsClass = (typeof window !== 'undefined' && (window as any).Hls) || Hls;
     const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const canPlayNativeHls = Boolean(video.canPlayType('application/vnd.apple.mpegurl'));
+    const isDirectMp4 = activeUrl.includes('.mp4') || activeUrl.includes('.webm') || activeUrl.includes('.m4v');
 
     const attemptPlay = () => {
       const savedMuted = localStorage.getItem('voidflix_muted') === 'true';
@@ -243,6 +227,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           setIsPlaying(true);
           setIsBuffering(false);
         }).catch(() => {
+          // Autoplay blocked by browser: fallback to muted autoplay and unmute on first tap
           video.muted = true;
           setIsMuted(true);
           forcedMuteRef.current = true;
@@ -257,20 +242,63 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       }
     };
 
-    if (HlsClass.isSupported() && !(isSafari || isIOS)) {
-      const hls = new HlsClass({
+    // Native playback mode for MP4 or native Apple HLS (Safari/iOS)
+    if (isDirectMp4 || (canPlayNativeHls && (playbackMode === 'direct' || isSafari || isIOS))) {
+      video.src = activeUrl;
+      const onLoaded = () => {
+        if (startTime > 0 && video.currentTime < 1) {
+          try {
+            video.currentTime = startTime;
+            setCurrentTime(startTime);
+          } catch {}
+        }
+        setIsBuffering(false);
+        setPlaybackError(null);
+        attemptPlay();
+      };
+      const onErr = () => {
+        setIsBuffering(false);
+        setPlaybackError('Native player failed to load direct stream. Please retry or open in VLC.');
+      };
+
+      video.addEventListener('loadedmetadata', onLoaded, { once: true });
+      video.addEventListener('error', onErr, { once: true });
+
+      return () => {
+        video.removeEventListener('loadedmetadata', onLoaded);
+        video.removeEventListener('error', onErr);
+        video.removeAttribute('src');
+        video.load();
+      };
+    }
+
+    // High performance HLS.js engine
+    if (HlsClass && HlsClass.isSupported()) {
+      hlsInstance = new HlsClass({
         enableWorker: true,
         lowLatencyMode: false,
-        capLevelToPlayerSize: true,
-        renderTextTracksNatively: false
+        maxBufferLength: 30,
+        maxMaxBufferLength: 30,
+        maxFragLookUpTolerance: 0.25,
+        startFragPrefetch: false,
+        capLevelToPlayerSize: false,
+        abrEwmaDefaultEstimate: 5000000,
+        abrBandWidthFactor: 0.95,
+        abrBandWidthUpFactor: 0.9,
+        backBufferLength: 60,
+        startPosition: startTime > 0 ? startTime : -1,
+        maxBufferHole: 0.5,
+        highBufferWatchdogPeriod: 2,
+        nudgeMaxRetry: 5,
+        nudgeOffset: 0.1,
       });
 
-      hlsRef.current = hls;
+      hlsRef.current = hlsInstance;
 
-      hls.loadSource(url);
-      hls.attachMedia(video);
+      hlsInstance.loadSource(activeUrl);
+      hlsInstance.attachMedia(video);
 
-      hls.on(HlsClass.Events.MANIFEST_PARSED, (_: any, data: any) => {
+      hlsInstance.on(HlsClass.Events.MANIFEST_PARSED, (_: any, data: any) => {
         setIsBuffering(false);
         setPlaybackError(null);
 
@@ -282,59 +310,89 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         }));
         setQualityLevels(levels);
 
-        const saved = getProgress(seriesId, episode.chapter_id);
-        if (saved && saved.currentTime > 10 && saved.currentTime < (saved.duration - 15)) {
-          video.currentTime = saved.currentTime;
-          setCurrentTime(saved.currentTime);
+        if (startTime > 0 && video.currentTime < 1) {
+          try {
+            video.currentTime = startTime;
+            setCurrentTime(startTime);
+          } catch {}
         }
 
         attemptPlay();
       });
 
-      hls.on(HlsClass.Events.LEVEL_SWITCHED, (_: any, data: any) => {
+      hlsInstance.on(HlsClass.Events.LEVEL_SWITCHED, (_: any, data: any) => {
         setCurrentLevel(data.level);
         if (data.level === -1) {
           setCurrentQualityLabel('Auto');
-        } else if (hls.levels[data.level]) {
-          setCurrentQualityLabel(`${hls.levels[data.level].height}p`);
+        } else if (hlsInstance?.levels?.[data.level]) {
+          setCurrentQualityLabel(`${hlsInstance.levels[data.level].height}p`);
         }
       });
 
-      hls.on(HlsClass.Events.ERROR, (_: any, data: any) => {
+      hlsInstance.on(HlsClass.Events.ERROR, (_: any, data: any) => {
         if (!data.fatal) return;
         if (data.type === HlsClass.ErrorTypes.NETWORK_ERROR) {
-          console.warn('HLS Network error -> recovering...', data);
-          hls.startLoad();
+          if (netRetries < 5) {
+            netRetries += 1;
+            console.warn(`HLS Network error -> recovery attempt ${netRetries}/5`, data);
+            hlsInstance.startLoad();
+          } else {
+            console.error('Fatal HLS Network Error', data);
+            setIsBuffering(false);
+            setPlaybackError('Stream failed to load due to network error. Click Retry or use Direct Link.');
+          }
         } else if (data.type === HlsClass.ErrorTypes.MEDIA_ERROR) {
-          console.warn('HLS Media error -> recovering...', data);
-          hls.recoverMediaError();
+          console.warn('HLS Media error -> auto recovering media', data);
+          hlsInstance.recoverMediaError();
         } else {
-          console.error('Fatal HLS error, attempting direct playback fallback...', data);
-          hls.destroy();
+          console.error('Fatal unrecoverable HLS error', data);
+          try {
+            hlsInstance.destroy();
+          } catch {}
           hlsRef.current = null;
-          // Graceful fallback to direct HTML5 stream
-          playDirectNative(url);
+          setIsBuffering(false);
+          setPlaybackError('Playback error occurred. Click Retry or open in VLC.');
         }
       });
-    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      playDirectNative(url);
-    }
-  }, [playbackMode, playDirectNative, seriesId, episode.chapter_id, getProgress]);
 
-  useEffect(() => {
-    if (!activeUrl) return;
-    if (lastLoadedSrcRef.current === activeUrl && (hlsRef.current || playbackMode === 'direct')) return;
-    lastLoadedSrcRef.current = activeUrl;
-    loadStream(activeUrl, playbackMode);
-
-    return () => {
-      if (hlsRef.current) {
-        hlsRef.current.destroy();
+      return () => {
         hlsRef.current = null;
-      }
-      lastLoadedSrcRef.current = '';
-    };
-  }, [activeUrl, playbackMode, loadStream]);
+        try {
+          hlsInstance.destroy();
+        } catch {}
+      };
+    }
+
+    if (canPlayNativeHls) {
+      video.src = activeUrl;
+      const onLoaded = () => {
+        if (startTime > 0 && video.currentTime < 1) {
+          try {
+            video.currentTime = startTime;
+            setCurrentTime(startTime);
+          } catch {}
+        }
+        setIsBuffering(false);
+        setPlaybackError(null);
+        attemptPlay();
+      };
+      const onErr = () => {
+        setIsBuffering(false);
+        setPlaybackError('Native playback failed to load stream. Click Retry.');
+      };
+      video.addEventListener('loadedmetadata', onLoaded, { once: true });
+      video.addEventListener('error', onErr, { once: true });
+      return () => {
+        video.removeEventListener('loadedmetadata', onLoaded);
+        video.removeEventListener('error', onErr);
+        video.removeAttribute('src');
+        video.load();
+      };
+    }
+
+    setIsBuffering(false);
+    setPlaybackError('HLS playback is not supported on this browser.');
+  }, [activeUrl, playbackMode, startTime, streamReloadNonce]);
 
   // Sync Volume & Brightness
   useEffect(() => {
@@ -527,9 +585,9 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       } catch {}
     }
 
-    // Auto save history progress every 4s
-    if (cur > 5 && Math.floor(cur) % 4 === 0) {
-      saveProgress({
+    // Auto save history progress every 5s using stable ref
+    if (cur > 5 && Math.floor(cur) % 5 === 0) {
+      saveProgressRef.current({
         seriesId,
         seriesTitle,
         chapterId: episode.chapter_id,
@@ -704,29 +762,40 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
       {/* Error / Fallback Retry Overlay */}
       {playbackError && (
-        <div className="absolute inset-0 z-25 flex flex-col items-center justify-center bg-black/85 p-6 text-center space-y-3">
-          <p className="text-white text-sm font-semibold max-w-sm">{playbackError}</p>
-          <div className="flex flex-wrap items-center justify-center gap-2 pt-1 pointer-events-auto">
+        <div className="absolute inset-0 z-25 flex flex-col items-center justify-center bg-black/90 p-6 text-center space-y-3 backdrop-blur-sm">
+          <div className="w-12 h-12 rounded-full bg-red-500/20 text-[#E50914] flex items-center justify-center mb-1">
+            <Radio className="size-6 animate-pulse" />
+          </div>
+          <p className="text-white text-sm font-semibold max-w-md">{playbackError}</p>
+          <p className="text-gray-400 text-xs max-w-sm">
+            You can retry playback immediately, stream in the web player, or paste the direct link in VLC / 1DM.
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-2 pt-2 pointer-events-auto">
             <button
-              onClick={() => {
-                setPlaybackError(null);
-                setIsBuffering(true);
-                lastLoadedSrcRef.current = '';
-                loadStream(activeUrl, 'hls');
-              }}
+              onClick={reloadStream}
               className="px-4 py-2 rounded-xl bg-[#E50914] hover:bg-[#b81d24] text-white text-xs font-bold transition shadow-lg cursor-pointer"
             >
-              Retry HLS Stream
+              Retry Stream
             </button>
-            <button
-              onClick={() => {
-                setPlaybackError(null);
-                playDirectNative(activeUrl);
-              }}
+            <a
+              href={`https://videojs-http-streaming.netlify.app/?src=${encodeURIComponent(activeUrl)}`}
+              target="_blank"
+              rel="noopener noreferrer"
               className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold border border-white/15 transition shadow-lg cursor-pointer flex items-center gap-1.5"
             >
-              <Radio className="size-3.5 text-[#E50914]" />
-              <span>Play via Direct Link</span>
+              <ExternalLink className="size-3.5 text-[#E50914]" />
+              <span>Web Player</span>
+            </a>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(activeUrl);
+                setCopiedLink(true);
+                setTimeout(() => setCopiedLink(false), 2000);
+              }}
+              className="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white text-xs font-medium border border-white/10 transition flex items-center gap-1.5"
+            >
+              <Copy className="size-3.5" />
+              <span>{copiedLink ? '✓ Copied Link' : 'Copy Direct Link'}</span>
             </button>
             <a
               href={activeUrl}
@@ -735,7 +804,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
               className="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white text-xs font-medium border border-white/10 transition flex items-center gap-1.5"
             >
               <ExternalLink className="size-3.5" />
-              <span>Open in New Tab</span>
+              <span>Open in VLC / Tab</span>
             </a>
           </div>
         </div>
@@ -1073,6 +1142,15 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
                       <Copy className="size-4" />
                     </button>
                     <a
+                      href={`https://videojs-http-streaming.netlify.app/?src=${encodeURIComponent(activeUrl)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition flex-shrink-0"
+                      title="Open in Web HLS Player"
+                    >
+                      <Radio className="size-4 text-[#E50914]" />
+                    </a>
+                    <a
                       href={activeUrl}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -1091,7 +1169,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
                     <button
                       onClick={() => {
                         setPlaybackMode('hls');
-                        loadStream(activeUrl, 'hls');
+                        reloadStream();
                         setActiveSheet('none');
                       }}
                       className={`p-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
@@ -1105,7 +1183,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
                     <button
                       onClick={() => {
                         setPlaybackMode('direct');
-                        playDirectNative(activeUrl);
+                        reloadStream();
                         setActiveSheet('none');
                       }}
                       className={`p-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
@@ -1133,7 +1211,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
                       onClick={() => {
                         if (customLinkInput.trim()) {
                           setActiveUrl(customLinkInput.trim());
-                          playDirectNative(customLinkInput.trim());
+                          setPlaybackMode(customLinkInput.trim().includes('.m3u8') ? 'hls' : 'direct');
+                          reloadStream();
                           setActiveSheet('none');
                         }
                       }}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { WatchHistoryItem, WatchlistItem } from '../types/api';
 
 const WATCHLIST_KEY = 'voidflix_watchlist';
@@ -17,11 +17,13 @@ function getStoredItems<T>(key: string, fallbackKey: string): T[] {
   }
 }
 
-function saveStoredItems<T>(key: string, items: T[]) {
+function saveStoredItems<T>(key: string, items: T[], notify = true) {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(key, JSON.stringify(items));
-    window.dispatchEvent(new Event('voidflix_storage_change'));
+    if (notify) {
+      window.dispatchEvent(new Event('voidflix_storage_change'));
+    }
   } catch (e) {
     console.warn('Storage save failed:', e);
   }
@@ -97,37 +99,40 @@ export function useWatchHistory() {
     };
   }, []);
 
-  const saveProgress = (entry: WatchHistoryItem) => {
+  const saveProgress = useCallback((entry: WatchHistoryItem) => {
     const current = getStoredItems<WatchHistoryItem>(HISTORY_KEY, FALLBACK_HISTORY_KEY);
     const filtered = current.filter(
       h => !(String(h.seriesId) === String(entry.seriesId) && String(h.chapterId) === String(entry.chapterId))
     );
     const updated = [entry, ...filtered].slice(0, 50); // limit to last 50 items
     setHistory(updated);
-    saveStoredItems(HISTORY_KEY, updated);
-  };
+    // notify = false so frequent playback updates don't cause infinite re-render loops in players
+    saveStoredItems(HISTORY_KEY, updated, false);
+  }, []);
 
-  const getProgress = (seriesId: string | number, chapterId?: string | number): WatchHistoryItem | undefined => {
+  const getProgress = useCallback((seriesId: string | number, chapterId?: string | number): WatchHistoryItem | undefined => {
+    const list = getStoredItems<WatchHistoryItem>(HISTORY_KEY, FALLBACK_HISTORY_KEY);
     if (chapterId) {
-      return history.find(
+      return list.find(
         h => String(h.seriesId) === String(seriesId) && String(h.chapterId) === String(chapterId)
       );
     }
-    return history.find(h => String(h.seriesId) === String(seriesId));
-  };
+    return list.find(h => String(h.seriesId) === String(seriesId));
+  }, []);
 
-  const removeHistoryItem = (seriesId: string | number, chapterId: string | number) => {
-    const updated = history.filter(
+  const removeHistoryItem = useCallback((seriesId: string | number, chapterId: string | number) => {
+    const current = getStoredItems<WatchHistoryItem>(HISTORY_KEY, FALLBACK_HISTORY_KEY);
+    const updated = current.filter(
       h => !(String(h.seriesId) === String(seriesId) && String(h.chapterId) === String(chapterId))
     );
     setHistory(updated);
-    saveStoredItems(HISTORY_KEY, updated);
-  };
+    saveStoredItems(HISTORY_KEY, updated, true);
+  }, []);
 
-  const clearHistory = () => {
+  const clearHistory = useCallback(() => {
     setHistory([]);
-    saveStoredItems(HISTORY_KEY, []);
-  };
+    saveStoredItems(HISTORY_KEY, [], true);
+  }, []);
 
   return {
     history,
