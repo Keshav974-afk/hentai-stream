@@ -216,7 +216,37 @@ export const WatchPage: React.FC<WatchPageProps> = ({ seriesId, episodeId }) => 
       </div>
 
       {/* Main Details and Episodes Grid Container (FlowFlix Spec) */}
-      <div className="max-w-[1500px] mx-auto px-4 sm:px-6 mt-6 space-y-8">
+      <div className="max-w-[1500px] mx-auto px-4 sm:px-6 mt-6 space-y-6">
+
+        {/* Direct Link & Quick Stream Fallback Bar */}
+        <div className="bg-carbon-900/90 border border-white/10 rounded-xl p-3 sm:p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2 w-full sm:w-auto min-w-0">
+            <span className="w-2 h-2 rounded-full bg-[#E50914] flex-shrink-0 animate-pulse" />
+            <span className="font-semibold text-white flex-shrink-0">Direct Stream Link:</span>
+            <span className="font-mono text-gray-400 truncate max-w-[260px] sm:max-w-md select-all bg-black/40 px-2 py-1 rounded border border-white/5">
+              {currentEp.chapter_content}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-shrink-0">
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(currentEp.chapter_content);
+                alert('Direct stream URL copied to clipboard!');
+              }}
+              className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-200 hover:text-white border border-white/10 transition flex items-center gap-1.5"
+            >
+              <span>Copy Link</span>
+            </button>
+            <a
+              href={currentEp.chapter_content}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 py-1.5 rounded-lg bg-[#E50914] hover:bg-[#b81d24] text-white font-semibold transition flex items-center gap-1.5"
+            >
+              <span>Open in New Tab / VLC</span>
+            </a>
+          </div>
+        </div>
 
         {/* Video Metadata & Action Bar Box */}
         <div className="bg-carbon-900 border border-white/10 rounded-2xl p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-4 gap-6">

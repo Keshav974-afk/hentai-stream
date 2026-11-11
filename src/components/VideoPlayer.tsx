@@ -21,7 +21,10 @@ import {
   LayoutGrid,
   Download,
   X,
-  Copy
+  Copy,
+  Link,
+  ExternalLink,
+  Radio
 } from 'lucide-react';
 import { Episode, VideoQualityLevel } from '../types/api';
 import { useWatchHistory } from '../hooks/useLocalStorage';
@@ -43,7 +46,7 @@ interface VideoPlayerProps {
   poster?: string;
 }
 
-type SheetView = 'none' | 'speed' | 'quality' | 'audiosubs' | 'episodes' | 'download';
+type SheetView = 'none' | 'speed' | 'quality' | 'audiosubs' | 'episodes' | 'download' | 'directlink';
 
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 
@@ -73,6 +76,16 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const isDraggingSeek = useRef(false);
 
   const { saveProgress, getProgress } = useWatchHistory();
+
+  // Active Stream URL (Supports streamUrl or user-entered custom direct link)
+  const [activeUrl, setActiveUrl] = useState<string>(streamUrl);
+  const [playbackMode, setPlaybackMode] = useState<'hls' | 'direct'>('hls');
+  const [customLinkInput, setCustomLinkInput] = useState<string>('');
+
+  // Keep activeUrl in sync with streamUrl prop updates
+  useEffect(() => {
+    setActiveUrl(streamUrl);
+  }, [streamUrl]);
 
   // Playback & State
   const [isPlaying, setIsPlaying] = useState(false);
@@ -150,10 +163,63 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     };
   }, []);
 
-  // Initialize HLS & Video Stream (FlowFlix Engine Spec from 72496b3)
-  const loadStream = useCallback((url: string) => {
+  // Direct HTML5 video playback
+  const playDirectNative = useCallback((url: string) => {
     const video = videoRef.current;
     if (!video || !url) return;
+
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+
+    setPlaybackMode('direct');
+    setIsBuffering(true);
+    setPlaybackError(null);
+
+    video.src = url;
+    video.load();
+
+    const onMeta = () => {
+      setIsBuffering(false);
+      const saved = getProgress(seriesId, episode.chapter_id);
+      if (saved && saved.currentTime > 10 && saved.currentTime < (saved.duration - 15)) {
+        video.currentTime = saved.currentTime;
+        setCurrentTime(saved.currentTime);
+      }
+
+      const p = video.play();
+      if (p !== undefined) {
+        p.then(() => {
+          setIsPlaying(true);
+          setIsBuffering(false);
+        }).catch(() => {
+          video.muted = true;
+          setIsMuted(true);
+          forcedMuteRef.current = true;
+          video.play().then(() => {
+            setIsPlaying(true);
+            setIsBuffering(false);
+          }).catch(() => {
+            setIsPlaying(false);
+            setIsBuffering(false);
+          });
+        });
+      }
+    };
+
+    video.addEventListener('loadedmetadata', onMeta, { once: true });
+  }, [seriesId, episode.chapter_id, getProgress]);
+
+  // Initialize HLS Engine
+  const loadStream = useCallback((url: string, mode: 'hls' | 'direct' = playbackMode) => {
+    const video = videoRef.current;
+    if (!video || !url) return;
+
+    if (mode === 'direct') {
+      playDirectNative(url);
+      return;
+    }
 
     setIsBuffering(true);
     setPlaybackError(null);
@@ -177,7 +243,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           setIsPlaying(true);
           setIsBuffering(false);
         }).catch(() => {
-          // Autoplay policy blocked audio, attempt muted autoplay
           video.muted = true;
           setIsMuted(true);
           forcedMuteRef.current = true;
@@ -185,7 +250,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
             setIsPlaying(true);
             setIsBuffering(false);
           }).catch(() => {
-            // Left paused gracefully for user to tap center play button
             setIsPlaying(false);
             setIsBuffering(false);
           });
@@ -218,7 +282,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         }));
         setQualityLevels(levels);
 
-        // Resume saved timestamp if valid
         const saved = getProgress(seriesId, episode.chapter_id);
         if (saved && saved.currentTime > 10 && saved.currentTime < (saved.duration - 15)) {
           video.currentTime = saved.currentTime;
@@ -246,33 +309,23 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           console.warn('HLS Media error -> recovering...', data);
           hls.recoverMediaError();
         } else {
-          console.error('Fatal HLS error:', data);
+          console.error('Fatal HLS error, attempting direct playback fallback...', data);
           hls.destroy();
           hlsRef.current = null;
-          setIsBuffering(false);
-          setPlaybackError('Stream failed to load. Please click to retry.');
+          // Graceful fallback to direct HTML5 stream
+          playDirectNative(url);
         }
       });
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      video.src = url;
-      const onLoaded = () => {
-        setIsBuffering(false);
-        const saved = getProgress(seriesId, episode.chapter_id);
-        if (saved && saved.currentTime > 10 && saved.currentTime < (saved.duration - 15)) {
-          video.currentTime = saved.currentTime;
-          setCurrentTime(saved.currentTime);
-        }
-        attemptPlay();
-      };
-      video.addEventListener('loadedmetadata', onLoaded, { once: true });
+      playDirectNative(url);
     }
-  }, [seriesId, episode.chapter_id, getProgress]);
+  }, [playbackMode, playDirectNative, seriesId, episode.chapter_id, getProgress]);
 
   useEffect(() => {
-    if (!streamUrl) return;
-    if (lastLoadedSrcRef.current === streamUrl && hlsRef.current) return;
-    lastLoadedSrcRef.current = streamUrl;
-    loadStream(streamUrl);
+    if (!activeUrl) return;
+    if (lastLoadedSrcRef.current === activeUrl && (hlsRef.current || playbackMode === 'direct')) return;
+    lastLoadedSrcRef.current = activeUrl;
+    loadStream(activeUrl, playbackMode);
 
     return () => {
       if (hlsRef.current) {
@@ -281,7 +334,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       }
       lastLoadedSrcRef.current = '';
     };
-  }, [streamUrl, loadStream]);
+  }, [activeUrl, playbackMode, loadStream]);
 
   // Sync Volume & Brightness
   useEffect(() => {
@@ -636,6 +689,12 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         </div>
       )}
 
+      {/* Mode Indicator Pill (Top Left, subtle) */}
+      <div className="absolute top-3 left-14 z-25 pointer-events-none hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-black/50 backdrop-blur border border-white/10 text-[10px] text-gray-400">
+        <Radio className="size-3 text-[#E50914]" />
+        <span>{playbackMode === 'hls' ? 'HLS Engine' : 'Direct Link Mode'}</span>
+      </div>
+
       {/* Center Buffering Spinner (Does not block play button) */}
       {isBuffering && isPlaying && !playbackError && (
         <div className="pointer-events-none absolute inset-0 z-20 grid place-items-center bg-black/30 backdrop-blur-[1px]">
@@ -643,21 +702,42 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         </div>
       )}
 
-      {/* Error Retry Overlay */}
+      {/* Error / Fallback Retry Overlay */}
       {playbackError && (
         <div className="absolute inset-0 z-25 flex flex-col items-center justify-center bg-black/85 p-6 text-center space-y-3">
           <p className="text-white text-sm font-semibold max-w-sm">{playbackError}</p>
-          <button
-            onClick={() => {
-              setPlaybackError(null);
-              setIsBuffering(true);
-              lastLoadedSrcRef.current = '';
-              loadStream(streamUrl);
-            }}
-            className="px-5 py-2.5 rounded-xl bg-[#E50914] hover:bg-[#b81d24] text-white text-xs font-bold transition shadow-lg pointer-events-auto cursor-pointer"
-          >
-            Click to Retry Playback
-          </button>
+          <div className="flex flex-wrap items-center justify-center gap-2 pt-1 pointer-events-auto">
+            <button
+              onClick={() => {
+                setPlaybackError(null);
+                setIsBuffering(true);
+                lastLoadedSrcRef.current = '';
+                loadStream(activeUrl, 'hls');
+              }}
+              className="px-4 py-2 rounded-xl bg-[#E50914] hover:bg-[#b81d24] text-white text-xs font-bold transition shadow-lg cursor-pointer"
+            >
+              Retry HLS Stream
+            </button>
+            <button
+              onClick={() => {
+                setPlaybackError(null);
+                playDirectNative(activeUrl);
+              }}
+              className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold border border-white/15 transition shadow-lg cursor-pointer flex items-center gap-1.5"
+            >
+              <Radio className="size-3.5 text-[#E50914]" />
+              <span>Play via Direct Link</span>
+            </button>
+            <a
+              href={activeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white text-xs font-medium border border-white/10 transition flex items-center gap-1.5"
+            >
+              <ExternalLink className="size-3.5" />
+              <span>Open in New Tab</span>
+            </a>
+          </div>
         </div>
       )}
 
@@ -774,6 +854,16 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
           {/* Right Actions */}
           <div className="flex items-center gap-1 sm:gap-1.5">
+            {/* Direct Link Switcher / Modal */}
+            <button
+              onClick={() => setActiveSheet(activeSheet === 'directlink' ? 'none' : 'directlink')}
+              aria-label="Direct Link"
+              className="grid size-9 place-items-center opacity-85 hover:opacity-100 transition-opacity"
+              title="Direct Link & Custom Streams"
+            >
+              <Link className="size-5" />
+            </button>
+
             {/* Download Modal Trigger */}
             <button
               onClick={() => setActiveSheet(activeSheet === 'download' ? 'none' : 'download')}
@@ -879,6 +969,13 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
           {/* Bottom Row Action Buttons (FlowFlix BarButtons) */}
           <div className="flex items-center justify-between sm:justify-center sm:gap-6 lg:gap-8 pt-1 text-white">
+            {/* Direct Link Switcher Pill */}
+            <BarButton
+              icon={<Link className="size-4 sm:size-5" />}
+              label={playbackMode === 'direct' ? 'Direct: ON' : 'Direct Link'}
+              onClick={() => setActiveSheet(activeSheet === 'directlink' ? 'none' : 'directlink')}
+            />
+
             {/* Speed Pill */}
             <BarButton
               icon={<Gauge className="size-4 sm:size-5" />}
@@ -940,9 +1037,115 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       {activeSheet !== 'none' && (
         <div className="absolute inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={() => setActiveSheet('none')}>
           <div
-            className="absolute inset-x-0 bottom-0 max-h-[80%] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-[#161616]/95 border border-white/10 text-white shadow-2xl backdrop-blur sm:inset-x-auto sm:left-1/2 sm:w-full sm:max-w-lg sm:-translate-x-1/2 p-4 sm:p-6"
+            className="absolute inset-x-0 bottom-0 max-h-[85%] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-[#161616]/95 border border-white/10 text-white shadow-2xl backdrop-blur sm:inset-x-auto sm:left-1/2 sm:w-full sm:max-w-lg sm:-translate-x-1/2 p-4 sm:p-6"
             onClick={(e) => e.stopPropagation()}
           >
+            {/* ============ DIRECT LINK MODAL ============ */}
+            {activeSheet === 'directlink' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between pb-2 border-b border-white/10">
+                  <h4 className="font-bold text-sm text-white flex items-center gap-2">
+                    <Link className="size-4 text-[#E50914]" />
+                    <span>Direct Link & Stream Fallback</span>
+                  </h4>
+                  <button onClick={() => setActiveSheet('none')} className="text-gray-400 hover:text-white">
+                    <X className="size-5" />
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs text-gray-300 font-semibold block">Active Episode Direct Link:</label>
+                  <div className="flex items-center gap-2 bg-black/50 p-2 rounded-xl border border-white/10">
+                    <input
+                      type="text"
+                      readOnly
+                      value={activeUrl}
+                      className="bg-transparent text-xs text-gray-200 font-mono flex-1 outline-none truncate select-all"
+                    />
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(activeUrl);
+                        alert('Copied direct link to clipboard!');
+                      }}
+                      className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition flex-shrink-0"
+                      title="Copy Link"
+                    >
+                      <Copy className="size-4" />
+                    </button>
+                    <a
+                      href={activeUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition flex-shrink-0"
+                      title="Open in new tab / VLC"
+                    >
+                      <ExternalLink className="size-4" />
+                    </a>
+                  </div>
+                </div>
+
+                {/* Switch Mode Controls */}
+                <div className="space-y-2 pt-1">
+                  <span className="text-xs text-gray-400 block font-semibold">Playback Engine:</span>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => {
+                        setPlaybackMode('hls');
+                        loadStream(activeUrl, 'hls');
+                        setActiveSheet('none');
+                      }}
+                      className={`p-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                        playbackMode === 'hls' ? 'bg-[#E50914] text-white' : 'bg-white/5 hover:bg-white/10 text-gray-300'
+                      }`}
+                    >
+                      <Radio className="size-3.5" />
+                      <span>HLS.js Engine</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setPlaybackMode('direct');
+                        playDirectNative(activeUrl);
+                        setActiveSheet('none');
+                      }}
+                      className={`p-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                        playbackMode === 'direct' ? 'bg-[#E50914] text-white' : 'bg-white/5 hover:bg-white/10 text-gray-300'
+                      }`}
+                    >
+                      <Link className="size-3.5" />
+                      <span>Direct HTML5 Stream</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Custom Direct Link Player */}
+                <div className="space-y-2 pt-2 border-t border-white/10">
+                  <label className="text-xs text-gray-300 font-semibold block">Play Any Custom Direct Video Link:</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="url"
+                      placeholder="https://.../video.mp4 or .m3u8"
+                      value={customLinkInput}
+                      onChange={(e) => setCustomLinkInput(e.target.value)}
+                      className="flex-1 bg-black/50 border border-white/15 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-500 outline-none focus:border-[#E50914]"
+                    />
+                    <button
+                      onClick={() => {
+                        if (customLinkInput.trim()) {
+                          setActiveUrl(customLinkInput.trim());
+                          playDirectNative(customLinkInput.trim());
+                          setActiveSheet('none');
+                        }
+                      }}
+                      className="px-4 py-2 rounded-xl bg-[#E50914] hover:bg-[#b81d24] text-white font-bold text-xs transition"
+                    >
+                      Play
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Speed Sheet */}
             {activeSheet === 'speed' && (
               <SheetSection title="Playback Speed" onClose={() => setActiveSheet('none')}>
@@ -1063,7 +1266,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
                 <div className="space-y-2 pt-2">
                   <a
-                    href={streamUrl}
+                    href={activeUrl}
                     download={`${seriesTitle} - ${epTitle}.m3u8`}
                     className="w-full py-2.5 px-4 rounded-xl bg-[#E50914] hover:bg-[#b81d24] text-white font-semibold text-xs flex items-center justify-center gap-2 transition"
                   >
@@ -1073,7 +1276,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
                   <button
                     onClick={() => {
-                      const cmd = `yt-dlp "${streamUrl}" -o "${seriesTitle} - ${epTitle}.mp4"`;
+                      const cmd = `yt-dlp "${activeUrl}" -o "${seriesTitle} - ${epTitle}.mp4"`;
                       navigator.clipboard.writeText(cmd);
                       alert('Copied yt-dlp command to clipboard!');
                     }}
