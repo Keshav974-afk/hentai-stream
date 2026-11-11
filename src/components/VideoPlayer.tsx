@@ -21,11 +21,72 @@ import {
   LayoutGrid,
   Download,
   X,
-  Copy
+  Copy,
+  Smartphone,
+  Terminal,
+  HardDrive,
+  ExternalLink
 } from 'lucide-react';
 import { Episode, VideoQualityLevel } from '../types/api';
 import { useWatchHistory } from '../hooks/useLocalStorage';
-import { downloadMediaStream } from '../utils/download';
+import {
+  downloadMediaStream,
+  get1DMIntentUrl,
+  getYtDlpCommand,
+  copyToClipboard
+} from '../utils/download';
+
+export interface SubtitleCue {
+  start: number;
+  end: number;
+  text: string;
+}
+
+export interface SubtitleTrackItem {
+  id: number;
+  name: string;
+  lang: string;
+  url: string;
+}
+
+function parseVttTime(timeStr: string): number {
+  const clean = timeStr.trim().split(/\s+/)[0];
+  const parts = clean.split(':');
+  if (parts.length === 3) {
+    const [h, m, s] = parts;
+    return parseFloat(h) * 3600 + parseFloat(m) * 60 + parseFloat(s);
+  } else if (parts.length === 2) {
+    const [m, s] = parts;
+    return parseFloat(m) * 60 + parseFloat(s);
+  }
+  return 0;
+}
+
+function parseVtt(vttText: string): SubtitleCue[] {
+  const cues: SubtitleCue[] = [];
+  const lines = vttText.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i].trim();
+    if (line.includes('-->')) {
+      const [startStr, endStr] = line.split('-->');
+      const start = parseVttTime(startStr);
+      const end = parseVttTime(endStr);
+      i++;
+      const textLines: string[] = [];
+      while (i < lines.length && lines[i].trim() !== '') {
+        const clean = lines[i].trim().replace(/<[^>]*>/g, '');
+        if (clean) textLines.push(clean);
+        i++;
+      }
+      if (textLines.length > 0 && end > start) {
+        cues.push({ start, end, text: textLines.join('\n') });
+      }
+    }
+    i++;
+  }
+  return cues;
+}
 
 interface VideoPlayerProps {
   streamUrl: string;
@@ -133,7 +194,18 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [activeSheet, setActiveSheet] = useState<SheetView>('none');
   const [seekFlash, setSeekFlash] = useState<{ side: 'l' | 'r'; id: number } | null>(null);
   const [hoverSeek, setHoverSeek] = useState<{ pct: number; time: number } | null>(null);
-  const [selectedSub, setSelectedSub] = useState<string>('en');
+
+  // Subtitle Engine State
+  const [subtitleTracks, setSubtitleTracks] = useState<SubtitleTrackItem[]>([]);
+  const [activeSubIndex, setActiveSubIndex] = useState<number>(-1);
+  const [activeCueText, setActiveCueText] = useState<string>('');
+  const activeSubIndexRef = useRef<number>(-1);
+  const currentCuesRef = useRef<SubtitleCue[]>([]);
+  const activeCueTextRef = useRef<string>('');
+
+  // Download Sheet Copy State
+  const [copiedYtDlp, setCopiedYtDlp] = useState(false);
+  const [copiedStreamUrl, setCopiedStreamUrl] = useState(false);
 
   // Format seconds to mm:ss or hh:mm:ss (FlowFlix standard)
   const formatTime = (secs: number) => {
@@ -195,6 +267,123 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
     setStreamReloadNonce(n => n + 1);
   }, []);
+
+  const syncSubtitleCue = useCallback((curTime: number, cues?: SubtitleCue[]) => {
+    if (activeSubIndexRef.current === -1) {
+      if (activeCueTextRef.current !== '') {
+        activeCueTextRef.current = '';
+        setActiveCueText('');
+      }
+      return;
+    }
+
+    const cueList = cues || currentCuesRef.current;
+    if (!cueList || cueList.length === 0) return;
+
+    const cue = cueList.find((c) => curTime >= c.start && curTime <= c.end);
+    const text = cue ? cue.text : '';
+    if (text !== activeCueTextRef.current) {
+      activeCueTextRef.current = text;
+      setActiveCueText(text);
+    }
+  }, []);
+
+  const applySubtitleTrack = useCallback(async (index: number, tracks?: SubtitleTrackItem[], hlsInst?: any) => {
+    const list = tracks || subtitleTracks;
+    activeSubIndexRef.current = index;
+    setActiveSubIndex(index);
+
+    const hls = hlsInst || hlsRef.current;
+    if (hls) {
+      try {
+        hls.subtitleTrack = index;
+      } catch {}
+    }
+
+    if (index === -1 || !list[index]) {
+      currentCuesRef.current = [];
+      activeCueTextRef.current = '';
+      setActiveCueText('');
+      return;
+    }
+
+    const track = list[index];
+    if (track?.url) {
+      try {
+        const res = await fetch(track.url);
+        if (res.ok) {
+          const vttText = await res.text();
+          const cues = parseVtt(vttText);
+          currentCuesRef.current = cues;
+          if (videoRef.current) {
+            syncSubtitleCue(videoRef.current.currentTime, cues);
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to load subtitle file:', err);
+      }
+    }
+  }, [subtitleTracks, syncSubtitleCue]);
+
+  // Smooth real-time subtitle sync interval during playback
+  useEffect(() => {
+    if (!isPlaying) return;
+    const interval = setInterval(() => {
+      const v = videoRef.current;
+      if (v) {
+        syncSubtitleCue(v.currentTime);
+      }
+    }, 100);
+    return () => clearInterval(interval);
+  }, [isPlaying, syncSubtitleCue]);
+
+  // Fast master playlist subtitle tracks pre-parser
+  useEffect(() => {
+    if (!activeUrl || !activeUrl.includes('.m3u8')) return;
+    let isCancelled = false;
+
+    fetch(activeUrl)
+      .then((res) => res.text())
+      .then((text) => {
+        if (isCancelled) return;
+        const lines = text.split('\n');
+        const tracks: SubtitleTrackItem[] = [];
+        let idx = 0;
+        for (const line of lines) {
+          if (line.includes('TYPE=SUBTITLES')) {
+            const uriMatch = line.match(/URI=["']([^"']+)["']/);
+            const nameMatch = line.match(/NAME=["']([^"']+)["']/);
+            const langMatch = line.match(/LANGUAGE=["']([^"']+)["']/);
+            if (uriMatch) {
+              const rawUri = uriMatch[1];
+              const fullUri = rawUri.startsWith('http') ? rawUri : new URL(rawUri, activeUrl).href;
+              tracks.push({
+                id: idx++,
+                name: nameMatch ? nameMatch[1] : (langMatch ? langMatch[1].toUpperCase() : `Track ${idx}`),
+                lang: (langMatch ? langMatch[1] : 'en').toLowerCase(),
+                url: fullUri
+              });
+            }
+          }
+        }
+
+        if (tracks.length > 0) {
+          setSubtitleTracks((prev) => (prev.length > 0 ? prev : tracks));
+          if (activeSubIndexRef.current === -1) {
+            const enIdx = tracks.findIndex(
+              (t) => t.lang.startsWith('en') || t.name.toLowerCase().includes('english')
+            );
+            const chosen = enIdx >= 0 ? enIdx : 0;
+            applySubtitleTrack(chosen, tracks, hlsRef.current);
+          }
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [activeUrl, streamReloadNonce, applySubtitleTrack]);
 
   // Primary Video & HLS Lifecycle Engine (FlowFlix / VidSrc spec)
   // Depends ONLY on activeUrl, playbackMode, startTime, and streamReloadNonce
@@ -325,6 +514,30 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         }
       });
 
+      hlsInstance.on(HlsClass.Events.SUBTITLE_TRACKS_UPDATED, (_: any, data: any) => {
+        const rawTracks = data.subtitleTracks || [];
+        if (rawTracks.length > 0) {
+          const tracks: SubtitleTrackItem[] = rawTracks.map((t: any, idx: number) => {
+            const rawUrl = t.url || '';
+            const fullUrl = rawUrl.startsWith('http') ? rawUrl : (activeUrl ? new URL(rawUrl, activeUrl).href : rawUrl);
+            return {
+              id: idx,
+              name: t.name || t.lang || `Track ${idx + 1}`,
+              lang: (t.lang || 'en').toLowerCase(),
+              url: fullUrl
+            };
+          });
+          setSubtitleTracks(tracks);
+          if (activeSubIndexRef.current === -1) {
+            const enIdx = tracks.findIndex(
+              (t) => t.lang.startsWith('en') || t.name.toLowerCase().includes('english')
+            );
+            const chosen = enIdx >= 0 ? enIdx : 0;
+            applySubtitleTrack(chosen, tracks, hlsInstance);
+          }
+        }
+      });
+
       hlsInstance.on(HlsClass.Events.ERROR, (_: any, data: any) => {
         if (!data.fatal) return;
         if (data.type === HlsClass.ErrorTypes.NETWORK_ERROR) {
@@ -399,11 +612,47 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   }, [volume, isMuted, brightness]);
 
+  const lockLandscape = async () => {
+    try {
+      const orientation = screen.orientation || (screen as any).mozOrientation || (screen as any).msOrientation;
+      if (orientation && typeof orientation.lock === 'function') {
+        await orientation.lock('landscape');
+      }
+    } catch (e) {
+      console.debug('Orientation lock not supported:', e);
+    }
+  };
+
+  const unlockOrientation = () => {
+    try {
+      const orientation = screen.orientation || (screen as any).mozOrientation || (screen as any).msOrientation;
+      if (orientation && typeof orientation.unlock === 'function') {
+        orientation.unlock();
+      }
+    } catch {}
+  };
+
   // Fullscreen change listener
   useEffect(() => {
-    const handleFs = () => setIsFullscreen(!!document.fullscreenElement);
+    const handleFs = () => {
+      const isFs = !!(
+        document.fullscreenElement ||
+        (document as any).webkitFullscreenElement ||
+        (document as any).mozFullScreenElement
+      );
+      setIsFullscreen(isFs);
+      if (!isFs) {
+        unlockOrientation();
+      }
+    };
     document.addEventListener('fullscreenchange', handleFs);
-    return () => document.removeEventListener('fullscreenchange', handleFs);
+    document.addEventListener('webkitfullscreenchange', handleFs);
+    document.addEventListener('mozfullscreenchange', handleFs);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFs);
+      document.removeEventListener('webkitfullscreenchange', handleFs);
+      document.removeEventListener('mozfullscreenchange', handleFs);
+    };
   }, []);
 
   // Keyboard Navigation (FlowFlix Spec)
@@ -517,12 +766,37 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     localStorage.setItem('voidflix_muted', String(muted));
   };
 
-  const toggleFullscreen = () => {
-    if (!frameRef.current) return;
-    if (!document.fullscreenElement) {
-      frameRef.current.requestFullscreen().catch(() => {});
-    } else {
-      document.exitFullscreen().catch(() => {});
+  const toggleFullscreen = async () => {
+    const frame = frameRef.current;
+    if (!frame) return;
+
+    const isFs = !!(
+      document.fullscreenElement ||
+      (document as any).webkitFullscreenElement ||
+      (document as any).mozFullScreenElement ||
+      (document as any).msFullscreenElement
+    );
+
+    try {
+      if (!isFs) {
+        if (frame.requestFullscreen) {
+          await frame.requestFullscreen();
+        } else if ((frame as any).webkitRequestFullscreen) {
+          await (frame as any).webkitRequestFullscreen();
+        } else if ((videoRef.current as any)?.webkitEnterFullscreen) {
+          (videoRef.current as any).webkitEnterFullscreen();
+        }
+        await lockLandscape();
+      } else {
+        unlockOrientation();
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if ((document as any).webkitExitFullscreen) {
+          await (document as any).webkitExitFullscreen();
+        }
+      }
+    } catch (err) {
+      console.warn('Fullscreen error:', err);
     }
   };
 
@@ -574,6 +848,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       setCurrentTime(cur);
     }
     setDuration(dur);
+    syncSubtitleCue(cur);
 
     if (video.buffered.length > 0) {
       try {
@@ -723,6 +998,21 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         onDoubleClick={onDoubleTap}
         className="absolute inset-0 z-10 cursor-pointer"
       />
+
+      {/* On-Screen Subtitle Overlay */}
+      {activeCueText && activeSubIndex !== -1 && (
+        <div
+          className={`pointer-events-none absolute inset-x-4 z-20 flex justify-center text-center transition-all duration-200 select-none ${
+            showControls ? 'bottom-20 sm:bottom-24' : 'bottom-6 sm:bottom-8'
+          }`}
+        >
+          <div className="inline-block max-w-[90%] sm:max-w-[80%] rounded-md bg-black/85 px-3.5 py-1.5 text-xs sm:text-sm md:text-base font-semibold text-white shadow-2xl backdrop-blur-[2px] leading-snug drop-shadow-md">
+            {activeCueText.split('\n').map((line, idx) => (
+              <span key={idx} className="block">{line}</span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Double-tap Seek Flash Overlay (±10s) */}
       {seekFlash && (
@@ -1147,9 +1437,26 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
                 </div>
                 <div>
                   <h4 className="px-2 pb-2 text-xs font-bold uppercase tracking-wider text-white/50">Subtitles</h4>
-                  <ul className="space-y-1">
-                    <OptionRow label="English (Burned/VTT)" active={selectedSub === 'en'} onClick={() => setSelectedSub('en')} />
-                    <OptionRow label="Off" active={selectedSub === 'off'} onClick={() => setSelectedSub('off')} />
+                  <ul className="space-y-1 max-h-[45vh] overflow-y-auto pr-1 no-scrollbar">
+                    <OptionRow
+                      label="Off"
+                      active={activeSubIndex === -1}
+                      onClick={() => {
+                        applySubtitleTrack(-1);
+                        setActiveSheet('none');
+                      }}
+                    />
+                    {subtitleTracks.map((tr) => (
+                      <OptionRow
+                        key={tr.id}
+                        label={tr.name}
+                        active={activeSubIndex === tr.id}
+                        onClick={() => {
+                          applySubtitleTrack(tr.id);
+                          setActiveSheet('none');
+                        }}
+                      />
+                    ))}
                   </ul>
                 </div>
               </div>
@@ -1157,46 +1464,114 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
             {/* Download Episode Sheet */}
             {activeSheet === 'download' && (
-              <div className="space-y-4">
+              <div className="space-y-3.5">
                 <div className="flex items-center justify-between pb-2 border-b border-white/10">
-                  <h4 className="font-bold text-sm text-white">Download Episode</h4>
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#E50914] text-white uppercase tracking-wider">
+                        Full Episode Download
+                      </span>
+                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-white/10 text-gray-300">
+                        1080p FHD
+                      </span>
+                    </div>
+                    <h4 className="font-bold text-sm text-white">Download Episode</h4>
+                  </div>
                   <button onClick={() => setActiveSheet('none')} className="text-gray-400 hover:text-white">
                     <X className="size-5" />
                   </button>
                 </div>
 
-                <p className="text-xs text-gray-300 leading-relaxed">
-                  Download the master HLS streaming playlist file to play directly in VLC, PotPlayer, MPV, or download as MP4 with yt-dlp.
+                <p className="text-[11px] text-gray-300 leading-relaxed bg-white/5 p-2.5 rounded-xl border border-white/5">
+                  Streaming videos are split into hundreds of small chunks. Use <strong className="text-white">1DM (Mobile)</strong> or <strong className="text-white">yt-dlp (PC)</strong> to download the complete 1080p MP4 file with all sound and subtitles.
                 </p>
 
-                <div className="space-y-2 pt-2">
-                  <button
-                    onClick={async () => {
-                      setIsDownloading(true);
-                      try {
-                        await downloadMediaStream(activeUrl, `${seriesTitle} - ${epTitle}.m3u8`);
-                      } finally {
-                        setIsDownloading(false);
-                      }
-                    }}
-                    disabled={isDownloading}
-                    className="w-full py-2.5 px-4 rounded-xl bg-[#E50914] hover:bg-[#b81d24] text-white font-semibold text-xs flex items-center justify-center gap-2 transition cursor-pointer"
-                  >
-                    {isDownloading ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
-                    <span>{isDownloading ? 'Saving File...' : 'Download M3U8 Playlist File'}</span>
-                  </button>
+                <div className="space-y-3 pt-1">
+                  {/* Method 1: Mobile 1DM / ADM Downloader */}
+                  <div className="rounded-xl border border-[#E50914]/40 bg-[#E50914]/10 p-3">
+                    <div className="flex items-center gap-1.5 mb-1 text-xs font-bold text-white">
+                      <Smartphone className="size-3.5 text-[#E50914]" />
+                      <span>Mobile Downloader (1DM / ADM)</span>
+                    </div>
+                    <p className="text-[10px] text-gray-300 mb-2">
+                      Downloads all video & audio chunks directly into a single MP4 file in your Downloads.
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          window.location.href = get1DMIntentUrl(activeUrl);
+                        }}
+                        className="flex-1 py-2 px-3 rounded-lg bg-[#E50914] hover:bg-[#b81d24] text-white text-xs font-bold flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer"
+                      >
+                        <ExternalLink className="size-3.5" />
+                        <span>Open in 1DM</span>
+                      </button>
+                      <button
+                        onClick={async () => {
+                          const ok = await copyToClipboard(activeUrl);
+                          if (ok) {
+                            setCopiedStreamUrl(true);
+                            setTimeout(() => setCopiedStreamUrl(false), 2500);
+                          }
+                        }}
+                        className="py-2 px-3 rounded-lg bg-white/10 hover:bg-white/15 text-white text-xs font-semibold flex items-center gap-1.5 transition border border-white/10 active:scale-95 cursor-pointer"
+                      >
+                        {copiedStreamUrl ? <Check className="size-3.5 text-green-400" /> : <Copy className="size-3.5" />}
+                        <span>{copiedStreamUrl ? 'Copied!' : 'Copy Link'}</span>
+                      </button>
+                    </div>
+                  </div>
 
-                  <button
-                    onClick={() => {
-                      const cmd = `yt-dlp "${activeUrl}" -o "${seriesTitle} - ${epTitle}.mp4"`;
-                      navigator.clipboard.writeText(cmd);
-                      alert('Copied yt-dlp command to clipboard!');
-                    }}
-                    className="w-full py-2.5 px-4 rounded-xl bg-white/10 hover:bg-white/15 text-white font-semibold text-xs flex items-center justify-center gap-2 border border-white/10 transition"
-                  >
-                    <Copy className="size-4" />
-                    <span>Copy yt-dlp Command (Download MP4)</span>
-                  </button>
+                  {/* Method 2: yt-dlp */}
+                  <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                    <div className="flex items-center gap-1.5 mb-1 text-xs font-bold text-white">
+                      <Terminal className="size-3.5 text-cyan-400" />
+                      <span>Full MP4 via yt-dlp (PC/Mac)</span>
+                    </div>
+                    <p className="text-[10px] text-gray-300 mb-2">
+                      Downloads full episode in 8 parallel threads with all audio and subtitles muxed.
+                    </p>
+                    <button
+                      onClick={async () => {
+                        const cmd = getYtDlpCommand(activeUrl, `${seriesTitle} - ${epTitle}`);
+                        const ok = await copyToClipboard(cmd);
+                        if (ok) {
+                          setCopiedYtDlp(true);
+                          setTimeout(() => setCopiedYtDlp(false), 2500);
+                        }
+                      }}
+                      className="w-full py-2 px-3 rounded-lg bg-white/10 hover:bg-white/15 text-white text-xs font-semibold flex items-center justify-center gap-1.5 border border-white/10 transition active:scale-95 cursor-pointer"
+                    >
+                      {copiedYtDlp ? <Check className="size-3.5 text-green-400" /> : <Copy className="size-3.5" />}
+                      <span>{copiedYtDlp ? 'Command Copied!' : 'Copy yt-dlp Command'}</span>
+                    </button>
+                  </div>
+
+                  {/* Method 3: VLC Playlist */}
+                  <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                    <div className="flex items-center gap-1.5 mb-1 text-xs font-bold text-white">
+                      <HardDrive className="size-3.5 text-amber-400" />
+                      <span>Offline Playlist (.m3u8) for VLC / MX Player</span>
+                    </div>
+                    <p className="text-[10px] text-gray-300 mb-2">
+                      Watch the complete episode smoothly offline in VLC or MX Player.
+                    </p>
+                    <button
+                      onClick={async () => {
+                        setIsDownloading(true);
+                        try {
+                          await downloadMediaStream(activeUrl, `${seriesTitle} - ${epTitle}.m3u8`);
+                        } finally {
+                          setIsDownloading(false);
+                        }
+                      }}
+                      disabled={isDownloading}
+                      className="w-full py-2 px-3 rounded-lg bg-white/10 hover:bg-white/15 text-white text-xs font-semibold flex items-center justify-center gap-1.5 border border-white/10 transition active:scale-95 cursor-pointer"
+                    >
+                      {isDownloading ? <Loader2 className="size-3.5 animate-spin" /> : <Download className="size-3.5" />}
+                      <span>{isDownloading ? 'Saving File...' : 'Download .m3u8 File'}</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             )}

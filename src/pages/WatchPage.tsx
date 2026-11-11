@@ -3,8 +3,8 @@ import { HentaiItem, Episode } from '../types/api';
 import { API } from '../services/api';
 import { VideoPlayer } from '../components/VideoPlayer';
 import { AnimeCard } from '../components/AnimeCard';
+import { DownloadModal } from '../components/DownloadModal';
 import { useWatchlist, useWatchHistory } from '../hooks/useLocalStorage';
-import { downloadMediaStream } from '../utils/download';
 
 interface WatchPageProps {
   seriesId: string | number;
@@ -18,7 +18,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({ seriesId, episodeId }) => 
   const [isTheaterMode, setIsTheaterMode] = useState(false);
   const [recommendations, setRecommendations] = useState<HentaiItem[]>([]);
   const [synopsisExpanded, setSynopsisExpanded] = useState(false);
-  const [isDownloading, setIsDownloading] = useState(false);
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
 
   const { isSaved, toggleWatchlist } = useWatchlist();
   const { getProgress } = useWatchHistory();
@@ -169,14 +169,8 @@ export const WatchPage: React.FC<WatchPageProps> = ({ seriesId, episodeId }) => 
     alert('Episode link copied to clipboard!');
   };
 
-  const handleDownload = async () => {
-    if (!currentEp?.chapter_content) return;
-    setIsDownloading(true);
-    try {
-      await downloadMediaStream(currentEp.chapter_content, `${title} - ${epTitle}.m3u8`);
-    } finally {
-      setIsDownloading(false);
-    }
+  const handleDownload = () => {
+    setShowDownloadModal(true);
   };
 
   return (
@@ -274,21 +268,13 @@ export const WatchPage: React.FC<WatchPageProps> = ({ seriesId, episodeId }) => 
           <div className="grid grid-cols-3 lg:grid-cols-1 gap-2.5 lg:border-l lg:border-white/10 lg:pl-6 content-center">
             <button
               onClick={handleDownload}
-              disabled={isDownloading}
               className="vf-action-btn cursor-pointer"
-              title="Download Episode M3U8"
+              title="Download Full Episode"
             >
-              {isDownloading ? (
-                <svg className="w-4 h-4 animate-spin text-[#E50914] flex-shrink-0" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-              ) : (
-                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-                </svg>
-              )}
-              <span>{isDownloading ? 'Saving...' : 'Download'}</span>
+              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+              </svg>
+              <span>Download</span>
             </button>
 
             <button
@@ -391,6 +377,15 @@ export const WatchPage: React.FC<WatchPageProps> = ({ seriesId, episodeId }) => 
           </section>
         )}
       </div>
+
+      {/* Full Episode Download Modal */}
+      <DownloadModal
+        isOpen={showDownloadModal}
+        onClose={() => setShowDownloadModal(false)}
+        streamUrl={currentEp?.chapter_content || ''}
+        seriesTitle={title}
+        episodeTitle={epTitle}
+      />
     </div>
   );
 };
