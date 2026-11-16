@@ -371,7 +371,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({ seriesId, episodeId }) => 
             </h3>
             <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 sm:gap-4">
               {recommendations.map((item) => (
-                <AnimeCard key={item.post_ID || item.id} item={item} />
+                <AnimeCard key={item.post_ID || item.id} item={item} isFeatured={true} />
               ))}
             </div>
           </section>

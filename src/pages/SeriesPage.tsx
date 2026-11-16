@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { HentaiItem, Episode } from '../types/api';
 import { API } from '../services/api';
+import { TMDB } from '../services/tmdb';
 import { AnimeCard } from '../components/AnimeCard';
 import { useWatchlist, useWatchHistory } from '../hooks/useLocalStorage';
 import { Play, Bookmark, Star, Eye, Calendar, Sparkles, ArrowLeft, RefreshCw, Film } from 'lucide-react';
@@ -14,6 +15,9 @@ export const SeriesPage: React.FC<SeriesPageProps> = ({ seriesId }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [recommendations, setRecommendations] = useState<HentaiItem[]>([]);
+  const [activePoster, setActivePoster] = useState<string | null>(null);
+  const [activeBackdrop, setActiveBackdrop] = useState<string | null>(null);
+  const [isTmdb, setIsTmdb] = useState(false);
 
   const { isSaved, toggleWatchlist } = useWatchlist();
   const { getProgress } = useWatchHistory();
@@ -51,6 +55,37 @@ export const SeriesPage: React.FC<SeriesPageProps> = ({ seriesId }) => {
       isMounted = false;
     };
   }, [seriesId]);
+
+  // TMDB Image Enhancement
+  useEffect(() => {
+    if (!series) return;
+    const title = series.post_title || '';
+    const raw = series.post_thumbnail || series.thumbnail || '';
+    const initial = raw ? raw.replace(/ /g, '%20') : null;
+
+    // Check pre-seeded TMDB match first
+    const pre = TMDB.getPreSeeded(title);
+    if (pre) {
+      if (pre.poster) setActivePoster(pre.poster);
+      if (pre.backdrop) setActiveBackdrop(pre.backdrop);
+      setIsTmdb(true);
+      return;
+    }
+
+    setActivePoster(initial);
+    setActiveBackdrop(initial);
+
+    // Dynamic TMDB lookup
+    TMDB.lookup(title).then((res) => {
+      if (res?.poster) {
+        setActivePoster(res.poster);
+        setIsTmdb(true);
+      }
+      if (res?.backdrop) {
+        setActiveBackdrop(res.backdrop);
+      }
+    });
+  }, [series]);
 
   if (loading) {
     return (
@@ -116,7 +151,7 @@ export const SeriesPage: React.FC<SeriesPageProps> = ({ seriesId }) => {
         {/* Background Image with Gradients */}
         <div className="absolute inset-0 -z-10">
           <img
-            src={thumbnail}
+            src={activeBackdrop || activePoster || thumbnail}
             alt={title}
             className="w-full h-full object-cover object-top filter brightness-[0.35] blur-sm scale-105"
           />
@@ -129,13 +164,31 @@ export const SeriesPage: React.FC<SeriesPageProps> = ({ seriesId }) => {
             {/* Poster Card */}
             <div className="flex-none w-36 sm:w-48 lg:w-56 aspect-[2/3] rounded-2xl overflow-hidden bg-carbon-850 border border-white/10 shadow-2xl relative">
               <img
-                src={thumbnail}
+                src={activePoster || thumbnail}
                 alt={title}
+                onError={() => {
+                  if (!isTmdb) {
+                    TMDB.lookup(title).then((res) => {
+                      if (res?.poster) {
+                        setActivePoster(res.poster);
+                        setIsTmdb(true);
+                      }
+                    });
+                  }
+                }}
                 className="w-full h-full object-cover"
               />
-              <span className="absolute top-2 left-2 px-1.5 py-0.5 rounded text-[10px] font-bold bg-carbon-950/80 text-white border border-white/10 backdrop-blur-sm">
-                18+
-              </span>
+              <div className="absolute top-2 left-2 flex items-center gap-1.5">
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-carbon-950/80 text-white border border-white/10 backdrop-blur-sm">
+                  18+
+                </span>
+                {isTmdb && (
+                  <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 backdrop-blur-sm flex items-center gap-0.5">
+                    <Sparkles className="w-2.5 h-2.5" />
+                    <span>TMDB</span>
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Metadata Info */}
@@ -326,7 +379,7 @@ export const SeriesPage: React.FC<SeriesPageProps> = ({ seriesId }) => {
             </h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
               {recommendations.map((item) => (
-                <AnimeCard key={item.post_ID || item.id} item={item} />
+                <AnimeCard key={item.post_ID || item.id} item={item} isFeatured={true} />
               ))}
             </div>
           </section>

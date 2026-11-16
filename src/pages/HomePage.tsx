@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { HomeData, HentaiItem } from '../types/api';
 import { API } from '../services/api';
+import { TMDB } from '../services/tmdb';
 import { HeroBanner } from '../components/HeroBanner';
 import { MediaShelf } from '../components/MediaShelf';
 import { Top10Shelf } from '../components/Top10Shelf';
@@ -30,18 +31,33 @@ export const HomePage: React.FC = () => {
     loadData();
   }, []);
 
+  // Filter out any items with missing or invalid image data from featured sections
+  const filterValidFeatured = (items: HentaiItem[] = []) => {
+    return items.filter((item) => {
+      if (!item) return false;
+      const title = item.post_title || (item as any).title || '';
+      if (!title.trim()) return false;
+      const raw = item.post_thumbnail || item.thumbnail || (item as any).cover || '';
+      // If TMDB pre-seeded entry exists, it is verified to have an official poster!
+      if (TMDB.getPreSeeded(title)) return true;
+      // If thumbnail is empty, drop from featured
+      if (!raw || raw.trim() === '') return false;
+      return true;
+    });
+  };
+
   if (loading && !data) {
     return (
-      <div className="space-y-6 pt-16 animate-pulse">
+      <div className="space-y-6 pt-16 animate-pulse select-none">
         {/* Hero Skeleton */}
-        <div className="w-full aspect-[21/9] min-h-[420px] bg-carbon-850/60 border border-white/5" />
+        <div className="w-full aspect-[21/9] min-h-[440px] bg-carbon-900/60 border border-white/5" />
         {/* Shelf Skeletons */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
           <div className="space-y-3">
             <div className="h-6 w-48 bg-carbon-800 rounded-lg" />
             <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
               {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="aspect-[2/3] bg-carbon-800/80 rounded-xl" />
+                <div key={i} className="aspect-[2/3] bg-carbon-850 rounded-xl" />
               ))}
             </div>
           </div>
@@ -52,15 +68,15 @@ export const HomePage: React.FC = () => {
 
   if (error && !data) {
     return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center text-center px-4 pt-20">
-        <div className="w-16 h-16 rounded-2xl bg-carbon-900 border border-white/10 flex items-center justify-center text-cinema-red mb-4">
+      <div className="min-h-[60vh] flex flex-col items-center justify-center text-center px-4 pt-20 select-none">
+        <div className="w-16 h-16 rounded-2xl bg-carbon-900 border border-white/10 flex items-center justify-center text-cinema-red mb-4 shadow-xl shadow-red-950/20">
           <ShieldAlert className="w-8 h-8" />
         </div>
-        <h2 className="text-xl font-bold text-white mb-2">Unable to Load Anime Feed</h2>
+        <h2 className="text-xl font-bold text-white mb-2">Unable to Load Anime Stream Feed</h2>
         <p className="text-xs sm:text-sm text-gray-400 max-w-md mb-6">{error}</p>
         <button
           onClick={() => loadData(true)}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-cinema-red hover:bg-cinema-crimson text-white font-semibold text-xs transition"
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-cinema-red hover:bg-[#ff1e2b] text-white font-semibold text-xs transition shadow-lg shadow-cinema-red/30 cursor-pointer"
         >
           <RefreshCw className="w-4 h-4" />
           <span>Retry Connection</span>
@@ -69,28 +85,29 @@ export const HomePage: React.FC = () => {
     );
   }
 
-  const trending = data?.trending_month || [];
-  const latestEpisodes = data?.last_episodes || [];
-  const recentSeries = data?.last || [];
-  const uncensored = data?.uncensored || [];
-  const ecchi = data?.ecchi || [];
-  const tentacle = data?.tentacle || [];
-  const incest = data?.incest || [];
-  const yuri = data?.yuri || [];
+  const trending = filterValidFeatured(data?.trending_month || []);
+  const latestEpisodes = filterValidFeatured(data?.last_episodes || []);
+  const recentSeries = filterValidFeatured(data?.last || []);
+  const uncensored = filterValidFeatured(data?.uncensored || []);
+  const ecchi = filterValidFeatured(data?.ecchi || []);
+  const tentacle = filterValidFeatured(data?.tentacle || []);
+  const incest = filterValidFeatured(data?.incest || []);
+  const yuri = filterValidFeatured(data?.yuri || []);
 
   return (
-    <div className="space-y-6 pb-12">
+    <div className="space-y-6 pb-16">
       {/* Hero Spotlight Carousel */}
       <HeroBanner items={trending} />
 
       {/* Continue Watching Shelf (Only if user has watched videos) */}
       {history.length > 0 && (
-        <section className="relative py-2 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <section className="relative py-2 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 select-none">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+              <div className="h-5 w-1 bg-cinema-red rounded-full" />
               <Clock className="w-4 h-4 text-cinema-red" />
               <span>Continue Watching</span>
-              <span className="text-[11px] font-semibold text-gray-400 bg-white/5 border border-white/10 px-2 py-0.5 rounded-full">
+              <span className="text-[10px] font-bold text-gray-300 bg-white/5 border border-white/10 px-2 py-0.5 rounded-full">
                 {history.length}
               </span>
             </h2>
@@ -109,14 +126,14 @@ export const HomePage: React.FC = () => {
                 <a
                   key={`${h.seriesId}-${h.chapterId}`}
                   href={`#/watch/${h.seriesId}/${h.chapterId}`}
-                  className="flex-none w-56 sm:w-64 group bg-carbon-850 border border-white/5 hover:border-white/20 rounded-xl overflow-hidden transition-all duration-300 hover:-translate-y-1 block shadow-md"
+                  className="flex-none w-56 sm:w-64 group bg-carbon-900 border border-white/[0.07] hover:border-white/20 rounded-xl overflow-hidden transition-all duration-300 hover:-translate-y-1 block shadow-md"
                 >
-                  <div className="relative aspect-video w-full bg-carbon-900 overflow-hidden">
+                  <div className="relative aspect-video w-full bg-carbon-850 overflow-hidden">
                     {h.thumbnail ? (
                       <img
                         src={h.thumbnail}
                         alt={h.seriesTitle}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         loading="lazy"
                       />
                     ) : (
@@ -124,7 +141,7 @@ export const HomePage: React.FC = () => {
                         <Play className="w-8 h-8 text-white/50" />
                       </div>
                     )}
-                    <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                       <div className="w-10 h-10 rounded-full bg-cinema-red text-white flex items-center justify-center shadow-lg">
                         <Play className="w-5 h-5 fill-white ml-0.5" />
                       </div>

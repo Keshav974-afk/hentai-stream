@@ -79,6 +79,72 @@ function fetchWardenToken(force = false) {
   });
 }
 
+const TMDB_API_KEY = '4e44d9029b1270a757cddc766a1bcb63';
+const tmdbServerCache = new Map();
+
+function cleanTitleForTmdb(title) {
+  return (title || '')
+    .replace(/\b(OVA|The Animation|Animation|Part|Episode|[0-9]+)\b/gi, '')
+    .replace(/[~:!?,\-_.]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function queryTmdb(query) {
+  return new Promise((resolve) => {
+    const url = `https://api.themoviedb.org/3/search/multi?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&include_adult=true`;
+    https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(data);
+          const match = parsed.results?.find(r => r.poster_path || r.backdrop_path);
+          if (match) {
+            resolve({
+              id: match.id,
+              name: match.name || match.title,
+              poster: match.poster_path ? `https://image.tmdb.org/t/p/w500${match.poster_path}` : null,
+              backdrop: match.backdrop_path ? `https://image.tmdb.org/t/p/original${match.backdrop_path}` : null
+            });
+          } else {
+            resolve(null);
+          }
+        } catch {
+          resolve(null);
+        }
+      });
+    }).on('error', () => resolve(null));
+  });
+}
+
+async function lookupTmdbServer(title) {
+  const norm = (title || '').toLowerCase().trim();
+  if (tmdbServerCache.has(norm)) {
+    return tmdbServerCache.get(norm);
+  }
+
+  const cleaned = cleanTitleForTmdb(title);
+  const words = cleaned.split(' ').filter(Boolean);
+  const candidates = [
+    title,
+    cleaned,
+    words.slice(0, 4).join(' '),
+    words.slice(0, 2).join(' ')
+  ].filter((q, i, arr) => q && q.length >= 3 && arr.indexOf(q) === i);
+
+  for (const q of candidates) {
+    const match = await queryTmdb(q);
+    if (match) {
+      tmdbServerCache.set(norm, match);
+      return match;
+    }
+  }
+
+  tmdbServerCache.set(norm, null);
+  return null;
+}
+
 // Proxy API requests to HentaiHaven API
 async function handleApiProxy(req, res, targetPath, parsedUrl) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -89,6 +155,27 @@ async function handleApiProxy(req, res, targetPath, parsedUrl) {
     res.writeHead(204);
     res.end();
     return;
+  }
+
+  // Handle TMDB poster and backdrop lookup
+  if (targetPath === '/tmdb' || targetPath.startsWith('/tmdb?')) {
+    const searchParams = new URLSearchParams(parsedUrl.query || '');
+    const title = searchParams.get('title') || '';
+    if (!title) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ success: false, error: 'Title is required' }));
+    }
+    try {
+      const match = await lookupTmdbServer(title);
+      res.writeHead(200, {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'public, max-age=604800, s-maxage=604800, stale-while-revalidate=86400'
+      });
+      return res.end(JSON.stringify({ success: true, found: !!match, data: match }));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ success: false, error: e.message }));
+    }
   }
 
   // Handle healthcheck

@@ -23,25 +23,26 @@ export const Top10Shelf: React.FC<Top10ShelfProps> = ({ items }) => {
   const getRankStyle = (index: number) => {
     switch (index) {
       case 0:
-        return 'text-amber-400 border-amber-400/40';
+        return 'text-amber-400 drop-shadow-[0_2px_10px_rgba(251,191,36,0.4)]';
       case 1:
-        return 'text-slate-200 border-slate-300/40';
+        return 'text-slate-300 drop-shadow-[0_2px_10px_rgba(203,213,225,0.4)]';
       case 2:
-        return 'text-amber-600 border-amber-600/40';
+        return 'text-amber-600 drop-shadow-[0_2px_10px_rgba(217,119,6,0.3)]';
       default:
-        return 'text-zinc-500 border-zinc-700/40';
+        return 'text-zinc-600';
     }
   };
 
   return (
-    <section className="relative py-4 group">
+    <section className="relative py-4 group select-none">
       {/* Header */}
       <div className="flex items-center justify-between mb-3 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
+          <div className="h-5 w-1 bg-amber-400 rounded-full flex-shrink-0" />
           <Trophy className="w-5 h-5 text-amber-400" />
           <h2 className="text-base sm:text-lg lg:text-xl font-bold text-white tracking-tight flex items-center gap-2">
-            Top 10 This Month
-            <span className="text-[11px] font-semibold text-gray-400 bg-white/5 border border-white/10 px-2 py-0.5 rounded-full">
+            <span>Top 10 This Month</span>
+            <span className="text-[10px] font-bold text-amber-300 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-full uppercase tracking-wider">
               Rankings
             </span>
           </h2>
@@ -52,7 +53,7 @@ export const Top10Shelf: React.FC<Top10ShelfProps> = ({ items }) => {
         {/* Left Scroll Button */}
         <button
           onClick={() => handleScroll('left')}
-          className="absolute -left-2 sm:left-2 top-1/2 -translate-y-1/2 z-20 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-carbon-900/90 text-white border border-white/15 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-carbon-850 hover:scale-105 shadow-xl focus:outline-none"
+          className="absolute -left-2 sm:left-2 top-1/2 -translate-y-1/2 z-20 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-carbon-900/90 text-white border border-white/15 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-carbon-800 hover:scale-105 shadow-xl focus:outline-none cursor-pointer"
           aria-label="Scroll left"
         >
           <ChevronLeft className="w-5 h-5" />
@@ -61,7 +62,7 @@ export const Top10Shelf: React.FC<Top10ShelfProps> = ({ items }) => {
         {/* Right Scroll Button */}
         <button
           onClick={() => handleScroll('right')}
-          className="absolute -right-2 sm:right-2 top-1/2 -translate-y-1/2 z-20 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-carbon-900/90 text-white border border-white/15 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-carbon-850 hover:scale-105 shadow-xl focus:outline-none"
+          className="absolute -right-2 sm:right-2 top-1/2 -translate-y-1/2 z-20 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-carbon-900/90 text-white border border-white/15 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-carbon-800 hover:scale-105 shadow-xl focus:outline-none cursor-pointer"
           aria-label="Scroll right"
         >
           <ChevronRight className="w-5 h-5" />
@@ -96,7 +97,7 @@ export const Top10Shelf: React.FC<Top10ShelfProps> = ({ items }) => {
 
                 {/* Card */}
                 <div className="flex-1">
-                  <AnimeCard item={item} rank={rank} />
+                  <AnimeCard item={item} isFeatured={true} />
                 </div>
               </div>
             );

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Navbar } from './components/Navbar';
 import { MobileBottomBar } from './components/MobileBottomBar';
 import { SearchModal } from './components/SearchModal';
+import { AgeWarningModal } from './components/AgeWarningModal';
 import { Footer } from './components/Footer';
 import { HomePage } from './pages/HomePage';
 import { SeriesPage } from './pages/SeriesPage';
@@ -148,6 +149,9 @@ export const App: React.FC = () => {
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
       />
+
+      {/* 18+ Content & Age Verification Gate */}
+      <AgeWarningModal />
 
       {/* Mobile Bottom Navigation Bar */}
       <MobileBottomBar
