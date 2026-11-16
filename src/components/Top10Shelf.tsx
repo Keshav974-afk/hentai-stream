@@ -1,108 +1,115 @@
 import React, { useRef } from 'react';
-import { ChevronLeft, ChevronRight, Trophy } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { HentaiItem } from '../types/api';
-import { AnimeCard } from './AnimeCard';
+import { TMDB } from '../services/tmdb';
 
 interface Top10ShelfProps {
   items: HentaiItem[];
+  onMoreInfo?: (item: HentaiItem) => void;
 }
 
-export const Top10Shelf: React.FC<Top10ShelfProps> = ({ items }) => {
-  const scrollRef = useRef<HTMLDivElement>(null);
+/**
+ * FlowFlix signature Netflix-style ranked row:
+ * Oversized outlined rank numbers sit behind each poster, top 10 only.
+ */
+export const Top10Shelf: React.FC<Top10ShelfProps> = ({ items, onMoreInfo }) => {
+  const ref = useRef<HTMLDivElement>(null);
   const top10 = items.slice(0, 10);
 
   if (top10.length === 0) return null;
 
-  const handleScroll = (direction: 'left' | 'right') => {
-    if (!scrollRef.current) return;
-    const { clientWidth } = scrollRef.current;
-    const scrollAmount = direction === 'left' ? -clientWidth * 0.75 : clientWidth * 0.75;
-    scrollRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-  };
-
-  const getRankStyle = (index: number) => {
-    switch (index) {
-      case 0:
-        return 'text-zinc-200';
-      case 1:
-        return 'text-zinc-400';
-      case 2:
-        return 'text-zinc-500';
-      default:
-        return 'text-zinc-700';
-    }
+  const scroll = (dir: 1 | -1) => {
+    const el = ref.current;
+    if (!el) return;
+    el.scrollBy({ left: dir * el.clientWidth * 0.8, behavior: 'smooth' });
   };
 
   return (
-    <section className="relative py-4 group select-none">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-3 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        <div className="flex items-center gap-2.5">
-          <div className="h-5 w-1 bg-amber-400 rounded-full flex-shrink-0" />
-          <Trophy className="w-5 h-5 text-amber-400" />
-          <h2 className="text-base sm:text-lg lg:text-xl font-bold text-white tracking-tight flex items-center gap-2">
-            <span>Top 10 This Month</span>
-            <span className="text-[10px] font-bold text-amber-300 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-full uppercase tracking-wider">
-              Rankings
-            </span>
-          </h2>
-        </div>
+    <section className="group/row relative py-2 sm:py-3.5 select-none">
+      <div className="px-4 sm:px-8 md:px-12 lg:px-16 mb-2 sm:mb-2.5 flex items-center justify-between">
+        <h2 className="text-base sm:text-lg md:text-xl font-bold tracking-tight text-white flex items-center gap-2">
+          <span>Top 10 Series This Month</span>
+          <span className="rounded-sm bg-[#E50914] px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-white">
+            Top 10
+          </span>
+        </h2>
       </div>
 
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="relative">
         {/* Left Scroll Button */}
         <button
-          onClick={() => handleScroll('left')}
-          className="absolute -left-2 sm:left-2 top-1/2 -translate-y-1/2 z-20 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-carbon-900/90 text-white border border-white/15 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-carbon-800 hover:scale-105 shadow-xl focus:outline-none cursor-pointer"
+          onClick={() => scroll(-1)}
+          className="hidden md:grid absolute left-0 top-0 bottom-0 z-20 w-12 sm:w-14 place-items-center bg-black/60 hover:bg-black/85 text-white/80 hover:text-white opacity-0 group-hover/row:opacity-100 transition duration-200 cursor-pointer"
           aria-label="Scroll left"
         >
-          <ChevronLeft className="w-5 h-5" />
+          <ChevronLeft className="size-8" />
         </button>
 
-        {/* Right Scroll Button */}
-        <button
-          onClick={() => handleScroll('right')}
-          className="absolute -right-2 sm:right-2 top-1/2 -translate-y-1/2 z-20 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-carbon-900/90 text-white border border-white/15 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-carbon-800 hover:scale-105 shadow-xl focus:outline-none cursor-pointer"
-          aria-label="Scroll right"
-        >
-          <ChevronRight className="w-5 h-5" />
-        </button>
-
-        {/* Shelf with stylized number */}
+        {/* Top 10 Scroller */}
         <div
-          ref={scrollRef}
-          className="flex gap-4 sm:gap-6 overflow-x-auto scrollbar-none scroll-smooth pb-2 pt-1 -mx-4 px-4 sm:mx-0 sm:px-0"
+          ref={ref}
+          className="hide-scrollbar flex gap-2 sm:gap-3 overflow-x-auto px-4 sm:px-8 md:px-12 lg:px-16 py-3 scroll-smooth snap-x"
         >
           {top10.map((item, idx) => {
-            const rank = idx + 1;
-            return (
-              <div
-                key={item.post_ID || item.id || idx}
-                className="flex-none flex items-end w-[180px] sm:w-[220px] md:w-[250px]"
-              >
-                {/* Large stylized rank number */}
-                <div className="relative w-14 sm:w-20 -mr-4 sm:-mr-6 z-10 select-none pb-4 pointer-events-none">
-                  <span
-                    className={`font-display text-6xl sm:text-8xl font-black leading-none tracking-tighter block ${getRankStyle(
-                      idx
-                    )}`}
-                    style={{
-                      WebkitTextStroke: '2px currentColor',
-                      color: 'transparent'
-                    }}
-                  >
-                    {rank}
-                  </span>
-                </div>
+            const id = item.post_ID || item.id || '';
+            const title = item.post_title || (item as any).title || 'Untitled';
+            const pre = TMDB.getPreSeeded(title);
+            const thumb = pre?.poster || item.post_thumbnail || item.thumbnail || '';
 
-                {/* Card */}
-                <div className="flex-1">
-                  <AnimeCard item={item} isFeatured={true} />
+            return (
+              <button
+                key={id || idx}
+                onClick={() => {
+                  if (onMoreInfo) {
+                    onMoreInfo(item);
+                  } else {
+                    window.location.hash = `#/series/${id}`;
+                  }
+                }}
+                className="group/card snap-start relative shrink-0 flex items-end h-36 sm:h-48 pl-12 sm:pl-16 focus:outline-none cursor-pointer"
+              >
+                {/* FlowFlix Oversized Outlined Rank Number */}
+                <span
+                  className="absolute left-0 bottom-0 leading-none font-display select-none text-[8rem] sm:text-[10.5rem] rank-number pointer-events-none"
+                  aria-hidden
+                >
+                  {idx + 1}
+                </span>
+
+                {/* Card Container */}
+                <div className="relative w-24 sm:w-32 aspect-[2/3] rounded-xl sm:rounded-2xl overflow-hidden bg-[#181818] border border-white/10 transition-transform duration-300 group-hover/card:scale-105 shadow-xl">
+                  {thumb ? (
+                    <img
+                      src={thumb}
+                      alt={title}
+                      loading="lazy"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full grid place-items-center text-xs px-2 text-center text-zinc-400">
+                      {title}
+                    </div>
+                  )}
+
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover/card:opacity-100 transition-opacity flex items-end p-2">
+                    <span className="text-[10px] font-bold text-white line-clamp-1 leading-tight">
+                      {title}
+                    </span>
+                  </div>
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>
+
+        {/* Right Scroll Button */}
+        <button
+          onClick={() => scroll(1)}
+          className="hidden md:grid absolute right-0 top-0 bottom-0 z-20 w-12 sm:w-14 place-items-center bg-black/60 hover:bg-black/85 text-white/80 hover:text-white opacity-0 group-hover/row:opacity-100 transition duration-200 cursor-pointer"
+          aria-label="Scroll right"
+        >
+          <ChevronRight className="size-8" />
+        </button>
       </div>
     </section>
   );

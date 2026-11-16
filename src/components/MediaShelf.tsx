@@ -1,96 +1,88 @@
 import React, { useRef } from 'react';
-import { ChevronLeft, ChevronRight, ArrowRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { HentaiItem } from '../types/api';
 import { AnimeCard } from './AnimeCard';
 
 interface MediaShelfProps {
   title: string;
   items: HentaiItem[];
-  icon?: React.ReactNode;
-  viewAllLink?: string;
-  badge?: string;
+  moreHref?: string;
+  moreLabel?: string;
+  onMoreInfo?: (item: HentaiItem) => void;
 }
 
 export const MediaShelf: React.FC<MediaShelfProps> = ({
   title,
   items,
-  icon,
-  viewAllLink,
-  badge,
+  moreHref,
+  moreLabel = 'Explore All',
+  onMoreInfo,
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   if (!items || items.length === 0) return null;
 
-  const handleScroll = (direction: 'left' | 'right') => {
-    if (!scrollRef.current) return;
-    const { clientWidth } = scrollRef.current;
-    const scrollAmount = direction === 'left' ? -clientWidth * 0.75 : clientWidth * 0.75;
-    scrollRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+  const scroll = (dir: 1 | -1) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollBy({ left: dir * el.clientWidth * 0.8, behavior: 'smooth' });
   };
 
   return (
-    <section className="relative py-4 group select-none">
-      {/* Shelf Header with Crimson Accent Bar */}
-      <div className="flex items-center justify-between mb-3 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        <div className="flex items-center gap-2.5">
-          <div className="h-5 w-1 bg-cinema-red rounded-full flex-shrink-0" />
-          {icon && <span className="text-cinema-red">{icon}</span>}
-          <h2 className="text-base sm:text-lg lg:text-xl font-bold text-white tracking-tight flex items-center gap-2">
-            <span>{title}</span>
-            {badge && (
-              <span className="text-[10px] font-bold text-gray-300 bg-white/5 border border-white/10 px-2 py-0.5 rounded-full uppercase tracking-wider">
-                {badge}
-              </span>
-            )}
-          </h2>
-        </div>
+    <section className="group/row relative py-2 sm:py-3.5 select-none">
+      {/* Shelf Header */}
+      <div className="flex items-center justify-between px-4 sm:px-8 md:px-12 lg:px-16 mb-2 sm:mb-2.5">
+        <h2 className="text-base sm:text-lg md:text-xl font-bold tracking-tight text-white flex items-center gap-2">
+          <span>{title}</span>
+          <span className="text-xs font-semibold text-zinc-500 hidden sm:inline">
+            ({items.length})
+          </span>
+        </h2>
 
-        {viewAllLink && (
+        {moreHref && (
           <a
-            href={viewAllLink}
-            className="flex items-center gap-1 text-xs font-semibold text-gray-400 hover:text-white transition-colors group/link"
+            href={moreHref}
+            className="text-xs font-semibold text-zinc-400 hover:text-white transition flex items-center gap-1 group/link"
           >
-            <span>View All</span>
-            <ArrowRight className="w-3.5 h-3.5 transform group-hover/link:translate-x-0.5 transition-transform" />
+            <span>{moreLabel}</span>
+            <span className="group-hover/link:translate-x-0.5 transition-transform">›</span>
           </a>
         )}
       </div>
 
-      {/* Carousel Track Container */}
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="relative">
         {/* Left Scroll Button */}
         <button
-          onClick={() => handleScroll('left')}
-          className="absolute -left-2 sm:left-2 top-1/2 -translate-y-1/2 z-20 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-carbon-900/90 text-white border border-white/15 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-carbon-800 hover:scale-105 shadow-xl focus:outline-none cursor-pointer"
+          onClick={() => scroll(-1)}
+          className="hidden md:grid absolute left-0 top-0 bottom-0 z-30 w-12 sm:w-14 place-items-center bg-black/60 hover:bg-black/85 text-white/80 hover:text-white opacity-0 group-hover/row:opacity-100 transition duration-200 cursor-pointer"
           aria-label="Scroll left"
         >
-          <ChevronLeft className="w-5 h-5" />
+          <ChevronLeft className="size-8" />
         </button>
 
-        {/* Right Scroll Button */}
-        <button
-          onClick={() => handleScroll('right')}
-          className="absolute -right-2 sm:right-2 top-1/2 -translate-y-1/2 z-20 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-carbon-900/90 text-white border border-white/15 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-carbon-800 hover:scale-105 shadow-xl focus:outline-none cursor-pointer"
-          aria-label="Scroll right"
-        >
-          <ChevronRight className="w-5 h-5" />
-        </button>
-
-        {/* Horizontal Card Row */}
+        {/* Horizontal Row Cards */}
         <div
           ref={scrollRef}
-          className="flex gap-3 sm:gap-4 overflow-x-auto scrollbar-none scroll-smooth pb-2 pt-1 -mx-4 px-4 sm:mx-0 sm:px-0"
+          className="hide-scrollbar flex gap-2.5 sm:gap-4 lg:gap-4.5 overflow-x-auto px-4 sm:px-8 md:px-12 lg:px-16 py-2.5 sm:py-3.5 scroll-smooth snap-x"
         >
           {items.map((item, idx) => (
             <div
               key={item.post_ID || item.id || idx}
-              className="flex-none w-[130px] sm:w-[160px] md:w-[185px] lg:w-[200px]"
+              className="snap-start shrink-0 w-28 sm:w-36 md:w-56 lg:w-72 xl:w-[calc((min(100vw,1920px)-9rem)/6)] max-w-[320px]"
             >
-              <AnimeCard item={item} isFeatured={true} />
+              <AnimeCard item={item} isFeatured={true} onMoreInfo={onMoreInfo} />
             </div>
           ))}
         </div>
+
+        {/* Right Scroll Button */}
+        <button
+          onClick={() => scroll(1)}
+          className="hidden md:grid absolute right-0 top-0 bottom-0 z-30 w-12 sm:w-14 place-items-center bg-black/60 hover:bg-black/85 text-white/80 hover:text-white opacity-0 group-hover/row:opacity-100 transition duration-200 cursor-pointer"
+          aria-label="Scroll right"
+        >
+          <ChevronRight className="size-8" />
+        </button>
       </div>
     </section>
   );
