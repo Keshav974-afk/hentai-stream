@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { HentaiItem, Episode } from '../types/api';
 import { API } from '../services/api';
+import { TMDB, TmdbMediaInfo } from '../services/tmdb';
 import { VideoPlayer } from '../components/VideoPlayer';
 import { AnimeCard } from '../components/AnimeCard';
 import { DownloadModal } from '../components/DownloadModal';
 import { useWatchlist, useWatchHistory } from '../hooks/useLocalStorage';
+import { Sparkles, Clock, Calendar, Film } from 'lucide-react';
 
 interface WatchPageProps {
   seriesId: string | number;
@@ -19,6 +21,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({ seriesId, episodeId }) => 
   const [recommendations, setRecommendations] = useState<HentaiItem[]>([]);
   const [synopsisExpanded, setSynopsisExpanded] = useState(false);
   const [showDownloadModal, setShowDownloadModal] = useState(false);
+  const [tmdbData, setTmdbData] = useState<TmdbMediaInfo | null>(null);
 
   const { isSaved, toggleWatchlist } = useWatchlist();
   const { getProgress } = useWatchHistory();
@@ -81,7 +84,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({ seriesId, episodeId }) => 
     ? savedProgress.currentTime
     : 0;
 
-  // 2. Fetch specific episode stream if chapter_content is missing (MUST be before any return)
+  // 2. Fetch specific episode stream if chapter_content is missing
   useEffect(() => {
     if (currentEp && !currentEp.chapter_content && seriesId && activeChapterId) {
       API.getEpisode(seriesId, activeChapterId).then((epData) => {
@@ -100,10 +103,29 @@ export const WatchPage: React.FC<WatchPageProps> = ({ seriesId, episodeId }) => 
     }
   }, [activeChapterId, seriesId, currentEp]);
 
-  // NOW CONDITIONAL RENDERING (No hooks below this line)
+  // 3. Enrich with TMDB episode details & stills
+  useEffect(() => {
+    if (!series) return;
+    const title = series.post_title || '';
+
+    // Check pre-seed immediately
+    const pre = TMDB.getPreSeeded(title);
+    if (pre) {
+      setTmdbData(pre);
+    }
+
+    // Comprehensive TMDB lookup with full episode data
+    TMDB.lookup(title, true).then((res) => {
+      if (res) {
+        setTmdbData(res);
+      }
+    });
+  }, [series]);
+
+  // Conditional Rendering
   if (loading) {
     return (
-      <div className="pt-20 max-w-[1500px] mx-auto px-3 sm:px-6 space-y-4 animate-pulse">
+      <div className="pt-20 max-w-[1500px] mx-auto px-3 sm:px-6 space-y-4 animate-pulse select-none">
         <div className="h-6 w-48 bg-carbon-800 rounded" />
         <div className="w-full aspect-video bg-carbon-850 rounded-2xl shimmer" />
       </div>
@@ -112,9 +134,9 @@ export const WatchPage: React.FC<WatchPageProps> = ({ seriesId, episodeId }) => 
 
   if (error || !series) {
     return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center text-center px-4 pt-20">
+      <div className="min-h-[60vh] flex flex-col items-center justify-center text-center px-4 pt-20 select-none">
         <h2 className="text-xl font-bold text-white mb-2">Video Stream Failed</h2>
-        <p className="text-xs sm:text-sm text-gray-400 max-w-md mb-6">{error || 'Episode could not be retrieved.'}</p>
+        <p className="text-xs sm:text-sm text-zinc-400 max-w-md mb-6">{error || 'Episode could not be retrieved.'}</p>
         <a
           href={`#/series/${seriesId}`}
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#E50914] text-white font-semibold text-xs transition"
@@ -127,7 +149,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({ seriesId, episodeId }) => 
 
   if (episodes.length === 0) {
     return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center text-center px-4 pt-20">
+      <div className="min-h-[60vh] flex flex-col items-center justify-center text-center px-4 pt-20 select-none">
         <h2 className="text-xl font-bold text-white mb-2">No Episodes Available</h2>
         <a
           href={`#/series/${seriesId}`}
@@ -140,10 +162,16 @@ export const WatchPage: React.FC<WatchPageProps> = ({ seriesId, episodeId }) => 
   }
 
   const title = series.post_title || 'Untitled';
-  const epTitle = currentEp?.chapter_name || `Episode ${epIndex + 1}`;
   const hasNext = epIndex + 1 < episodes.length;
   const hasPrev = epIndex > 0;
   const bookmarked = isSaved(seriesId);
+
+  // Match active episode with TMDB episode info
+  const tmdbEpisodes = tmdbData?.episodes || [];
+  const activeTmdbEp = tmdbEpisodes.find((te) => te.episode_number === epIndex + 1) || tmdbEpisodes[epIndex];
+  const epTitle = activeTmdbEp?.name || currentEp?.chapter_name || `Episode ${epIndex + 1}`;
+  const epSynopsis = activeTmdbEp?.overview || series.post_content?.replace(/<[^>]*>/g, '').trim() || '';
+  const epStill = activeTmdbEp?.still || tmdbData?.backdrop || series.post_thumbnail;
 
   const handleSelectEpisode = (idx: number) => {
     const next = episodes[idx];
@@ -174,7 +202,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({ seriesId, episodeId }) => 
   };
 
   return (
-    <div className="pb-16 pt-16 sm:pt-20">
+    <div className="pb-16 pt-16 sm:pt-20 select-none">
       <div
         id="player-container"
         className={`mx-auto space-y-4 transition-all duration-300 ${
@@ -182,7 +210,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({ seriesId, episodeId }) => 
         }`}
       >
         {/* Desktop Breadcrumb Bar */}
-        <div className="hidden sm:flex items-center justify-between text-xs text-gray-400 px-1">
+        <div className="hidden sm:flex items-center justify-between text-xs text-zinc-400 px-1">
           <a
             href={`#/series/${seriesId}`}
             className="flex items-center gap-1.5 hover:text-white transition font-semibold"
@@ -196,7 +224,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({ seriesId, episodeId }) => 
           <div className="flex items-center gap-4">
             <button
               onClick={() => setIsTheaterMode(!isTheaterMode)}
-              className="hover:text-white flex items-center gap-1.5 transition"
+              className="hover:text-white flex items-center gap-1.5 transition cursor-pointer"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <rect x="2" y="6" width="20" height="12" rx="2" strokeWidth="2"/>
@@ -207,7 +235,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({ seriesId, episodeId }) => 
           </div>
         </div>
 
-        {/* FlowFlix Cinema Video Player */}
+        {/* Video Player */}
         <VideoPlayer
           streamUrl={currentEp.chapter_content}
           seriesId={seriesId}
@@ -222,44 +250,64 @@ export const WatchPage: React.FC<WatchPageProps> = ({ seriesId, episodeId }) => 
           isTheaterMode={isTheaterMode}
           onToggleTheater={() => setIsTheaterMode(!isTheaterMode)}
           onBack={() => { window.location.hash = `#/series/${seriesId}`; }}
-          poster={series.post_thumbnail}
+          poster={epStill}
           startTime={initialStartTime}
         />
       </div>
 
-      {/* Main Details and Episodes Grid Container (FlowFlix Spec) */}
+      {/* Main Details and Episodes Grid Container */}
       <div className="max-w-[1500px] mx-auto px-4 sm:px-6 mt-6 space-y-6">
 
-        {/* Video Metadata & Action Bar Box */}
+        {/* Video Metadata & Action Bar Box - Clean obsidian card without glows */}
         <div className="bg-carbon-900 border border-white/10 rounded-2xl p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-4 gap-6">
           <div className="lg:col-span-3 space-y-3">
             <div className="flex flex-wrap items-center gap-2">
               <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#E50914] text-white uppercase">
                 Now Streaming
               </span>
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-white/10 text-gray-300">
+              <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-white/10 text-zinc-300">
                 1080p FHD
               </span>
-              <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-white/10 text-gray-300">
+              <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-white/10 text-zinc-300">
                 Episode {epIndex + 1} of {episodes.length}
               </span>
+              {activeTmdbEp?.runtime && (
+                <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-white/10 text-zinc-300 flex items-center gap-1">
+                  <Clock className="w-2.5 h-2.5 text-zinc-400" />
+                  <span>{activeTmdbEp.runtime}m</span>
+                </span>
+              )}
+              {activeTmdbEp?.air_date && (
+                <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-white/10 text-zinc-400 flex items-center gap-1">
+                  <Calendar className="w-2.5 h-2.5 text-zinc-500" />
+                  <span>{activeTmdbEp.air_date}</span>
+                </span>
+              )}
+              {activeTmdbEp && (
+                <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-zinc-800 text-zinc-300 border border-zinc-700/60 flex items-center gap-1">
+                  <Sparkles className="w-2.5 h-2.5 text-zinc-400" />
+                  <span>TMDB Verified</span>
+                </span>
+              )}
             </div>
 
             <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight leading-snug">
               {title} <span className="text-[#E50914] font-semibold">· {epTitle}</span>
             </h2>
 
-            {series.post_content && (
+            {epSynopsis && (
               <div>
-                <p className={`text-xs sm:text-sm text-gray-300 leading-relaxed ${synopsisExpanded ? '' : 'line-clamp-3'}`}>
-                  {series.post_content.replace(/<[^>]*>/g, '')}
+                <p className={`text-xs sm:text-sm text-zinc-300 leading-relaxed ${synopsisExpanded ? '' : 'line-clamp-3'}`}>
+                  {epSynopsis}
                 </p>
-                <button
-                  onClick={() => setSynopsisExpanded(!synopsisExpanded)}
-                  className="text-xs font-semibold text-[#E50914] hover:underline mt-1"
-                >
-                  {synopsisExpanded ? 'Show less' : 'More synopsis'}
-                </button>
+                {epSynopsis.length > 180 && (
+                  <button
+                    onClick={() => setSynopsisExpanded(!synopsisExpanded)}
+                    className="text-xs font-semibold text-[#E50914] hover:underline mt-1 cursor-pointer"
+                  >
+                    {synopsisExpanded ? 'Show less' : 'More synopsis'}
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -281,12 +329,12 @@ export const WatchPage: React.FC<WatchPageProps> = ({ seriesId, episodeId }) => 
               onClick={() => toggleWatchlist({
                 seriesId,
                 title,
-                thumbnail: series.post_thumbnail || '',
+                thumbnail: epStill || series.post_thumbnail || '',
                 episodesCount: episodes.length,
                 rating: series.post_rate,
                 views: series.post_views
               })}
-              className={`vf-action-btn ${bookmarked ? 'border-[#E50914] text-[#E50914]' : ''}`}
+              className={`vf-action-btn ${bookmarked ? 'border-zinc-500 bg-white/15 text-white' : ''}`}
             >
               <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/>
@@ -306,16 +354,16 @@ export const WatchPage: React.FC<WatchPageProps> = ({ seriesId, episodeId }) => 
           </div>
         </div>
 
-        {/* All Episodes Grid Section (FlowFlix Spec) */}
+        {/* All Episodes Grid Section with TMDB Stills & Titles */}
         <section className="space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-white/10 px-1">
             <h3 className="font-bold text-base sm:text-lg text-white flex items-center">
               <span className="w-1.5 h-5 rounded-full bg-[#E50914] inline-block mr-2.5" />
-              All Episodes <span className="text-gray-400 font-semibold ml-1.5">({episodes.length})</span>
+              All Episodes <span className="text-zinc-400 font-semibold ml-1.5">({episodes.length})</span>
             </h3>
             <a
               href={`#/series/${seriesId}`}
-              className="text-xs text-gray-400 hover:text-white font-semibold flex items-center gap-1 px-3 py-1 rounded-full hover:bg-white/10 transition"
+              className="text-xs text-zinc-400 hover:text-white font-semibold flex items-center gap-1 px-3 py-1 rounded-full hover:bg-white/10 transition"
             >
               <span>Series Details</span>
               <span>›</span>
@@ -325,36 +373,46 @@ export const WatchPage: React.FC<WatchPageProps> = ({ seriesId, episodeId }) => 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
             {episodes.map((e, idx) => {
               const active = idx === epIndex;
+              const epNum = idx + 1;
+              const tmdbEp = tmdbEpisodes.find((te) => te.episode_number === epNum) || tmdbEpisodes[idx];
+              const stillThumb = tmdbEp?.still || tmdbData?.backdrop || e.chapter_thumbnail || series.post_thumbnail;
+              const name = tmdbEp?.name || e.chapter_name || `Episode ${epNum}`;
+              const runtime = tmdbEp?.runtime ? `${tmdbEp.runtime}m` : '1080p FHD';
+
               return (
                 <button
                   key={e.chapter_id || idx}
                   onClick={() => handleSelectEpisode(idx)}
-                  className={`text-left flex sm:flex-col gap-3 sm:gap-0 rounded-xl overflow-hidden bg-carbon-850 border transition-all active:scale-[0.98] shadow-md ${
-                    active ? 'border-[#E50914] ring-1 ring-[#E50914]' : 'border-white/10 hover:border-white/25'
+                  className={`text-left flex sm:flex-col gap-3 sm:gap-0 rounded-xl overflow-hidden bg-carbon-850 border transition-all active:scale-[0.98] cursor-pointer ${
+                    active
+                      ? 'border-white ring-1 ring-white/50 bg-zinc-800/90'
+                      : 'border-white/10 hover:border-white/25 hover:bg-carbon-800'
                   }`}
                 >
                   <div className="relative w-32 sm:w-full aspect-video bg-carbon-800 flex-shrink-0">
                     <img
-                      src={e.chapter_thumbnail || series.post_thumbnail}
-                      alt={e.chapter_name || `Episode ${idx + 1}`}
+                      src={stillThumb}
+                      alt={name}
                       className="w-full h-full object-cover"
                       loading="lazy"
                     />
                     <span className="absolute bottom-1.5 left-1.5 text-[9px] bg-black/80 backdrop-blur-md px-1.5 py-0.5 rounded font-bold text-white border border-white/10">
-                      EP {idx + 1}
+                      EP {epNum}
                     </span>
                     {active && (
-                      <span className="absolute top-1.5 left-1.5 text-[9px] bg-[#E50914] px-2 py-0.5 rounded font-extrabold text-white uppercase shadow-md">
+                      <span className="absolute top-1.5 left-1.5 text-[9px] bg-white text-zinc-950 px-2 py-0.5 rounded font-extrabold uppercase">
                         Now Playing
                       </span>
                     )}
                   </div>
 
-                  <div className="p-2.5 sm:p-3 min-w-0 flex flex-col justify-center flex-1 bg-carbon-850">
-                    <p className={`font-semibold text-xs sm:text-sm truncate ${active ? 'text-[#E50914] font-bold' : 'text-white'}`}>
-                      {e.chapter_name || `Episode ${idx + 1}`}
+                  <div className="p-2.5 sm:p-3 min-w-0 flex flex-col justify-center flex-1">
+                    <p className={`font-semibold text-xs sm:text-sm truncate ${active ? 'text-white font-bold' : 'text-zinc-200'}`}>
+                      {name}
                     </p>
-                    <span className="text-[10px] text-gray-400 mt-0.5">1080p FHD · Master Stream</span>
+                    <span className="text-[10px] text-zinc-400 mt-0.5">
+                      {runtime} · Master Stream
+                    </span>
                   </div>
                 </button>
               );
@@ -366,7 +424,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({ seriesId, episodeId }) => 
         {recommendations.length > 0 && (
           <section className="space-y-4 pt-4 border-t border-white/10">
             <h3 className="font-bold text-base sm:text-lg text-white flex items-center">
-              <span className="w-1.5 h-5 rounded-full bg-[#E50914] inline-block mr-2.5" />
+              <Film className="w-4 h-4 text-[#E50914] mr-2" />
               More Like This
             </h3>
             <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 sm:gap-4">

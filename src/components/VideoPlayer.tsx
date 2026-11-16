@@ -1006,7 +1006,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
             showControls ? 'bottom-20 sm:bottom-24' : 'bottom-6 sm:bottom-8'
           }`}
         >
-          <div className="inline-block max-w-[90%] sm:max-w-[80%] rounded-md bg-black/85 px-3.5 py-1.5 text-xs sm:text-sm md:text-base font-semibold text-white shadow-2xl backdrop-blur-[2px] leading-snug drop-shadow-md">
+          <div className="inline-block max-w-[90%] sm:max-w-[80%] rounded-md bg-black/90 px-3.5 py-1.5 text-xs sm:text-sm md:text-base font-semibold text-white shadow-2xl backdrop-blur-[2px] leading-snug">
             {activeCueText.split('\n').map((line, idx) => (
               <span key={idx} className="block">{line}</span>
             ))}
@@ -1162,7 +1162,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
           {/* Title Header */}
           <div className="flex-1 min-w-0 text-center px-2">
-            <h3 className="text-sm sm:text-base font-bold text-white truncate leading-tight drop-shadow-md">
+            <h3 className="text-sm sm:text-base font-bold text-white truncate leading-tight">
               {seriesTitle}
             </h3>
             <p className="text-[11px] sm:text-xs text-gray-300 truncate font-medium">

@@ -131,7 +131,7 @@ export const GenresPage: React.FC<GenresPageProps> = ({ initialGenreId }) => {
         </div>
 
         {/* Hero Header Banner */}
-        <div className="relative rounded-2xl overflow-hidden p-6 sm:p-10 border border-white/10 bg-gradient-to-br from-carbon-850 via-carbon-900 to-black shadow-2xl">
+        <div className="relative rounded-2xl overflow-hidden p-6 sm:p-10 border border-white/10 bg-carbon-900">
           <div className="space-y-2 max-w-2xl">
             <div className="flex items-center gap-2">
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-widest bg-[#E50914] text-white shadow-md">
@@ -209,7 +209,7 @@ export const GenresPage: React.FC<GenresPageProps> = ({ initialGenreId }) => {
   return (
     <div className="pt-20 pb-16 max-w-[1720px] mx-auto px-3 sm:px-6 space-y-6 sm:space-y-8 animate-fadeIn">
       {/* Hero Header Banner (FlowFlix Spec) */}
-      <div className="relative rounded-2xl overflow-hidden p-6 sm:p-10 border border-white/10 bg-gradient-to-br from-carbon-850 via-carbon-900 to-black shadow-2xl">
+      <div className="relative rounded-2xl overflow-hidden p-6 sm:p-10 border border-white/10 bg-carbon-900">
         <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div className="space-y-2 max-w-2xl">
             <div className="flex items-center gap-2">

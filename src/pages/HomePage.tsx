@@ -69,14 +69,14 @@ export const HomePage: React.FC = () => {
   if (error && !data) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center text-center px-4 pt-20 select-none">
-        <div className="w-16 h-16 rounded-2xl bg-carbon-900 border border-white/10 flex items-center justify-center text-cinema-red mb-4 shadow-xl shadow-red-950/20">
+        <div className="w-16 h-16 rounded-2xl bg-carbon-900 border border-white/10 flex items-center justify-center text-[#E50914] mb-4">
           <ShieldAlert className="w-8 h-8" />
         </div>
         <h2 className="text-xl font-bold text-white mb-2">Unable to Load Anime Stream Feed</h2>
         <p className="text-xs sm:text-sm text-gray-400 max-w-md mb-6">{error}</p>
         <button
           onClick={() => loadData(true)}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-cinema-red hover:bg-[#ff1e2b] text-white font-semibold text-xs transition shadow-lg shadow-cinema-red/30 cursor-pointer"
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#E50914] hover:bg-[#b81d24] text-white font-semibold text-xs transition cursor-pointer"
         >
           <RefreshCw className="w-4 h-4" />
           <span>Retry Connection</span>

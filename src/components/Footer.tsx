@@ -15,7 +15,7 @@ export const Footer: React.FC = () => {
           {/* Brand Info */}
           <div className="space-y-3 md:col-span-2">
             <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-cinema-red flex items-center justify-center text-white shadow-md shadow-cinema-red/30">
+              <div className="w-7 h-7 rounded-lg bg-[#E50914] flex items-center justify-center text-white">
                 <Play className="w-3.5 h-3.5 fill-white ml-0.5" />
               </div>
               <span className="font-display text-2xl tracking-wider text-white font-black">

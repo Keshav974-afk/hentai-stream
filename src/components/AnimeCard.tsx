@@ -156,14 +156,14 @@ export const AnimeCard: React.FC<AnimeCardProps> = ({
           </span>
 
           {showEpisodeBadge && epCount && (
-            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-cinema-red text-white shadow-sm">
+            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#E50914] text-white">
               {epCount} {Number(epCount) === 1 ? 'EP' : 'EPS'}
             </span>
           )}
 
           {isTmdbEnhanced && (
-            <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 backdrop-blur-md flex items-center gap-0.5">
-              <Sparkles className="w-2.5 h-2.5" />
+            <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-zinc-800/90 text-zinc-300 border border-zinc-700/60 backdrop-blur-md flex items-center gap-0.5">
+              <Sparkles className="w-2.5 h-2.5 text-zinc-400" />
               <span>TMDB</span>
             </span>
           )}
@@ -181,7 +181,7 @@ export const AnimeCard: React.FC<AnimeCardProps> = ({
           onClick={handleBookmarkClick}
           className={`absolute top-2 right-2 p-1.5 rounded-lg backdrop-blur-md transition-all duration-200 z-10 ${
             bookmarked
-              ? 'bg-cinema-red text-white shadow-md'
+              ? 'bg-[#E50914] text-white'
               : 'bg-black/50 text-gray-300 hover:text-white hover:bg-black/80 border border-white/10 opacity-0 group-hover:opacity-100'
           }`}
           title={bookmarked ? 'Remove from My List' : 'Add to My List'}
@@ -192,8 +192,8 @@ export const AnimeCard: React.FC<AnimeCardProps> = ({
 
         {/* Hover Center Play Button with Pop Animation */}
         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
-          <div className="w-11 h-11 rounded-full bg-cinema-red text-white flex items-center justify-center shadow-xl shadow-red-950/60 transform scale-75 group-hover:scale-100 transition-transform duration-300 ease-out">
-            <Play className="w-5 h-5 fill-white ml-0.5" />
+          <div className="w-11 h-11 rounded-full bg-white text-zinc-950 flex items-center justify-center shadow-lg shadow-black/80 transform scale-75 group-hover:scale-100 transition-transform duration-200 ease-out">
+            <Play className="w-5 h-5 fill-zinc-950 ml-0.5" />
           </div>
         </div>
 

@@ -90,32 +90,127 @@ function cleanTitleForTmdb(title) {
     .trim();
 }
 
-function queryTmdb(query) {
+function fetchJson(url) {
   return new Promise((resolve) => {
-    const url = `https://api.themoviedb.org/3/search/multi?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&include_adult=true`;
-    https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } }, (res) => {
+    https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' } }, (res) => {
       let data = '';
       res.on('data', chunk => data += chunk);
       res.on('end', () => {
         try {
-          const parsed = JSON.parse(data);
-          const match = parsed.results?.find(r => r.poster_path || r.backdrop_path);
-          if (match) {
-            resolve({
-              id: match.id,
-              name: match.name || match.title,
-              poster: match.poster_path ? `https://image.tmdb.org/t/p/w500${match.poster_path}` : null,
-              backdrop: match.backdrop_path ? `https://image.tmdb.org/t/p/original${match.backdrop_path}` : null
-            });
-          } else {
-            resolve(null);
-          }
+          resolve(JSON.parse(data));
         } catch {
           resolve(null);
         }
       });
     }).on('error', () => resolve(null));
   });
+}
+
+async function queryTmdb(query) {
+  const searchUrl = `https://api.themoviedb.org/3/search/multi?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&include_adult=true`;
+  const parsed = await fetchJson(searchUrl);
+  if (!parsed || !Array.isArray(parsed.results)) return null;
+
+  const match = parsed.results.find(r => r.poster_path || r.backdrop_path);
+  if (!match) return null;
+
+  const id = match.id;
+  const mediaType = match.media_type || (match.first_air_date ? 'tv' : 'movie');
+
+  if (mediaType === 'tv') {
+    const tvDetails = await fetchJson(`https://api.themoviedb.org/3/tv/${id}?api_key=${TMDB_API_KEY}&append_to_response=season/1`);
+    const season1Eps = tvDetails?.['season/1']?.episodes || [];
+    const episodes = season1Eps.map(e => ({
+      episode_number: e.episode_number,
+      name: e.name || `Episode ${e.episode_number}`,
+      overview: e.overview || '',
+      still: e.still_path ? `https://image.tmdb.org/t/p/w500${e.still_path}` : null,
+      air_date: e.air_date || '',
+      runtime: e.runtime || null
+    }));
+
+    return {
+      id,
+      media_type: 'tv',
+      name: tvDetails?.name || match.name || match.title,
+      overview: tvDetails?.overview || match.overview || '',
+      poster: match.poster_path ? `https://image.tmdb.org/t/p/w500${match.poster_path}` : null,
+      backdrop: (tvDetails?.backdrop_path || match.backdrop_path)
+        ? `https://image.tmdb.org/t/p/original${tvDetails?.backdrop_path || match.backdrop_path}`
+        : null,
+      first_air_date: tvDetails?.first_air_date || match.first_air_date || '',
+      vote_average: tvDetails?.vote_average || match.vote_average || 0,
+      episodes
+    };
+  } else {
+    const movieDetails = await fetchJson(`https://api.themoviedb.org/3/movie/${id}?api_key=${TMDB_API_KEY}`);
+    return {
+      id,
+      media_type: 'movie',
+      name: movieDetails?.title || match.title || match.name,
+      overview: movieDetails?.overview || match.overview || '',
+      poster: match.poster_path ? `https://image.tmdb.org/t/p/w500${match.poster_path}` : null,
+      backdrop: (movieDetails?.backdrop_path || match.backdrop_path)
+        ? `https://image.tmdb.org/t/p/original${movieDetails?.backdrop_path || match.backdrop_path}`
+        : null,
+      first_air_date: movieDetails?.release_date || match.release_date || '',
+      vote_average: movieDetails?.vote_average || match.vote_average || 0,
+      runtime: movieDetails?.runtime || null,
+      episodes: []
+    };
+  }
+}
+
+async function lookupTmdbById(id, type = 'tv') {
+  const cacheKey = `id_${type}_${id}`;
+  if (tmdbServerCache.has(cacheKey)) {
+    return tmdbServerCache.get(cacheKey);
+  }
+
+  if (type === 'tv') {
+    const tv = await fetchJson(`https://api.themoviedb.org/3/tv/${id}?api_key=${TMDB_API_KEY}&append_to_response=season/1`);
+    if (!tv) return null;
+    const season1Eps = tv['season/1']?.episodes || [];
+    const episodes = season1Eps.map(e => ({
+      episode_number: e.episode_number,
+      name: e.name || `Episode ${e.episode_number}`,
+      overview: e.overview || '',
+      still: e.still_path ? `https://image.tmdb.org/t/p/w500${e.still_path}` : null,
+      air_date: e.air_date || '',
+      runtime: e.runtime || null
+    }));
+
+    const result = {
+      id: tv.id,
+      media_type: 'tv',
+      name: tv.name,
+      overview: tv.overview || '',
+      poster: tv.poster_path ? `https://image.tmdb.org/t/p/w500${tv.poster_path}` : null,
+      backdrop: tv.backdrop_path ? `https://image.tmdb.org/t/p/original${tv.backdrop_path}` : null,
+      first_air_date: tv.first_air_date || '',
+      vote_average: tv.vote_average || 0,
+      episodes
+    };
+    tmdbServerCache.set(cacheKey, result);
+    return result;
+  } else {
+    const movie = await fetchJson(`https://api.themoviedb.org/3/movie/${id}?api_key=${TMDB_API_KEY}`);
+    if (!movie) return null;
+    const result = {
+      id: movie.id,
+      media_type: 'movie',
+      name: movie.title,
+      overview: movie.overview || '',
+      poster: movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : null,
+      backdrop: movie.backdrop_path ? `https://image.tmdb.org/t/p/original${movie.backdrop_path}` : null,
+      first_air_date: movie.release_date || '',
+      vote_average: movie.vote_average || 0,
+      runtime: movie.runtime || null,
+      episodes: []
+    };
+    tmdbServerCache.set(cacheKey, result);
+    return result;
+  }
 }
 
 async function lookupTmdbServer(title) {
@@ -157,16 +252,24 @@ async function handleApiProxy(req, res, targetPath, parsedUrl) {
     return;
   }
 
-  // Handle TMDB poster and backdrop lookup
+  // Handle TMDB poster, backdrop, and episode lookup
   if (targetPath === '/tmdb' || targetPath.startsWith('/tmdb?')) {
     const searchParams = new URLSearchParams(parsedUrl.query || '');
     const title = searchParams.get('title') || '';
-    if (!title) {
+    const id = searchParams.get('id') || '';
+    const type = searchParams.get('type') || 'tv';
+
+    if (!title && !id) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify({ success: false, error: 'Title is required' }));
+      return res.end(JSON.stringify({ success: false, error: 'Title or id is required' }));
     }
     try {
-      const match = await lookupTmdbServer(title);
+      let match = null;
+      if (id) {
+        match = await lookupTmdbById(id, type);
+      } else {
+        match = await lookupTmdbServer(title);
+      }
       res.writeHead(200, {
         'Content-Type': 'application/json',
         'Cache-Control': 'public, max-age=604800, s-maxage=604800, stale-while-revalidate=86400'

@@ -59,7 +59,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSearch, activeRoute }) => 
             href="#/"
             className="flex items-center gap-2.5 group focus:outline-none"
           >
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cinema-red to-[#9b0d13] flex items-center justify-center text-white transition-all duration-300 group-hover:scale-105 shadow-md shadow-cinema-red/30">
+            <div className="w-8 h-8 rounded-lg bg-[#E50914] flex items-center justify-center text-white transition-transform duration-200 group-hover:scale-105">
               <Play className="w-4 h-4 fill-white ml-0.5" />
             </div>
             <div className="flex flex-col">

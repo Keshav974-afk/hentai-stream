@@ -23,13 +23,13 @@ export const Top10Shelf: React.FC<Top10ShelfProps> = ({ items }) => {
   const getRankStyle = (index: number) => {
     switch (index) {
       case 0:
-        return 'text-amber-400 drop-shadow-[0_2px_10px_rgba(251,191,36,0.4)]';
+        return 'text-zinc-200';
       case 1:
-        return 'text-slate-300 drop-shadow-[0_2px_10px_rgba(203,213,225,0.4)]';
+        return 'text-zinc-400';
       case 2:
-        return 'text-amber-600 drop-shadow-[0_2px_10px_rgba(217,119,6,0.3)]';
+        return 'text-zinc-500';
       default:
-        return 'text-zinc-600';
+        return 'text-zinc-700';
     }
   };
 
