@@ -1,5 +1,5 @@
 import React from 'react';
-import { Film, ShieldAlert } from 'lucide-react';
+import { Film, ShieldAlert, ExternalLink, Globe } from 'lucide-react';
 
 export const Footer: React.FC = () => {
   const currentYear = new Date().getFullYear();
@@ -30,10 +30,10 @@ export const Footer: React.FC = () => {
       ],
     },
     {
-      heading: 'Support & Help',
+      heading: 'VoidFlix Network',
       links: [
-        { label: 'Streaming Guide', href: '#/' },
-        { label: 'Audio & Subtitles', href: '#/' },
+        { label: 'voidflix.org (Movies & TV)', href: 'https://voidflix.org', external: true },
+        { label: 'manga.voidflix.org (Manga Reader)', href: 'https://manga.voidflix.org', external: true },
         { label: '1080p Quality Info', href: '#/' },
         { label: 'Offline Download FAQ', href: '#/' },
       ],
@@ -52,17 +52,44 @@ export const Footer: React.FC = () => {
   return (
     <footer className="border-t border-white/10 mt-12 px-4 sm:px-8 md:px-12 lg:px-16 py-12 text-sm text-zinc-400 select-none pb-24 lg:pb-12 bg-black/40">
       <div className="max-w-[1800px] mx-auto">
-        {/* Brand Row */}
-        <div className="flex items-center gap-3 mb-8">
-          <div className="w-8 h-8 rounded-lg bg-[#E50914] flex items-center justify-center text-white">
-            <Film className="size-4" />
+        {/* Brand Row & Network Links */}
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-[#E50914] flex items-center justify-center text-white">
+              <Film className="size-4" />
+            </div>
+            <span className="font-display font-black text-2xl tracking-wider text-[#E50914]">
+              FLOWFLIX<span className="text-white text-base tracking-normal font-sans font-bold ml-1.5 opacity-90">ANIME</span>
+            </span>
+            <span className="ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-zinc-900 border border-white/10 text-zinc-300">
+              18+ ONLY
+            </span>
           </div>
-          <span className="font-display font-black text-2xl tracking-wider text-[#E50914]">
-            FLOWFLIX<span className="text-white text-base tracking-normal font-sans font-bold ml-1.5 opacity-90">ANIME</span>
-          </span>
-          <span className="ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-zinc-900 border border-white/10 text-zinc-300">
-            18+ ONLY
-          </span>
+
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs">
+            <span className="text-zinc-500 flex items-center gap-1.5 mr-1">
+              <Globe className="size-3.5 text-zinc-400" />
+              <span>Network:</span>
+            </span>
+            <a
+              href="https://voidflix.org"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-zinc-300 hover:text-white hover:border-white/25 transition flex items-center gap-1.5"
+            >
+              <span>voidflix.org</span>
+              <ExternalLink className="size-3 text-zinc-400" />
+            </a>
+            <a
+              href="https://manga.voidflix.org"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-zinc-300 hover:text-white hover:border-white/25 transition flex items-center gap-1.5"
+            >
+              <span>manga.voidflix.org</span>
+              <ExternalLink className="size-3 text-zinc-400" />
+            </a>
+          </div>
         </div>
 
         {/* 4 Columns Grid */}
@@ -82,6 +109,16 @@ export const Footer: React.FC = () => {
                       >
                         {link.label}
                       </button>
+                    ) : (link as any).external ? (
+                      <a
+                        href={link.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:text-white transition inline-flex items-center gap-1"
+                      >
+                        <span>{link.label}</span>
+                        <ExternalLink className="size-2.5 opacity-60" />
+                      </a>
                     ) : (
                       <a href={link.href} className="hover:text-white transition">
                         {link.label}
@@ -114,7 +151,27 @@ export const Footer: React.FC = () => {
             API. This application is not endorsed or certified by TMDB.
           </p>
           <div className="flex flex-wrap items-center justify-between gap-4 pt-2 text-[11px] text-zinc-500">
-            <p>© {currentYear} FlowFlix Anime / VoidFlix. All rights reserved.</p>
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              <p>© {currentYear} FlowFlix Anime / VoidFlix. All rights reserved.</p>
+              <span className="hidden sm:inline text-zinc-700">•</span>
+              <a
+                href="https://voidflix.org"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-zinc-400 hover:text-white underline transition"
+              >
+                voidflix.org
+              </a>
+              <span className="text-zinc-700">•</span>
+              <a
+                href="https://manga.voidflix.org"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-zinc-400 hover:text-white underline transition"
+              >
+                manga.voidflix.org
+              </a>
+            </div>
             <button
               onClick={handleOpenWarning}
               className="flex items-center gap-1.5 text-zinc-400 hover:text-white transition cursor-pointer"
