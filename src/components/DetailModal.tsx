@@ -4,6 +4,7 @@ import { HentaiItem, Episode } from '../types/api';
 import { API } from '../services/api';
 import { TMDB, TmdbMediaInfo } from '../services/tmdb';
 import { useWatchlist, useWatchHistory } from '../hooks/useLocalStorage';
+import { EpisodeThumbnail, getEpisodePreviewUrl } from './EpisodeThumbnail';
 
 interface DetailModalProps {
   item: HentaiItem | null;
@@ -230,6 +231,8 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose }) => {
                   const epName = tmdbEp?.name || ep.chapter_name || `Episode ${epNum}`;
                   const runtime = tmdbEp?.runtime ? `${tmdbEp.runtime}m` : null;
 
+                  const previewUrl = getEpisodePreviewUrl(ep);
+
                   return (
                     <a
                       key={ep.chapter_id || idx}
@@ -237,12 +240,16 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose }) => {
                       onClick={onClose}
                       className="group flex gap-3 p-2.5 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/5 hover:border-white/15 transition items-center"
                     >
-                      <div className="relative w-24 sm:w-28 aspect-video rounded-lg overflow-hidden bg-zinc-900 flex-shrink-0">
-                        <img src={still} alt={epName} className="w-full h-full object-cover" />
-                        <span className="absolute bottom-1 left-1 px-1.5 py-0.2 rounded text-[9px] font-bold bg-black/80 text-white">
+                      <EpisodeThumbnail
+                        poster={still}
+                        alt={epName}
+                        previewUrl={previewUrl}
+                        className="w-24 sm:w-28 aspect-video rounded-lg flex-shrink-0"
+                      >
+                        <span className="absolute bottom-1 left-1 px-1.5 py-0.2 rounded text-[9px] font-bold bg-black/80 text-white z-20">
                           EP {epNum}
                         </span>
-                      </div>
+                      </EpisodeThumbnail>
                       <div className="min-w-0 flex-1">
                         <h4 className="text-xs font-bold text-white truncate group-hover:text-white">
                           {epName}

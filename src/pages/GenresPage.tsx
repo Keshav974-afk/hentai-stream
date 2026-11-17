@@ -40,9 +40,30 @@ export const GenresPage: React.FC<GenresPageProps> = ({ initialGenreId }) => {
     }
   }, [initialGenreId]);
 
+  // Resolve numeric term_id from slug or genres list
+  const resolveTermId = (id: number | string | null): number | string | null => {
+    if (!id) return null;
+    if (!isNaN(Number(id))) return id;
+    const raw = String(id).toLowerCase().trim();
+    if (raw === 'uncensored') return 107;
+    if (raw === 'yuri') return 103;
+    const match = genres.find(
+      (g) =>
+        g.slug?.toLowerCase() === raw ||
+        g.name?.toLowerCase().includes(raw)
+    );
+    return match ? match.term_id : id;
+  };
+
   // Load genre detail when a genre is selected
   useEffect(() => {
     if (!selectedGenreId) {
+      setGenreDetail(null);
+      return;
+    }
+
+    const effectiveId = resolveTermId(selectedGenreId);
+    if (!effectiveId) {
       setGenreDetail(null);
       return;
     }
@@ -52,10 +73,10 @@ export const GenresPage: React.FC<GenresPageProps> = ({ initialGenreId }) => {
     setPage(1);
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
-    API.getGenreTitles(selectedGenreId, 1).then((res) => {
+    API.getGenreTitles(effectiveId, 1).then((res) => {
       if (isMounted) {
         setGenreDetail({
-          term: res.term || genres.find(g => String(g.term_id) === String(selectedGenreId)) || null,
+          term: res.term || genres.find(g => String(g.term_id) === String(effectiveId)) || null,
           items: res.hentais
         });
         setHasMore(res.hentais.length >= 15);
@@ -69,14 +90,15 @@ export const GenresPage: React.FC<GenresPageProps> = ({ initialGenreId }) => {
     });
 
     return () => { isMounted = false; };
-  }, [selectedGenreId]);
+  }, [selectedGenreId, genres]);
 
   const loadMore = async () => {
-    if (!selectedGenreId || loadingItems) return;
+    const effectiveId = resolveTermId(selectedGenreId);
+    if (!effectiveId || loadingItems) return;
     const nextPage = page + 1;
     setLoadingItems(true);
     try {
-      const res = await API.getGenreTitles(selectedGenreId, nextPage);
+      const res = await API.getGenreTitles(effectiveId, nextPage);
       if (res.hentais.length > 0) {
         setGenreDetail(prev => prev ? {
           ...prev,

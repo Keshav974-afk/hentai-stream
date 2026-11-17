@@ -1,10 +1,12 @@
 import React, { useRef } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowRight } from 'lucide-react';
 import { HentaiItem } from '../types/api';
 import { TMDB } from '../services/tmdb';
 
 interface Top10ShelfProps {
   items: HentaiItem[];
+  moreHref?: string;
+  moreLabel?: string;
   onMoreInfo?: (item: HentaiItem) => void;
 }
 
@@ -12,7 +14,12 @@ interface Top10ShelfProps {
  * FlowFlix signature Netflix-style ranked row:
  * Oversized outlined rank numbers sit behind each poster, top 10 only.
  */
-export const Top10Shelf: React.FC<Top10ShelfProps> = ({ items, onMoreInfo }) => {
+export const Top10Shelf: React.FC<Top10ShelfProps> = ({
+  items,
+  moreHref = '#/browse?sort=trending',
+  moreLabel = 'Explore All',
+  onMoreInfo,
+}) => {
   const ref = useRef<HTMLDivElement>(null);
   const top10 = items.slice(0, 10);
 
@@ -33,6 +40,16 @@ export const Top10Shelf: React.FC<Top10ShelfProps> = ({ items, onMoreInfo }) => 
             Top 10
           </span>
         </h2>
+
+        {moreHref && (
+          <a
+            href={moreHref}
+            className="text-xs font-semibold text-zinc-400 hover:text-white transition flex items-center gap-1 group/link"
+          >
+            <span>{moreLabel}</span>
+            <span className="group-hover/link:translate-x-0.5 transition-transform">›</span>
+          </a>
+        )}
       </div>
 
       <div className="relative">
@@ -100,6 +117,27 @@ export const Top10Shelf: React.FC<Top10ShelfProps> = ({ items, onMoreInfo }) => 
               </button>
             );
           })}
+
+          {moreHref && (
+            <div className="snap-start shrink-0 flex items-center pr-4">
+              <a
+                href={moreHref}
+                className="w-24 sm:w-32 aspect-[2/3] rounded-xl sm:rounded-2xl border border-white/10 hover:border-white/25 bg-[#14151a] hover:bg-[#1a1b22] transition-all duration-300 flex flex-col items-center justify-center gap-2 p-3 group/card hover:scale-105 shadow-xl text-center"
+              >
+                <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 group-hover/card:bg-[#E50914] group-hover/card:border-[#E50914] group-hover/card:text-white text-zinc-300 flex items-center justify-center transition-all duration-300 shadow-sm">
+                  <ArrowRight className="w-4 h-4 group-hover/card:translate-x-0.5 transition-transform" />
+                </div>
+                <div className="space-y-0.5">
+                  <span className="text-xs font-bold text-white group-hover/card:text-white transition block">
+                    {moreLabel}
+                  </span>
+                  <span className="text-[10px] text-zinc-400 block">
+                    Top 10
+                  </span>
+                </div>
+              </a>
+            </div>
+          )}
         </div>
 
         {/* Right Scroll Button */}

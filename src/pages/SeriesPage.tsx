@@ -3,6 +3,7 @@ import { HentaiItem, Episode } from '../types/api';
 import { API } from '../services/api';
 import { TMDB, TmdbMediaInfo } from '../services/tmdb';
 import { AnimeCard } from '../components/AnimeCard';
+import { EpisodeThumbnail, getEpisodePreviewUrl } from '../components/EpisodeThumbnail';
 import { useWatchlist, useWatchHistory } from '../hooks/useLocalStorage';
 import { Play, Bookmark, Star, Eye, Calendar, Sparkles, ArrowLeft, Film, Clock } from 'lucide-react';
 
@@ -331,6 +332,7 @@ export const SeriesPage: React.FC<SeriesPageProps> = ({ seriesId }) => {
                 const progressPct = epProgress && epProgress.duration > 0
                   ? Math.min(100, (epProgress.currentTime / epProgress.duration) * 100)
                   : 0;
+                const previewUrl = getEpisodePreviewUrl(ep);
 
                 return (
                   <a
@@ -338,14 +340,13 @@ export const SeriesPage: React.FC<SeriesPageProps> = ({ seriesId }) => {
                     href={`#/watch/${id}/${ep.chapter_id}`}
                     className="group bg-carbon-900 border border-white/[0.08] hover:border-white/20 rounded-xl overflow-hidden transition-all duration-200 hover:-translate-y-1 block shadow-sm flex flex-col"
                   >
-                    {/* 16:9 Thumbnail Box */}
-                    <div className="relative aspect-video w-full bg-carbon-850 overflow-hidden flex-none">
-                      <img
-                        src={epStill}
-                        alt={epName}
-                        className="w-full h-full object-cover group-hover:scale-103 transition-transform duration-300"
-                        loading="lazy"
-                      />
+                    {/* 16:9 Thumbnail Box with Hover Video Preview */}
+                    <EpisodeThumbnail
+                      poster={epStill}
+                      alt={epName}
+                      previewUrl={previewUrl}
+                      className="aspect-video w-full flex-none"
+                    >
                       <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                         <div className="w-10 h-10 rounded-full bg-white text-zinc-950 flex items-center justify-center shadow-md">
                           <Play className="w-4 h-4 fill-zinc-950 ml-0.5" />
@@ -374,7 +375,7 @@ export const SeriesPage: React.FC<SeriesPageProps> = ({ seriesId }) => {
                           />
                         </div>
                       )}
-                    </div>
+                    </EpisodeThumbnail>
 
                     {/* Episode Text Content */}
                     <div className="p-3.5 flex-1 flex flex-col justify-between space-y-2">

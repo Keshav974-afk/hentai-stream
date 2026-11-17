@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { Episode, VideoQualityLevel } from '../types/api';
 import { useWatchHistory } from '../hooks/useLocalStorage';
+import { EpisodeThumbnail, getEpisodePreviewUrl } from './EpisodeThumbnail';
 import {
   downloadMediaStream,
   get1DMIntentUrl,
@@ -1389,6 +1390,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
                 <div className="max-h-[55vh] overflow-y-auto space-y-2 pr-1 no-scrollbar">
                   {episodes.map((ep, idx) => {
                     const active = idx === episodeIndex;
+                    const previewUrl = getEpisodePreviewUrl(ep);
                     return (
                       <button
                         key={ep.chapter_id || idx}
@@ -1400,19 +1402,18 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
                           active ? 'bg-[#E50914]/20 ring-1 ring-[#E50914] text-white' : 'hover:bg-white/5 text-gray-300'
                         }`}
                       >
-                        <div className="relative w-24 aspect-video rounded-lg overflow-hidden bg-carbon-800 flex-shrink-0">
-                          <img
-                            src={ep.chapter_thumbnail || poster}
-                            alt={ep.chapter_name || `Episode ${idx + 1}`}
-                            className="w-full h-full object-cover"
-                            loading="lazy"
-                          />
+                        <EpisodeThumbnail
+                          poster={ep.chapter_thumbnail || poster}
+                          alt={ep.chapter_name || `Episode ${idx + 1}`}
+                          previewUrl={previewUrl}
+                          className="w-24 aspect-video rounded-lg flex-shrink-0"
+                        >
                           {active && (
-                            <span className="absolute inset-0 flex items-center justify-center bg-black/60 text-[10px] font-extrabold text-[#E50914] uppercase tracking-wider">
+                            <span className="absolute inset-0 flex items-center justify-center bg-black/60 text-[10px] font-extrabold text-[#E50914] uppercase tracking-wider z-20">
                               Playing
                             </span>
                           )}
-                        </div>
+                        </EpisodeThumbnail>
                         <div className="min-w-0 flex-1">
                           <p className={`text-xs font-semibold truncate ${active ? 'text-[#E50914] font-bold' : 'text-white'}`}>
                             {ep.chapter_name || `Episode ${idx + 1}`}

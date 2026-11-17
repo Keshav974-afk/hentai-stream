@@ -14,6 +14,9 @@ export interface Episode {
   chapter_thumbnail?: string;
   thumbnail?: string;
   post_id?: string | number;
+  preview?: string;
+  preview_url?: string;
+  enable_hover_preview?: number | boolean;
 }
 
 export interface HentaiItem {

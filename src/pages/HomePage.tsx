@@ -212,6 +212,7 @@ export const HomePage: React.FC = () => {
         <MediaShelf
           title="Forbidden Desires & Drama"
           items={incest}
+          moreHref="#/genres?id=incest"
           onMoreInfo={setSelectedDetail}
         />
       )}
@@ -221,6 +222,7 @@ export const HomePage: React.FC = () => {
         <MediaShelf
           title="Supernatural & Dark Fantasy"
           items={tentacle}
+          moreHref="#/genres?id=monster"
           onMoreInfo={setSelectedDetail}
         />
       )}

@@ -43,12 +43,12 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSearch, activeRoute }) => 
       }`}
     >
       <div className="flex items-center gap-3 sm:gap-6 px-4 sm:px-8 max-w-[1800px] mx-auto">
-        {/* Brand Logo matching FlowFlix */}
+        {/* Brand Logo */}
         <a
           href="#/"
           className="font-display font-black text-2xl sm:text-3xl tracking-wider text-[#E50914] shrink-0 hover:opacity-90 transition"
         >
-          FLOWFLIX<span className="text-white text-base sm:text-lg tracking-normal font-sans font-extrabold ml-1.5 opacity-90">ANIME</span>
+          VOIDFLIX
         </a>
 
         {/* Desktop Navigation Links with FlowFlix rounded active pill */}

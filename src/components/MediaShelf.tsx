@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowRight } from 'lucide-react';
 import { HentaiItem } from '../types/api';
 import { AnimeCard } from './AnimeCard';
 
@@ -73,6 +73,27 @@ export const MediaShelf: React.FC<MediaShelfProps> = ({
               <AnimeCard item={item} isFeatured={true} onMoreInfo={onMoreInfo} />
             </div>
           ))}
+
+          {moreHref && (
+            <div className="snap-start shrink-0 w-28 sm:w-36 md:w-56 lg:w-72 xl:w-[calc((min(100vw,1920px)-9rem)/6)] max-w-[320px] flex items-center">
+              <a
+                href={moreHref}
+                className="w-full aspect-[2/3] md:aspect-video rounded-xl sm:rounded-2xl border border-white/10 hover:border-white/25 bg-[#14151a] hover:bg-[#1a1b22] transition-all duration-300 flex flex-col items-center justify-center gap-2 sm:gap-3 p-4 group/card hover:scale-105 shadow-md text-center"
+              >
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/5 border border-white/10 group-hover/card:bg-[#E50914] group-hover/card:border-[#E50914] group-hover/card:text-white text-zinc-300 flex items-center justify-center transition-all duration-300 shadow-sm">
+                  <ArrowRight className="w-5 h-5 group-hover/card:translate-x-0.5 transition-transform" />
+                </div>
+                <div className="space-y-0.5">
+                  <span className="text-xs sm:text-sm font-bold text-white group-hover/card:text-white transition block">
+                    {moreLabel}
+                  </span>
+                  <span className="text-[10px] sm:text-[11px] text-zinc-400 block line-clamp-1">
+                    {title}
+                  </span>
+                </div>
+              </a>
+            </div>
+          )}
         </div>
 
         {/* Right Scroll Button */}

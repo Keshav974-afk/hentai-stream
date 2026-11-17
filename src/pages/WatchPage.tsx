@@ -5,6 +5,7 @@ import { TMDB, TmdbMediaInfo } from '../services/tmdb';
 import { VideoPlayer } from '../components/VideoPlayer';
 import { AnimeCard } from '../components/AnimeCard';
 import { DownloadModal } from '../components/DownloadModal';
+import { EpisodeThumbnail, getEpisodePreviewUrl } from '../components/EpisodeThumbnail';
 import { useWatchlist, useWatchHistory } from '../hooks/useLocalStorage';
 import { Sparkles, Clock, Calendar, Film } from 'lucide-react';
 
@@ -379,6 +380,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({ seriesId, episodeId }) => 
               const stillThumb = tmdbEp?.still || tmdbData?.backdrop || e.chapter_thumbnail || series.post_thumbnail;
               const name = tmdbEp?.name || e.chapter_name || `Episode ${epNum}`;
               const runtime = tmdbEp?.runtime ? `${tmdbEp.runtime}m` : '1080p FHD';
+              const previewUrl = getEpisodePreviewUrl(e);
 
               return (
                 <button
@@ -390,22 +392,21 @@ export const WatchPage: React.FC<WatchPageProps> = ({ seriesId, episodeId }) => 
                       : 'border-white/10 hover:border-white/25 hover:bg-carbon-800'
                   }`}
                 >
-                  <div className="relative w-32 sm:w-full aspect-video bg-carbon-800 flex-shrink-0">
-                    <img
-                      src={stillThumb}
-                      alt={name}
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                    />
-                    <span className="absolute bottom-1.5 left-1.5 text-[9px] bg-black/80 backdrop-blur-md px-1.5 py-0.5 rounded font-bold text-white border border-white/10">
+                  <EpisodeThumbnail
+                    poster={stillThumb}
+                    alt={name}
+                    previewUrl={previewUrl}
+                    className="w-32 sm:w-full aspect-video flex-shrink-0"
+                  >
+                    <span className="absolute bottom-1.5 left-1.5 text-[9px] bg-black/80 backdrop-blur-md px-1.5 py-0.5 rounded font-bold text-white border border-white/10 z-20">
                       EP {epNum}
                     </span>
                     {active && (
-                      <span className="absolute top-1.5 left-1.5 text-[9px] bg-white text-zinc-950 px-2 py-0.5 rounded font-extrabold uppercase">
+                      <span className="absolute top-1.5 left-1.5 text-[9px] bg-white text-zinc-950 px-2 py-0.5 rounded font-extrabold uppercase z-20 shadow-sm">
                         Now Playing
                       </span>
                     )}
-                  </div>
+                  </EpisodeThumbnail>
 
                   <div className="p-2.5 sm:p-3 min-w-0 flex flex-col justify-center flex-1">
                     <p className={`font-semibold text-xs sm:text-sm truncate ${active ? 'text-white font-bold' : 'text-zinc-200'}`}>

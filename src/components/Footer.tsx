@@ -59,7 +59,7 @@ export const Footer: React.FC = () => {
               <Film className="size-4" />
             </div>
             <span className="font-display font-black text-2xl tracking-wider text-[#E50914]">
-              FLOWFLIX<span className="text-white text-base tracking-normal font-sans font-bold ml-1.5 opacity-90">ANIME</span>
+              VOIDFLIX
             </span>
             <span className="ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-zinc-900 border border-white/10 text-zinc-300">
               18+ ONLY
@@ -134,7 +134,7 @@ export const Footer: React.FC = () => {
         {/* Legal Disclaimers & TMDB Attribution */}
         <div className="pt-6 border-t border-white/5 space-y-3 text-xs text-zinc-500 leading-relaxed max-w-4xl">
           <p>
-            FlowFlix Anime is a private demonstration streaming catalog. All media items are intended
+            Voidflix is a private demonstration streaming catalog. All media items are intended
             strictly for mature audiences aged 18 and older. We do not host copyrighted files on our
             servers; all streams and indexing are referenced from external third-party sources.
           </p>
@@ -152,7 +152,7 @@ export const Footer: React.FC = () => {
           </p>
           <div className="flex flex-wrap items-center justify-between gap-4 pt-2 text-[11px] text-zinc-500">
             <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-              <p>© {currentYear} FlowFlix Anime / VoidFlix. All rights reserved.</p>
+              <p>© {currentYear} Voidflix. All rights reserved.</p>
               <span className="hidden sm:inline text-zinc-700">•</span>
               <a
                 href="https://voidflix.org"
