@@ -25,6 +25,7 @@ export const AnimeCard: React.FC<AnimeCardProps> = ({
 
   const id = item.post_ID || item.id || '';
   const title = item.post_title || (item as any).title || 'Untitled';
+  const altTitle = item.post_title_alternative || (item as any).alternative_title || '';
   const rawThumbnail = item.post_thumbnail || item.thumbnail || (item as any).cover || '';
   const initialThumb = rawThumbnail ? rawThumbnail.replace(/ /g, '%20') : '';
 
@@ -44,7 +45,7 @@ export const AnimeCard: React.FC<AnimeCardProps> = ({
     let isMounted = true;
     if (!tmdb && !triedTmdb) {
       setTriedTmdb(true);
-      TMDB.lookup(title).then((res) => {
+      TMDB.lookup(title, false, altTitle).then((res) => {
         if (!isMounted) return;
         if (res) {
           setTmdb(res);
@@ -59,12 +60,12 @@ export const AnimeCard: React.FC<AnimeCardProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [title, tmdb, triedTmdb, activePoster, onImageError]);
+  }, [title, altTitle, tmdb, triedTmdb, activePoster, onImageError]);
 
   const handleImageError = () => {
     if (!triedTmdb) {
       setTriedTmdb(true);
-      TMDB.lookup(title).then((res) => {
+      TMDB.lookup(title, false, altTitle).then((res) => {
         if (res?.poster) {
           setTmdb(res);
           setActivePoster(res.poster);

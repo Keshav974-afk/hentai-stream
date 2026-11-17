@@ -82,12 +82,207 @@ function fetchWardenToken(force = false) {
 const TMDB_API_KEY = '4e44d9029b1270a757cddc766a1bcb63';
 const tmdbServerCache = new Map();
 
-function cleanTitleForTmdb(title) {
-  return (title || '')
-    .replace(/\b(OVA|The Animation|Animation|Part|Episode|[0-9]+)\b/gi, '')
+// Pre-seeded verified TMDB matches for known popular & broken titles
+const PRE_SEEDED_TMDB = {
+  'my mother': {
+    id: 306351,
+    media_type: 'tv',
+    poster: 'https://image.tmdb.org/t/p/w500/ykl9Iy90TO8Prtq7fZxDTjYKbK0.jpg',
+    backdrop: 'https://image.tmdb.org/t/p/original/4PNKx9x5yLDDvpAjc2YjHtuh1rR.jpg'
+  },
+  'fault': {
+    id: 68704,
+    media_type: 'tv',
+    poster: 'https://image.tmdb.org/t/p/w500/omdsg4O13UMMGpc3Lqwqg9broB0.jpg',
+    backdrop: 'https://image.tmdb.org/t/p/original/nv5ZGZ5vOijzSZ9jsN64kmAbQcH.jpg'
+  },
+  'first love': {
+    id: 98017,
+    media_type: 'tv',
+    poster: 'https://image.tmdb.org/t/p/w500/wCUq0cFd7Yy2qptBU5ET2rnf5cR.jpg',
+    backdrop: 'https://image.tmdb.org/t/p/original/KpD9vKO2Hm6J1dJFoU4MIWPleG.jpg'
+  },
+  'yokorenbo': {
+    id: 97578,
+    media_type: 'tv',
+    poster: 'https://image.tmdb.org/t/p/w500/yowFlXKMFiPIXn1LLLNxQszDWrM.jpg',
+    backdrop: 'https://image.tmdb.org/t/p/original/bUeXSyF1ac2FGyu1myUZxSzbOUC.jpg'
+  },
+  'taboo charming mother': {
+    id: 74717,
+    media_type: 'tv',
+    poster: 'https://image.tmdb.org/t/p/w500/9HOrb2cziw00ImYw84raUX9f0Nd.jpg',
+    backdrop: 'https://image.tmdb.org/t/p/original/81a7olfaCTjhKznpM0NQt2jSsxA.jpg'
+  },
+  'mother knows breast': {
+    id: 97435,
+    media_type: 'tv',
+    poster: 'https://image.tmdb.org/t/p/w500/ajowYiyDV47v4pGUx3orp2LsPQf.jpg',
+    backdrop: 'https://image.tmdb.org/t/p/original/1H6J6kl5JGvPTloV2qC1x5N81iQ.jpg'
+  },
+  'otome dori': {
+    id: 93163,
+    media_type: 'tv',
+    poster: 'https://image.tmdb.org/t/p/w500/1FJmR86xTcAros7rQZU9sjqNsZu.jpg',
+    backdrop: 'https://image.tmdb.org/t/p/original/u0VIOyhUm4mLdEXTDXKFXnMzxw8.jpg'
+  },
+  'kyonyuu fantasy': {
+    id: 97284,
+    media_type: 'tv',
+    poster: 'https://image.tmdb.org/t/p/w500/pt0ttV381rUfjiS65m5DpyH3RqY.jpg',
+    backdrop: 'https://image.tmdb.org/t/p/original/l2zufD0b5VIaFgQK0Ccd32iBj0Z.jpg'
+  },
+  'summer inaka': {
+    id: 201109,
+    media_type: 'tv',
+    poster: 'https://image.tmdb.org/t/p/w500/k3m0ssAcejysq5gTrhSpXQAO0di.jpg',
+    backdrop: 'https://image.tmdb.org/t/p/original/dZHJW4xLm8DgcTU1NtfR90i7gxy.jpg'
+  },
+  'ane wa yanmama': {
+    id: 104602,
+    media_type: 'tv',
+    poster: 'https://image.tmdb.org/t/p/w500/t5hPL0gOoTyBFPvzdefPcqEeHx3.jpg',
+    backdrop: 'https://image.tmdb.org/t/p/original/yKfIq2360UnAxlVpw7MqDGykIZs.jpg'
+  },
+  'hitori tsuma': {
+    id: 330479,
+    media_type: 'tv',
+    poster: 'https://image.tmdb.org/t/p/w500/kYLH2w0ojtjJgnJZMr00GyMuzBL.jpg',
+    backdrop: 'https://image.tmdb.org/t/p/original/jjHXGEaxGZ4bDt8osf9PtSrSimb.jpg'
+  },
+  'rennyuu tales': {
+    id: 97839,
+    media_type: 'tv',
+    poster: 'https://image.tmdb.org/t/p/w500/p5vCCLEj5Aqn88w51FR9Zc9xi0B.jpg',
+    backdrop: 'https://image.tmdb.org/t/p/original/of6PMGhEaFdx5yLzraxLjGaGmBk.jpg'
+  },
+  'stepmother': {
+    id: 104363,
+    media_type: 'tv',
+    poster: 'https://image.tmdb.org/t/p/w500/kPcWG4J5RKdqcTDAmviv9hDn02M.jpg'
+  },
+  'gibo': {
+    id: 104363,
+    media_type: 'tv',
+    poster: 'https://image.tmdb.org/t/p/w500/kPcWG4J5RKdqcTDAmviv9hDn02M.jpg'
+  },
+  'mouse cursor': {
+    id: 334779,
+    media_type: 'tv',
+    poster: 'https://image.tmdb.org/t/p/w500/y3gE67auOFwfS4zLTFKu4VZvb1a.jpg',
+    backdrop: 'https://image.tmdb.org/t/p/original/2YCsvsdWbbT9HT2EK4024JRSF5f.jpg'
+  },
+  'hitozukiai ga nigate': {
+    id: 334504,
+    media_type: 'tv',
+    poster: 'https://image.tmdb.org/t/p/w500/dYJOSnFf9O9hDcTbSyZPQb5Xnb8.jpg',
+    backdrop: 'https://image.tmdb.org/t/p/original/m99P4w0X0xNqIomcK7g5lK2U0b7.jpg'
+  },
+  'oushun jogakuen': {
+    id: 337197,
+    media_type: 'tv',
+    poster: 'https://image.tmdb.org/t/p/w500/qxromWcA2F2D5Hy1QG68M5tWzQd.jpg'
+  },
+  'ntr kishi': {
+    id: 326395,
+    media_type: 'tv',
+    poster: 'https://image.tmdb.org/t/p/w500/gBTscSOdFqQzpJGvazskNByaHV1.jpg'
+  },
+  'kanojo no tomodachi': {
+    id: 336654,
+    media_type: 'tv',
+    poster: 'https://image.tmdb.org/t/p/w500/3DN0UnAUrLaY382mFdbv1wrVQNC.jpg'
+  },
+  'netorareta bakunyuu': {
+    id: 292291,
+    media_type: 'tv',
+    poster: 'https://image.tmdb.org/t/p/w500/dZGvL06uj5KRpBGHLTkzdX9HW8Z.jpg'
+  },
+  'muramata san no aijou': {
+    id: 337204,
+    media_type: 'tv',
+    poster: 'https://image.tmdb.org/t/p/w500/9pKZjOiJ7aaA4gMGkcXPJZELXY2.jpg'
+  },
+  'mujikaku na osananajimi': {
+    id: 326790,
+    media_type: 'tv',
+    poster: 'https://image.tmdb.org/t/p/w500/wrqnMRBnh5L2BTTLYUBrkF1L1vh.jpg'
+  },
+  'pure x holic': {
+    id: 323836,
+    media_type: 'tv',
+    poster: 'https://image.tmdb.org/t/p/w500/A3awMfTZJJag2OOxeP7g0WuAudy.jpg'
+  },
+  'sare tsuma wa ubawaretai': {
+    id: 323604,
+    media_type: 'tv',
+    poster: 'https://image.tmdb.org/t/p/w500/1qmyS9zOskTN8sr5UnqlU0PsSNE.jpg'
+  },
+  'overflow': {
+    id: 95897,
+    media_type: 'tv',
+    poster: 'https://image.tmdb.org/t/p/w500/uHIOTJXN9nNTc51WyunL43Fvge3.jpg',
+    backdrop: 'https://image.tmdb.org/t/p/original/otEKvJA72Pue5RDgVrBqdOqgAd.jpg'
+  },
+  'imaizumin': {
+    id: 133276,
+    media_type: 'tv',
+    poster: 'https://image.tmdb.org/t/p/w500/hcfYHAAL6hPlzOeM1tTNJkMguij.jpg'
+  },
+  'euphoria': {
+    id: 112108,
+    media_type: 'tv',
+    poster: 'https://image.tmdb.org/t/p/w500/aJrG7OkoTMPWG5c8opz8a93AZPY.jpg'
+  },
+  'rance': {
+    id: 104523,
+    media_type: 'tv',
+    poster: 'https://image.tmdb.org/t/p/w500/jF55pG9OL1j91atG96fAh5u9RFD.jpg'
+  },
+  'brandish': {
+    id: 85107,
+    media_type: 'tv',
+    poster: 'https://image.tmdb.org/t/p/w500/5OKElp2HsHgQqDj4vwekTcdxrtW.jpg'
+  }
+};
+
+function normalizeKey(str) {
+  return (str || '')
+    .toLowerCase()
     .replace(/[~:!?,\-_.]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function cleanTokens(str) {
+  return (str || '').toLowerCase()
+    .replace(/[^\w\s]/g, ' ')
+    .split(/\s+/)
+    .filter(t => t && !['the', 'animation', 'ova', 'series', 'part', 'episode', 'season', 'tv', 'vol', 'volume', 'uncensored', 'chapter'].includes(t));
+}
+
+function matchSimilarity(target, candidate, isAdult) {
+  const tToks = cleanTokens(target);
+  const cToks = cleanTokens(candidate);
+  if (!tToks.length || !cToks.length) return 0;
+
+  const tSet = new Set(tToks);
+  const cSet = new Set(cToks);
+
+  let common = 0;
+  for (const t of tToks) {
+    if (cSet.has(t)) common++;
+  }
+
+  const recall = common / tToks.length;
+  const precision = common / cToks.length;
+  const f1 = (2 * precision * recall) / (precision + recall || 1);
+
+  // If adult: false, strictly require high precision to prevent matching mainstream anime with extra words
+  if (!isAdult && (precision < 0.75 || recall < 0.75)) {
+    return 0;
+  }
+  return f1;
 }
 
 function fetchJson(url) {
@@ -104,61 +299,6 @@ function fetchJson(url) {
       });
     }).on('error', () => resolve(null));
   });
-}
-
-async function queryTmdb(query) {
-  const searchUrl = `https://api.themoviedb.org/3/search/multi?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&include_adult=true`;
-  const parsed = await fetchJson(searchUrl);
-  if (!parsed || !Array.isArray(parsed.results)) return null;
-
-  const match = parsed.results.find(r => r.poster_path || r.backdrop_path);
-  if (!match) return null;
-
-  const id = match.id;
-  const mediaType = match.media_type || (match.first_air_date ? 'tv' : 'movie');
-
-  if (mediaType === 'tv') {
-    const tvDetails = await fetchJson(`https://api.themoviedb.org/3/tv/${id}?api_key=${TMDB_API_KEY}&append_to_response=season/1`);
-    const season1Eps = tvDetails?.['season/1']?.episodes || [];
-    const episodes = season1Eps.map(e => ({
-      episode_number: e.episode_number,
-      name: e.name || `Episode ${e.episode_number}`,
-      overview: e.overview || '',
-      still: e.still_path ? `https://image.tmdb.org/t/p/w500${e.still_path}` : null,
-      air_date: e.air_date || '',
-      runtime: e.runtime || null
-    }));
-
-    return {
-      id,
-      media_type: 'tv',
-      name: tvDetails?.name || match.name || match.title,
-      overview: tvDetails?.overview || match.overview || '',
-      poster: match.poster_path ? `https://image.tmdb.org/t/p/w500${match.poster_path}` : null,
-      backdrop: (tvDetails?.backdrop_path || match.backdrop_path)
-        ? `https://image.tmdb.org/t/p/original${tvDetails?.backdrop_path || match.backdrop_path}`
-        : null,
-      first_air_date: tvDetails?.first_air_date || match.first_air_date || '',
-      vote_average: tvDetails?.vote_average || match.vote_average || 0,
-      episodes
-    };
-  } else {
-    const movieDetails = await fetchJson(`https://api.themoviedb.org/3/movie/${id}?api_key=${TMDB_API_KEY}`);
-    return {
-      id,
-      media_type: 'movie',
-      name: movieDetails?.title || match.title || match.name,
-      overview: movieDetails?.overview || match.overview || '',
-      poster: match.poster_path ? `https://image.tmdb.org/t/p/w500${match.poster_path}` : null,
-      backdrop: (movieDetails?.backdrop_path || match.backdrop_path)
-        ? `https://image.tmdb.org/t/p/original${movieDetails?.backdrop_path || match.backdrop_path}`
-        : null,
-      first_air_date: movieDetails?.release_date || match.release_date || '',
-      vote_average: movieDetails?.vote_average || match.vote_average || 0,
-      runtime: movieDetails?.runtime || null,
-      episodes: []
-    };
-  }
 }
 
 async function lookupTmdbById(id, type = 'tv') {
@@ -213,30 +353,109 @@ async function lookupTmdbById(id, type = 'tv') {
   }
 }
 
-async function lookupTmdbServer(title) {
-  const norm = (title || '').toLowerCase().trim();
-  if (tmdbServerCache.has(norm)) {
-    return tmdbServerCache.get(norm);
+async function lookupTmdbServer(title, altTitle = '') {
+  if (!title || typeof title !== 'string') return null;
+  const norm = normalizeKey(title);
+  const cacheKey = `title_${norm}`;
+
+  if (tmdbServerCache.has(cacheKey)) {
+    return tmdbServerCache.get(cacheKey);
   }
 
-  const cleaned = cleanTitleForTmdb(title);
-  const words = cleaned.split(' ').filter(Boolean);
-  const candidates = [
-    title,
-    cleaned,
-    words.slice(0, 4).join(' '),
-    words.slice(0, 2).join(' ')
-  ].filter((q, i, arr) => q && q.length >= 3 && arr.indexOf(q) === i);
-
-  for (const q of candidates) {
-    const match = await queryTmdb(q);
-    if (match) {
-      tmdbServerCache.set(norm, match);
-      return match;
+  // 1. Check pre-seeded verified library first (instant, guaranteed correct match)
+  for (const [key, val] of Object.entries(PRE_SEEDED_TMDB)) {
+    if (norm.includes(key) || key.includes(norm)) {
+      const full = await lookupTmdbById(val.id, val.media_type || 'tv');
+      if (full) {
+        tmdbServerCache.set(cacheKey, full);
+        return full;
+      }
+      const basic = {
+        id: val.id,
+        media_type: val.media_type || 'tv',
+        name: title,
+        poster: val.poster,
+        backdrop: val.backdrop || null,
+        episodes: []
+      };
+      tmdbServerCache.set(cacheKey, basic);
+      return basic;
     }
   }
 
-  tmdbServerCache.set(norm, null);
+  // 2. Multi-tier query candidates
+  const cleanTitle = title.replace(/\b(OVA|The Animation|Animation|Part|Episode|[0-9]+)\b/gi, '').trim();
+  const queryCandidates = [
+    title,
+    title.toLowerCase().includes('animation') ? null : `${title} The Animation`,
+    cleanTitle,
+    altTitle
+  ].filter((q, idx, arr) => q && q.length >= 2 && arr.indexOf(q) === idx);
+
+  let bestMatch = null;
+  let highestScore = -1;
+
+  for (const q of queryCandidates) {
+    const tvUrl = `https://api.themoviedb.org/3/search/tv?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(q)}&include_adult=true`;
+    const movieUrl = `https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(q)}&include_adult=true`;
+
+    const [tvRes, movieRes] = await Promise.all([
+      fetchJson(tvUrl),
+      fetchJson(movieUrl)
+    ]);
+
+    const candidates = [
+      ...(tvRes?.results || []).map(r => ({ ...r, media_type: 'tv' })),
+      ...(movieRes?.results || []).map(r => ({ ...r, media_type: 'movie' }))
+    ];
+
+    for (const r of candidates) {
+      if (!r.poster_path && !r.backdrop_path) continue;
+
+      const isAdult = !!r.adult;
+      const isAnimation = Array.isArray(r.genre_ids) && r.genre_ids.includes(16);
+
+      // STRICT MANDATORY RULE: Must be Animation (genre 16) OR adult Asian release.
+      // Rejects live-action American/European films/shows (e.g. My Mother the Car, My Fault).
+      if (!isAnimation && (!isAdult || !['ja', 'th', 'zh', 'ko'].includes(r.original_language))) {
+        continue;
+      }
+
+      const candTitle = r.name || r.title || '';
+      const sim = Math.max(
+        matchSimilarity(title, candTitle, isAdult),
+        altTitle ? matchSimilarity(altTitle, candTitle, isAdult) : 0,
+        r.original_name ? matchSimilarity(title, r.original_name, isAdult) : 0
+      );
+
+      if (sim <= 0) continue;
+
+      let score = sim * 100;
+      if (isAdult) score += 40;
+      if (isAnimation) score += 30;
+      if (['ja', 'th', 'zh', 'ko'].includes(r.original_language)) score += 20;
+      if (r.media_type === 'tv') score += 10;
+
+      if (score > highestScore) {
+        highestScore = score;
+        bestMatch = { id: r.id, media_type: r.media_type, score: Math.round(score) };
+      }
+    }
+
+    if (highestScore >= 160) break;
+  }
+
+  // Accept only if high confidence score (>= 120)
+  if (bestMatch && highestScore >= 120) {
+    const full = await lookupTmdbById(bestMatch.id, bestMatch.media_type);
+    if (full) {
+      tmdbServerCache.set(cacheKey, full);
+      return full;
+    }
+  }
+
+  // No verified anime match found. Cache null so original API poster is preserved safely.
+  tmdbServerCache.set(cacheKey, null);
   return null;
 }
 
@@ -256,6 +475,7 @@ async function handleApiProxy(req, res, targetPath, parsedUrl) {
   if (targetPath === '/tmdb' || targetPath.startsWith('/tmdb?')) {
     const searchParams = new URLSearchParams(parsedUrl.query || '');
     const title = searchParams.get('title') || '';
+    const alt = searchParams.get('alt') || '';
     const id = searchParams.get('id') || '';
     const type = searchParams.get('type') || 'tv';
 
@@ -268,7 +488,7 @@ async function handleApiProxy(req, res, targetPath, parsedUrl) {
       if (id) {
         match = await lookupTmdbById(id, type);
       } else {
-        match = await lookupTmdbServer(title);
+        match = await lookupTmdbServer(title, alt);
       }
       res.writeHead(200, {
         'Content-Type': 'application/json',

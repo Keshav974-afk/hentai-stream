@@ -74,7 +74,8 @@ export const SeriesPage: React.FC<SeriesPageProps> = ({ seriesId }) => {
     }
 
     // Comprehensive TMDB lookup with full episode data
-    TMDB.lookup(title, true).then((res) => {
+    const altTitle = series.post_title_alternative || (series as any).alternative_title || '';
+    TMDB.lookup(title, true, altTitle).then((res) => {
       if (res) {
         setTmdbData(res);
         if (res.poster) setActivePoster(res.poster);

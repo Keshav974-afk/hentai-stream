@@ -51,7 +51,8 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose }) => {
       .finally(() => setLoading(false));
 
     // Fetch TMDB rich metadata & episodes
-    TMDB.lookup(title, true).then((res) => {
+    const altTitle = item.post_title_alternative || (item as any).alternative_title || '';
+    TMDB.lookup(title, true, altTitle).then((res) => {
       if (res) setTmdbData(res);
     });
   }, [item, id, title]);

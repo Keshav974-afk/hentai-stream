@@ -32,8 +32,9 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ items, onMoreInfo }) => 
     slides.forEach((item) => {
       const id = String(item.post_ID || item.id || '');
       const title = item.post_title || (item as any).title || '';
+      const altTitle = item.post_title_alternative || (item as any).alternative_title || '';
       if (!mediaMap[id] && title) {
-        TMDB.lookup(title, true).then((res) => {
+        TMDB.lookup(title, true, altTitle).then((res) => {
           if (res) {
             setMediaMap((prev) => ({ ...prev, [id]: res }));
           }

@@ -107,6 +107,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({ seriesId, episodeId }) => 
   useEffect(() => {
     if (!series) return;
     const title = series.post_title || '';
+    const altTitle = series.post_title_alternative || (series as any).alternative_title || '';
 
     // Check pre-seed immediately
     const pre = TMDB.getPreSeeded(title);
@@ -115,7 +116,7 @@ export const WatchPage: React.FC<WatchPageProps> = ({ seriesId, episodeId }) => 
     }
 
     // Comprehensive TMDB lookup with full episode data
-    TMDB.lookup(title, true).then((res) => {
+    TMDB.lookup(title, true, altTitle).then((res) => {
       if (res) {
         setTmdbData(res);
       }
